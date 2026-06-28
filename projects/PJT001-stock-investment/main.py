@@ -10,6 +10,7 @@ load_dotenv(Path(__file__).parent / ".env")
 from src.data.fetcher import fetch_price, fetch_info, save_price
 from src.analysis.indicators import add_indicators
 from src.report.chart import candlestick
+from src.report.news import fetch_news, fetch_market_news, analyze_news
 
 
 def cmd_chart(args):
@@ -67,6 +68,34 @@ def cmd_info(args):
             print(f"  {f:<20}: {val}")
 
 
+def cmd_news(args):
+    print(f"ニュース取得中: {args.ticker}")
+    items = fetch_news(args.ticker, max_items=10)
+
+    if not items:
+        print(f"  '{args.ticker}' 関連のニュースが見つかりませんでした。市況ニュースを取得します。")
+        items = fetch_market_news(max_items=8)
+
+    print(f"\n{'='*70}")
+    print(f"  {args.ticker}  関連ニュース ({len(items)} 件)")
+    print(f"{'='*70}")
+    for i, n in enumerate(items, 1):
+        print(f"\n[{i}] {n['title']}")
+        print(f"    出典: {n['source']}  {n['published'][:16]}")
+        if n["summary"]:
+            print(f"    {n['summary'][:100]}...")
+        print(f"    {n['link']}")
+
+    if not args.no_analysis and items:
+        print(f"\n{'='*70}")
+        print("  Claude による投資分析")
+        print(f"{'='*70}")
+        result = analyze_news(items, args.ticker)
+        print(result)
+
+    print(f"\n{'='*70}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="株価分析ツール")
     sub = parser.add_subparsers(dest="command")
@@ -83,12 +112,19 @@ def main():
     p_info = sub.add_parser("info", help="銘柄基本情報を表示")
     p_info.add_argument("ticker", help="例: 7203.T / AAPL")
 
+    # news コマンド
+    p_news = sub.add_parser("news", help="ニュース収集 + Claude 分析")
+    p_news.add_argument("ticker", help="例: 7203.T / AAPL")
+    p_news.add_argument("--no-analysis", action="store_true", help="Claude 分析をスキップ")
+
     args = parser.parse_args()
 
     if args.command == "chart":
         cmd_chart(args)
     elif args.command == "info":
         cmd_info(args)
+    elif args.command == "news":
+        cmd_news(args)
     else:
         parser.print_help()
 
