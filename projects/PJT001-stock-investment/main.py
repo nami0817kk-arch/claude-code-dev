@@ -116,6 +116,33 @@ def cmd_pick_screen(args):
         print(f"\nExcel 出力: {path}")
 
 
+def cmd_run(args):
+    """ニュース起点・スクリーニング起点を両方実行する"""
+    print(f"\n{'#'*70}")
+    print(f"  【実行】ニュース起点 + スクリーニング起点  対象:{args.market or '日米全銘柄'}")
+    print(f"{'#'*70}")
+
+    # ① ニュース起点
+    print(f"\n--- ① ニュース起点 ---")
+    result_news = pick_from_news(market=args.market, top_n=args.top)
+    _print_result(result_news)
+    if "error" not in result_news:
+        path = export_excel(result_news)
+        print(f"\nExcel 出力: {path}")
+
+    # ② スクリーニング起点
+    print(f"\n--- ② スクリーニング起点 ---")
+    result_screen = pick_from_screen(market=args.market, top_n=args.top)
+    _print_result(result_screen)
+    if "error" not in result_screen:
+        path = export_excel(result_screen)
+        print(f"\nExcel 出力: {path}")
+
+    print(f"\n{'#'*70}")
+    print(f"  完了: 両フロー実行済み")
+    print(f"{'#'*70}")
+
+
 def cmd_screen(args):
     print(f"スクリーニング中... (対象: {args.market or '全銘柄'})")
     print(f"条件: RSI {args.min_rsi}〜{args.max_rsi}", end="")
@@ -178,6 +205,11 @@ def main():
     parser = argparse.ArgumentParser(description="株価分析ツール")
     sub = parser.add_subparsers(dest="command")
 
+    # run コマンド（ニュース + スクリーニング 両方実行）
+    p_run = sub.add_parser("run", help="ニュース起点・スクリーニング起点を両方実行")
+    p_run.add_argument("--market", choices=["JP", "US"], help="市場絞り込み (JP/US)")
+    p_run.add_argument("--top", type=int, default=20, help="推奨件数 (デフォルト:20)")
+
     # chart コマンド
     p_chart = sub.add_parser("chart", help="株価チャートを表示")
     p_chart.add_argument("ticker", help="例: 7203.T (トヨタ) / AAPL")
@@ -216,7 +248,9 @@ def main():
 
     args = parser.parse_args()
 
-    if args.command == "chart":
+    if args.command == "run":
+        cmd_run(args)
+    elif args.command == "chart":
         cmd_chart(args)
     elif args.command == "info":
         cmd_info(args)
