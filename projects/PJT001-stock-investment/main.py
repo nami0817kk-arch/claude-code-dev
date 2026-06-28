@@ -78,12 +78,19 @@ def _print_result(result: dict):
         return
     print(f"\n{'='*70}")
     print(f"  投資推奨ランキング  {result['flow']}  {result['market']}  {result['date']}")
+    vix = result.get("vix")
+    fg  = result.get("fear_greed")
+    if vix or fg:
+        print(f"  市場センチメント  VIX:{vix}  Fear&Greed:{fg}/100")
     print(f"{'='*70}")
     for item in result.get("rankings", []):
-        print(f"\n{item['rank']}位: {item['name']}({item['ticker']})  {item.get('stars','')}")
-        print(f"   終値:{item.get('close')}  RSI:{item.get('RSI14')}  MACD:{item.get('MACD方向')}  SMA20:{item.get('SMA20比')}  BB:{item.get('BB位置')}")
+        conf = f"  信頼度:{item.get('confidence')}%" if item.get("confidence") else ""
+        print(f"\n{item['rank']}位: {item['name']}({item['ticker']})  {item.get('stars','')}{conf}")
+        print(f"   終値:{item.get('close')}  RSI:{item.get('RSI14')}  MACD:{item.get('MACD方向')}  Stoch%K:{item.get('STOCH_K')}  BB:{item.get('BB位置')}")
         print(f"   {item.get('reason','')}")
     print(f"\n【総評】\n{result.get('summary','')}")
+    if result.get("market_outlook"):
+        print(f"\n【市場環境】\n{result.get('market_outlook','')}")
     print(f"{'='*70}")
 
 

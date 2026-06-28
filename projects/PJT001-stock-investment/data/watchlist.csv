@@ -9,6 +9,16 @@ ticker,name,market
 9433.T,KDDI,JP
 4519.T,中外製薬,JP
 8035.T,東京エレクトロン,JP
+9432.T,NTT,JP
+6954.T,ファナック,JP
+4063.T,信越化学工業,JP
+6501.T,日立製作所,JP
+7267.T,本田技研工業,JP
+6902.T,デンソー,JP
+6098.T,リクルートHD,JP
+4568.T,第一三共,JP
+9022.T,東海旅客鉄道,JP
+8058.T,三菱商事,JP
 AAPL,Apple,US
 MSFT,Microsoft,US
 GOOGL,Alphabet,US
@@ -16,3 +26,20 @@ AMZN,Amazon,US
 NVDA,NVIDIA,US
 TSLA,Tesla,US
 META,Meta,US
+JPM,JPMorgan Chase,US
+JNJ,Johnson & Johnson,US
+V,Visa,US
+PG,Procter & Gamble,US
+UNH,UnitedHealth,US
+HD,Home Depot,US
+MA,Mastercard,US
+DIS,Disney,US
+NFLX,Netflix,US
+AMD,AMD,US
+CRM,Salesforce,US
+ADBE,Adobe,US
+ORCL,Oracle,US
+BAC,Bank of America,US
+GS,Goldman Sachs,US
+XOM,ExxonMobil,US
+CVX,Chevron,US

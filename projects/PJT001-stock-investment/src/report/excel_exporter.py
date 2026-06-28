@@ -48,10 +48,19 @@ def _write_block(ws, result: dict, start_row: int, now: datetime):
     """1回分の結果ブロックを start_row から書き込む"""
     row = start_row
 
+    N = 12  # 列数
+
     # ── 実行時刻ヘッダー ────────────────────────
-    ws.merge_cells(f"A{row}:J{row}")
+    vix = result.get("vix")
+    fg  = result.get("fear_greed")
+    sentiment_str = ""
+    if vix:
+        sentiment_str += f"  VIX:{vix}"
+    if fg:
+        sentiment_str += f"  F&G:{fg}/100"
+    ws.merge_cells(f"A{row}:{get_column_letter(N)}{row}")
     c = ws.cell(row=row, column=1,
-                value=f"実行: {now.strftime('%H:%M')}　{result.get('flow','')}　{result.get('market','')}")
+                value=f"実行: {now.strftime('%H:%M')}　{result.get('flow','')}　{result.get('market','')}{sentiment_str}")
     c.font      = Font(bold=True, color="FFFFFF", size=11, name="游ゴシック")
     c.fill      = _fill(C_TIME)
     c.alignment = Alignment(horizontal="left", vertical="center")
@@ -59,8 +68,8 @@ def _write_block(ws, result: dict, start_row: int, now: datetime):
     row += 1
 
     # ── 列ヘッダー ──────────────────────────────
-    headers = ["順位", "銘柄コード", "銘柄名", "推奨度", "終値",
-               "RSI14", "MACD", "SMA20比", "BB位置", "推奨理由"]
+    headers = ["順位", "銘柄コード", "銘柄名", "推奨度", "信頼度%",
+               "終値", "RSI14", "MACD", "SMA20比", "BB位置", "Stoch%K", "推奨理由"]
     for col, h in enumerate(headers, 1):
         c = ws.cell(row=row, column=col, value=h)
         c.font      = Font(bold=True, color="FFFFFF", size=10, name="游ゴシック")
@@ -74,34 +83,39 @@ def _write_block(ws, result: dict, start_row: int, now: datetime):
     for item in result.get("rankings", []):
         rank = item.get("rank", row)
         bg   = RANK_COLORS.get(rank, C_DEFAULT)
-        _cell(ws, row, 1,  rank,                   bold=True, bg=bg, align="center")
-        _cell(ws, row, 2,  item.get("ticker", ""),            bg=bg, align="center")
-        _cell(ws, row, 3,  item.get("name", ""),              bg=bg)
-        _cell(ws, row, 4,  item.get("stars", ""),             bg=bg, align="center")
-        _cell(ws, row, 5,  item.get("close"),                 bg=bg, align="right")
-        _cell(ws, row, 6,  item.get("RSI14"),                 bg=bg, align="center")
-        _cell(ws, row, 7,  item.get("MACD方向", ""),          bg=bg, align="center")
-        _cell(ws, row, 8,  item.get("SMA20比", ""),           bg=bg, align="center")
-        _cell(ws, row, 9,  item.get("BB位置", ""),            bg=bg, align="center")
-        _cell(ws, row, 10, item.get("reason", ""),            bg=bg, wrap=True)
+        _cell(ws, row, 1,  rank,                       bold=True, bg=bg, align="center")
+        _cell(ws, row, 2,  item.get("ticker", ""),                bg=bg, align="center")
+        _cell(ws, row, 3,  item.get("name", ""),                  bg=bg)
+        _cell(ws, row, 4,  item.get("stars", ""),                 bg=bg, align="center")
+        _cell(ws, row, 5,  item.get("confidence"),                bg=bg, align="center")
+        _cell(ws, row, 6,  item.get("close"),                     bg=bg, align="right")
+        _cell(ws, row, 7,  item.get("RSI14"),                     bg=bg, align="center")
+        _cell(ws, row, 8,  item.get("MACD方向", ""),              bg=bg, align="center")
+        _cell(ws, row, 9,  item.get("SMA20比", ""),               bg=bg, align="center")
+        _cell(ws, row, 10, item.get("BB位置", ""),                bg=bg, align="center")
+        _cell(ws, row, 11, item.get("STOCH_K"),                   bg=bg, align="center")
+        _cell(ws, row, 12, item.get("reason", ""),                bg=bg, wrap=True)
         ws.row_dimensions[row].height = 42
         row += 1
 
     # ── 総評 ────────────────────────────────────
-    ws.merge_cells(f"A{row}:J{row}")
-    c = ws.cell(row=row, column=1, value="【総評】")
+    ws.merge_cells(f"A{row}:{get_column_letter(N)}{row}")
+    c = ws.cell(row=row, column=1, value="【総評 / 市場環境】")
     c.font      = Font(bold=True, color="FFFFFF", size=10, name="游ゴシック")
     c.fill      = _fill(C_SUBHEAD)
     c.alignment = Alignment(horizontal="left", vertical="center")
     ws.row_dimensions[row].height = 16
     row += 1
 
-    ws.merge_cells(f"A{row}:J{row}")
-    c = ws.cell(row=row, column=1, value=result.get("summary", ""))
+    summary_text = result.get("summary", "")
+    if result.get("market_outlook"):
+        summary_text += f"\n【市場環境】{result['market_outlook']}"
+    ws.merge_cells(f"A{row}:{get_column_letter(N)}{row}")
+    c = ws.cell(row=row, column=1, value=summary_text)
     c.font      = Font(size=10, name="游ゴシック")
     c.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
     c.border    = _border()
-    ws.row_dimensions[row].height = 55
+    ws.row_dimensions[row].height = 65
     row += 1
 
     return row  # 次のブロック開始行を返す
@@ -132,15 +146,15 @@ def export(result: dict) -> Path:
     else:
         ws = wb.create_sheet(title=sheet_name)
         # シートタイトル行
-        ws.merge_cells("A1:J1")
+        ws.merge_cells("A1:L1")
         c = ws["A1"]
         c.value     = f"投資推奨レポート　{now.strftime('%Y年%m月%d日')}"
         c.font      = Font(bold=True, color="FFFFFF", size=14, name="游ゴシック")
         c.fill      = _fill(C_HEADER)
         c.alignment = Alignment(horizontal="center", vertical="center")
         ws.row_dimensions[1].height = 30
-        # 列幅
-        for col, w in enumerate([6, 12, 18, 12, 10, 8, 8, 10, 10, 50], 1):
+        # 列幅: 順位,銘柄コード,銘柄名,推奨度,信頼度%,終値,RSI14,MACD,SMA20比,BB位置,Stoch%K,推奨理由
+        for col, w in enumerate([6, 12, 18, 10, 8, 10, 8, 8, 8, 10, 8, 50], 1):
             ws.column_dimensions[get_column_letter(col)].width = w
         ws.freeze_panes = "A3"
         start_row = 2
