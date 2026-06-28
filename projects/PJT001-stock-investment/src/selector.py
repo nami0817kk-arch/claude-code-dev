@@ -321,21 +321,72 @@ def pick_from_news(market: str | None = None, top_n: int = 20) -> dict:
 # Flow 2: スクリーニング → テクニカル+ファンダメンタル → 判定
 # ──────────────────────────────────────────────
 
-def pick_from_screen(market: str | None = None, top_n: int = 20) -> dict:
-    # Step1: スクリーニング
-    print("  [Step1] スクリーニング中...")
-    df = screen(market=market, min_rsi=20, max_rsi=60)
+def pick_from_screen(
+    market: str | None = None,
+    top_n: int = 20,
+    cap_types: list[str] | None = None,
+    min_revenue_growth: float = 0.05,
+    max_per: float = 80,
+) -> dict:
+    """
+    中小型株（デフォルト: mid/small）× 好業績 × 割安 スクリーニング。
+
+    cap_types   : 対象時価総額区分。デフォルト ['small','mid']。
+                  None を渡すと large 含む全銘柄。
+    min_revenue_growth : 売上成長率の下限（小数）。デフォルト 0.05 = 5%。
+    max_per     : PER 上限。デフォルト 80（成長株のため大きめ）。
+    """
+    if cap_types is None:
+        cap_types = ["small", "mid"]
+
+    # Step1: スクリーニング（テクニカル + ファンダメンタル）
+    print(f"  [Step1] スクリーニング中 (cap:{cap_types}, 売上成長≥{min_revenue_growth*100:.0f}%, PER≤{max_per})...")
+    df = screen(
+        market=market,
+        min_rsi=20, max_rsi=65,
+        cap_types=cap_types,
+        min_revenue_growth=min_revenue_growth,
+        max_per=max_per,
+    )
+
+    # ファンダメンタル条件を緩和してリトライ（結果が少なすぎる場合）
+    if len(df) < 5:
+        print(f"  [Step1] ヒット少（{len(df)}件）→ 売上成長条件を 0% に緩和してリトライ...")
+        df = screen(
+            market=market,
+            min_rsi=20, max_rsi=65,
+            cap_types=cap_types,
+            min_revenue_growth=0.0,
+            max_per=max_per,
+        )
+
+    # それでも少ない場合は cap_types を全銘柄に拡大
+    if len(df) < 5:
+        print(f"  [Step1] ヒット少（{len(df)}件）→ cap_types を全銘柄に拡大してリトライ...")
+        df = screen(market=market, min_rsi=20, max_rsi=65)
+
     if df.empty:
         return {"error": "スクリーニング条件に合う銘柄が見つかりませんでした。"}
-    print(f"  [Step1] {len(df)} 件ヒット: {', '.join(df['ticker'].tolist())}")
+
+    # ウォッチリストから補完して top_n 確保
+    wl = load_watchlist(market, cap_types if cap_types else None)
+    screened = df["ticker"].tolist()
+    for t in wl["ticker"].tolist():
+        if t not in screened:
+            screened.append(t)
+        if len(screened) >= top_n:
+            break
+
+    print(f"  [Step1] {len(df)} 件ヒット（補完後 {len(screened)} 件）: {', '.join(df['ticker'].tolist())}")
 
     # Step2: テクニカル + ファンダメンタル詳細
     print("  [Step2] テクニカル・ファンダメンタル分析中...")
     tech_list = []
-    for _, row in df.iterrows():
-        s = _technical_summary(row["ticker"])
+    name_map  = dict(zip(wl["ticker"], wl["name"]))
+    for t in screened:
+        s = _technical_summary(t)
         if s:
-            s["name"] = row["name"]
+            s["name"] = name_map.get(t, t)
             tech_list.append(s)
 
     if not tech_list:
@@ -347,9 +398,9 @@ def pick_from_screen(market: str | None = None, top_n: int = 20) -> dict:
 
     # Step3: 市場センチメント
     print("  [Step3] 市場センチメントを確認中...")
-    ctx      = get_market_context()
-    ctx_text = market_context_text(ctx)
-    perf     = load_performance_summary()
+    ctx          = get_market_context()
+    ctx_text     = market_context_text(ctx)
+    perf         = load_performance_summary()
     perf_section = f"\n{perf}\n" if perf else ""
 
     # Step4: 最終判定
@@ -357,35 +408,38 @@ def pick_from_screen(market: str | None = None, top_n: int = 20) -> dict:
     tech_text = _build_tech_text(tech_list, fund_map)
 
     judge_prompt = f"""あなたは機関投資家レベルの株式アナリストです。
-RSI 20〜60 のスクリーニングを通過した銘柄を、テクニカル・ファンダメンタル・市場環境で総合評価し、
+【戦略】中小型成長株の中から「決算・業績は好調だが株価が想定より低い（割安放置）」銘柄を発掘し、
 買いチャンスのある銘柄を上位{top_n}件ランキングしてください。
 
 {ctx_text}
 {perf_section}
-【テクニカル + ファンダメンタルデータ（RSI 20〜60 スクリーニング済み）】
-評価軸: RSI<30=強い売られすぎ(高評価)、MACD買い=ポジティブ、BB下限=反発期待、
-       Stoch%K<20=過売で反発近い、OBV上昇=資金流入サイン
-       PER低=割安、ROE>10%=良好、売上成長率>5%=成長株
+【テクニカル + ファンダメンタルデータ（中小型株スクリーニング済み）】
+評価軸（重要度順）:
+  ① 業績好調 × 株価割安: 売上成長率>5% かつ PER が業界平均より低い → 最優先
+  ② 売られすぎシグナル: RSI<35、BB下限付近、Stoch%K<20 → 押し目買いチャンス
+  ③ 反転シグナル: MACD が買いに転換、OBV が上昇 → エントリータイミング
+  ④ ROE>10% で稼ぐ力がある企業を優遇
+  ⑤ ATR14 低め（ボラ小さい）を安定性の加点要素に
 {tech_text}
 
-【評価の優先順位】
-1. 複数テクニカル指標の一致（RSI+MACD+Stoch+OBV）
-2. ファンダメンタルの裏付け（PER割安 × 高ROE × 成長性）
-3. リスク管理（ATR14が低い＝安定性高い）
-4. 市場センチメント（VIX・Fear&Greed）との整合性
-5. 過去実績データで成績の良い条件パターン
+【ランキング判断基準】
+- 1位: 業績好調・株価大幅下落・テクニカル反転シグナル の三拍子が揃う
+- 5位以内: 好業績 + 何らかの割安/反転シグナルあり
+- 10位以内: 業績は良いが株価は適正水準、テクニカル優位
+- 下位: ファンダメンタルか株価水準に懸念あり
+
 {_JUDGE_FORMAT.format(top_n=top_n)}"""
 
     raw = _claude(judge_prompt, max_tokens=4096)
     rankings, summary, market_outlook = _parse_judge(raw, tech_list)
 
     return {
-        "flow":          "スクリーニング起点",
-        "market":        market or "全銘柄",
-        "date":          str(date.today()),
-        "rankings":      rankings,
-        "summary":       summary,
+        "flow":           "スクリーニング起点",
+        "market":         market or "全銘柄",
+        "date":           str(date.today()),
+        "rankings":       rankings,
+        "summary":        summary,
         "market_outlook": market_outlook,
-        "vix":           ctx.get("VIX"),
-        "fear_greed":    ctx.get("FearGreed"),
+        "vix":            ctx.get("VIX"),
+        "fear_greed":     ctx.get("FearGreed"),
     }

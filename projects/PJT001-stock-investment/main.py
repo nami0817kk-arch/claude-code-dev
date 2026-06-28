@@ -108,10 +108,12 @@ def cmd_pick_news(args):
 
 
 def cmd_pick_screen(args):
+    cap = None if getattr(args, "large", False) else ["small", "mid"]
+    cap_label = "全規模" if cap is None else "中小型"
     print(f"\n{'='*70}")
-    print(f"  自動株選定 スクリーニング起点  対象:{args.market or '日米全銘柄'}")
+    print(f"  自動株選定 スクリーニング起点  対象:{args.market or '日米全銘柄'}  規模:{cap_label}")
     print(f"{'='*70}\n")
-    result = pick_from_screen(market=args.market, top_n=args.top)
+    result = pick_from_screen(market=args.market, top_n=args.top, cap_types=cap)
     _print_result(result)
     if "error" not in result:
         path = export_excel(result)
@@ -120,8 +122,10 @@ def cmd_pick_screen(args):
 
 def cmd_run(args):
     """ニュース起点・スクリーニング起点を両方実行する"""
+    cap = None if getattr(args, "large", False) else ["small", "mid"]
+    cap_label = "全規模" if cap is None else "中小型"
     print(f"\n{'#'*70}")
-    print(f"  【実行】ニュース起点 + スクリーニング起点  対象:{args.market or '日米全銘柄'}")
+    print(f"  【実行】ニュース起点 + スクリーニング起点  対象:{args.market or '日米全銘柄'}  規模:{cap_label}")
     print(f"{'#'*70}")
 
     # ① ニュース起点
@@ -132,9 +136,9 @@ def cmd_run(args):
         path = export_excel(result_news)
         print(f"\nExcel 出力: {path}")
 
-    # ② スクリーニング起点
-    print(f"\n--- ② スクリーニング起点 ---")
-    result_screen = pick_from_screen(market=args.market, top_n=args.top)
+    # ② スクリーニング起点（中小型 × 好業績 × 割安）
+    print(f"\n--- ② スクリーニング起点（{cap_label}） ---")
+    result_screen = pick_from_screen(market=args.market, top_n=args.top, cap_types=cap)
     _print_result(result_screen)
     if "error" not in result_screen:
         path = export_excel(result_screen)
@@ -211,6 +215,7 @@ def main():
     p_run = sub.add_parser("run", help="ニュース起点・スクリーニング起点を両方実行")
     p_run.add_argument("--market", choices=["JP", "US"], help="市場絞り込み (JP/US)")
     p_run.add_argument("--top", type=int, default=20, help="推奨件数 (デフォルト:20)")
+    p_run.add_argument("--large", action="store_true", help="スクリーニングを全規模対象にする（デフォルト:中小型のみ）")
 
     # chart コマンド
     p_chart = sub.add_parser("chart", help="株価チャートを表示")
@@ -230,9 +235,10 @@ def main():
     p_pn.add_argument("--top", type=int, default=20, help="推奨件数 (デフォルト:20)")
 
     # pick-screen コマンド
-    p_ps = sub.add_parser("pick-screen", help="スクリーニング起点の自動株選定")
+    p_ps = sub.add_parser("pick-screen", help="スクリーニング起点の自動株選定（デフォルト:中小型）")
     p_ps.add_argument("--market", choices=["JP", "US"], help="市場絞り込み (JP/US)")
     p_ps.add_argument("--top", type=int, default=20, help="推奨件数 (デフォルト:20)")
+    p_ps.add_argument("--large", action="store_true", help="大型株も含めて全規模対象にする")
 
     # screen コマンド
     p_screen = sub.add_parser("screen", help="条件でスクリーニング")
