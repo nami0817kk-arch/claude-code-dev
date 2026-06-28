@@ -147,9 +147,9 @@ def export(result: dict) -> Path:
 
     _write_block(ws, result, start_row, now)
 
-    # DB シートに記録 & 過去データの現在価格を更新
-    save_recommendations(result, wb)
-    update_prices(wb)
+    # DB に記録 & 過去データの現在価格を更新
+    save_recommendations(result)
+    update_prices()
 
     wb.save(OUTPUT_FILE)
     return OUTPUT_FILE
