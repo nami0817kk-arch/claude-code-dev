@@ -12,6 +12,7 @@ from src.analysis.indicators import add_indicators
 from src.report.chart import candlestick
 from src.report.news import fetch_news, fetch_market_news, analyze_news
 from src.analysis.screener import screen, load_watchlist
+from src.selector import pick_from_news, pick_from_screen
 
 
 def cmd_chart(args):
@@ -67,6 +68,24 @@ def cmd_info(args):
             elif f == "dividendYield" and val:
                 val = f"{val*100:.2f}%"
             print(f"  {f:<20}: {val}")
+
+
+def cmd_pick_news(args):
+    print(f"\n{'='*70}")
+    print(f"  自動株選定 ニュース起点  対象:{args.market or '日米全銘柄'}")
+    print(f"{'='*70}\n")
+    result = pick_from_news(market=args.market, top_n=args.top)
+    print(f"\n{result}\n")
+    print(f"{'='*70}")
+
+
+def cmd_pick_screen(args):
+    print(f"\n{'='*70}")
+    print(f"  自動株選定 スクリーニング起点  対象:{args.market or '日米全銘柄'}")
+    print(f"{'='*70}\n")
+    result = pick_from_screen(market=args.market, top_n=args.top)
+    print(f"\n{result}\n")
+    print(f"{'='*70}")
 
 
 def cmd_screen(args):
@@ -143,6 +162,16 @@ def main():
     p_info = sub.add_parser("info", help="銘柄基本情報を表示")
     p_info.add_argument("ticker", help="例: 7203.T / AAPL")
 
+    # pick-news コマンド
+    p_pn = sub.add_parser("pick-news", help="ニュース起点の自動株選定")
+    p_pn.add_argument("--market", choices=["JP", "US"], help="市場絞り込み (JP/US)")
+    p_pn.add_argument("--top", type=int, default=5, help="推奨件数 (デフォルト:5)")
+
+    # pick-screen コマンド
+    p_ps = sub.add_parser("pick-screen", help="スクリーニング起点の自動株選定")
+    p_ps.add_argument("--market", choices=["JP", "US"], help="市場絞り込み (JP/US)")
+    p_ps.add_argument("--top", type=int, default=5, help="推奨件数 (デフォルト:5)")
+
     # screen コマンド
     p_screen = sub.add_parser("screen", help="条件でスクリーニング")
     p_screen.add_argument("--market", choices=["JP", "US"], help="市場絞り込み (JP/US)")
@@ -163,6 +192,10 @@ def main():
         cmd_chart(args)
     elif args.command == "info":
         cmd_info(args)
+    elif args.command == "pick-news":
+        cmd_pick_news(args)
+    elif args.command == "pick-screen":
+        cmd_pick_screen(args)
     elif args.command == "screen":
         cmd_screen(args)
     elif args.command == "news":
