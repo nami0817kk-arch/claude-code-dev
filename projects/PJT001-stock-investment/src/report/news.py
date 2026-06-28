@@ -7,7 +7,10 @@ from bs4 import BeautifulSoup
 
 KABUTAN_URL  = "https://kabutan.jp/news/marketnews/"
 YOUTUBE_RSS  = "https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
-YOUTUBE_CH   = "UC5Qgc-tEFmm5iQX5tUy6TyA"  # 株リアルライブ
+YOUTUBE_CHANNELS = [
+    "UC5Qgc-tEFmm5iQX5tUy6TyA",   # 株リアルライブ
+    "UClhsF9k783OGFLjK3SSjsAQ",   # 追加チャンネル
+]
 
 _HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
@@ -139,7 +142,7 @@ def fetch_kabutan_news(max_items: int = 15) -> list[dict]:
         return []
 
 
-def fetch_youtube_news(channel_id: str = YOUTUBE_CH, max_items: int = 5) -> list[dict]:
+def fetch_youtube_news(channel_id: str, max_items: int = 5) -> list[dict]:
     """YouTube チャンネルの最新動画タイトルをRSSで取得する"""
     try:
         feed  = feedparser.parse(YOUTUBE_RSS.format(channel_id=channel_id))
@@ -149,7 +152,7 @@ def fetch_youtube_news(channel_id: str = YOUTUBE_CH, max_items: int = 5) -> list
             desc = entry.get("summary", "")
             desc = re.sub(r"<[^>]+>", "", desc)[:300]
             items.append({
-                "source":    ch,
+                "source":    f"YouTube:{ch}",
                 "title":     entry.get("title", ""),
                 "summary":   desc,
                 "published": entry.get("published", "")[:10],
@@ -160,15 +163,16 @@ def fetch_youtube_news(channel_id: str = YOUTUBE_CH, max_items: int = 5) -> list
         return []
 
 
-def fetch_market_news(max_items: int = 20) -> list[dict]:
+def fetch_market_news(max_items: int = 25) -> list[dict]:
     """株探・YouTubeから市況ニュースを取得する"""
     items = []
 
     # 株探（最大15件）
     items += fetch_kabutan_news(max_items=15)
 
-    # YouTube 株リアルライブ（最大5件）
-    items += fetch_youtube_news(max_items=5)
+    # YouTube 各チャンネル（1チャンネルあたり最大5件）
+    for ch_id in YOUTUBE_CHANNELS:
+        items += fetch_youtube_news(channel_id=ch_id, max_items=5)
 
     return items[:max_items]
 
