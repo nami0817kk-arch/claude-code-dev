@@ -13,6 +13,7 @@ from src.report.chart import candlestick
 from src.report.news import fetch_news, fetch_market_news, analyze_news
 from src.analysis.screener import screen, load_watchlist
 from src.selector import pick_from_news, pick_from_screen
+from src.report.excel_exporter import export as export_excel
 
 
 def cmd_chart(args):
@@ -70,13 +71,31 @@ def cmd_info(args):
             print(f"  {f:<20}: {val}")
 
 
+def _print_result(result: dict):
+    """ランキング結果をターミナルに表示する"""
+    if "error" in result:
+        print(f"\nエラー: {result['error']}")
+        return
+    print(f"\n{'='*70}")
+    print(f"  投資推奨ランキング  {result['flow']}  {result['market']}  {result['date']}")
+    print(f"{'='*70}")
+    for item in result.get("rankings", []):
+        print(f"\n{item['rank']}位: {item['name']}({item['ticker']})  {item.get('stars','')}")
+        print(f"   終値:{item.get('close')}  RSI:{item.get('RSI14')}  MACD:{item.get('MACD方向')}  SMA20:{item.get('SMA20比')}  BB:{item.get('BB位置')}")
+        print(f"   {item.get('reason','')}")
+    print(f"\n【総評】\n{result.get('summary','')}")
+    print(f"{'='*70}")
+
+
 def cmd_pick_news(args):
     print(f"\n{'='*70}")
     print(f"  自動株選定 ニュース起点  対象:{args.market or '日米全銘柄'}")
     print(f"{'='*70}\n")
     result = pick_from_news(market=args.market, top_n=args.top)
-    print(f"\n{result}\n")
-    print(f"{'='*70}")
+    _print_result(result)
+    if "error" not in result:
+        path = export_excel(result)
+        print(f"\nExcel 出力: {path}")
 
 
 def cmd_pick_screen(args):
@@ -84,8 +103,10 @@ def cmd_pick_screen(args):
     print(f"  自動株選定 スクリーニング起点  対象:{args.market or '日米全銘柄'}")
     print(f"{'='*70}\n")
     result = pick_from_screen(market=args.market, top_n=args.top)
-    print(f"\n{result}\n")
-    print(f"{'='*70}")
+    _print_result(result)
+    if "error" not in result:
+        path = export_excel(result)
+        print(f"\nExcel 出力: {path}")
 
 
 def cmd_screen(args):
