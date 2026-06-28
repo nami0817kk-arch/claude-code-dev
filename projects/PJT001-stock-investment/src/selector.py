@@ -201,6 +201,30 @@ def _build_tech_text(tech_list: list[dict], fund_map: dict) -> str:
     return "\n".join(lines)
 
 
+def _build_swing_tech_text(tech_list: list[dict], fund_map: dict) -> str:
+    """スイング取引分析用のテキストサマリー（swing_score を先頭に表示、降順）"""
+    entries = []
+    for s in tech_list:
+        t     = s["ticker"]
+        fund  = fund_map.get(t, {})
+        score = s.get("swing_score", 0)
+        line = (
+            f"  [{score}pt] {t}({s.get('name','')}):"
+            f" 終値{s['close']} RSI={s['RSI14']} MACD={s['MACD方向']}"
+            f" Stoch%K={s.get('STOCH_K')} Stoch%D={s.get('STOCH_D')}"
+            f" BB={s['BB位置']} SMA20={s['SMA20比']}"
+            f" ATR14={s.get('ATR14')} OBV={s.get('OBV_trend')}"
+        )
+        if fund:
+            line += (
+                f" | 売上成長={fund.get('売上成長率')}%"
+                f" PER={fund.get('PER')} ROE={fund.get('ROE')}%"
+            )
+        entries.append((score, line))
+    entries.sort(key=lambda x: x[0], reverse=True)
+    return "\n".join(line for _, line in entries)
+
+
 # ──────────────────────────────────────────────
 # Flow 1: ニュース → テクニカル+ファンダメンタル → 判定
 # ──────────────────────────────────────────────
@@ -329,49 +353,49 @@ def pick_from_screen(
     max_per: float = 80,
 ) -> dict:
     """
-    中小型株（デフォルト: mid/small）× 好業績 × 割安 スクリーニング。
+    中小型株（デフォルト: mid/small）× 好業績 × スイング取引特化スクリーニング。
 
-    cap_types   : 対象時価総額区分。デフォルト ['small','mid']。
-                  None を渡すと large 含む全銘柄。
-    min_revenue_growth : 売上成長率の下限（小数）。デフォルト 0.05 = 5%。
-    max_per     : PER 上限。デフォルト 80（成長株のため大きめ）。
+    スイング取引フィルタ（数日〜2週間の値幅狙い）:
+      - RSI 25〜55（売られすぎからの回復初期、オーバーボートを除外）
+      - MACD買い転換 OR RSI<35 の深売られすぎ
+      - Stoch%K < 70、BB上限付近を除外
+      - swing_score 上位順にソート（高いほど複合シグナル一致）
+
+    cap_types          : デフォルト ['small','mid']。None で全規模。
+    min_revenue_growth : 売上成長率下限（小数）。デフォルト 0.05 = 5%。
+    max_per            : PER 上限。デフォルト 80。
     """
     if cap_types is None:
         cap_types = ["small", "mid"]
 
-    # Step1: スクリーニング（テクニカル + ファンダメンタル）
-    print(f"  [Step1] スクリーニング中 (cap:{cap_types}, 売上成長≥{min_revenue_growth*100:.0f}%, PER≤{max_per})...")
+    # Step1: スクリーニング（スイング + ファンダメンタル）
+    print(f"  [Step1] スイングスクリーニング中 (cap:{cap_types}, 売上成長≥{min_revenue_growth*100:.0f}%)...")
     df = screen(
         market=market,
-        min_rsi=20, max_rsi=65,
+        swing_mode=True,
         cap_types=cap_types,
         min_revenue_growth=min_revenue_growth,
         max_per=max_per,
     )
 
-    # ファンダメンタル条件を緩和してリトライ（結果が少なすぎる場合）
+    # ファンダメンタル条件を緩和してリトライ（候補が少ない場合）
     if len(df) < 5:
-        print(f"  [Step1] ヒット少（{len(df)}件）→ 売上成長条件を 0% に緩和してリトライ...")
-        df = screen(
-            market=market,
-            min_rsi=20, max_rsi=65,
-            cap_types=cap_types,
-            min_revenue_growth=0.0,
-            max_per=max_per,
-        )
+        print(f"  [Step1] ヒット少（{len(df)}件）→ 売上成長条件を 0% に緩和...")
+        df = screen(market=market, swing_mode=True, cap_types=cap_types, max_per=max_per)
 
-    # それでも少ない場合は cap_types を全銘柄に拡大
+    # さらに少なければ swing_mode を維持しつつ cap_types 拡大
     if len(df) < 5:
-        print(f"  [Step1] ヒット少（{len(df)}件）→ cap_types を全銘柄に拡大してリトライ...")
-        df = screen(market=market, min_rsi=20, max_rsi=65)
+        print(f"  [Step1] ヒット少（{len(df)}件）→ 全規模に拡大...")
+        df = screen(market=market, swing_mode=True)
 
     if df.empty:
         return {"error": "スクリーニング条件に合う銘柄が見つかりませんでした。"}
 
-    # ウォッチリストから補完して top_n 確保
-    wl = load_watchlist(market, cap_types if cap_types else None)
+    # ウォッチリストで補完して top_n 確保
+    wl = load_watchlist(market, cap_types)
+    all_wl_tickers = load_watchlist(market)["ticker"].tolist()
     screened = df["ticker"].tolist()
-    for t in wl["ticker"].tolist():
+    for t in all_wl_tickers:
         if t not in screened:
             screened.append(t)
         if len(screened) >= top_n:
@@ -379,14 +403,19 @@ def pick_from_screen(
 
     print(f"  [Step1] {len(df)} 件ヒット（補完後 {len(screened)} 件）: {', '.join(df['ticker'].tolist())}")
 
+    # swing_score マップ（スクリーニング結果から引き継ぐ）
+    score_map = dict(zip(df["ticker"], df.get("swing_score", pd.Series(dtype=int))))
+
     # Step2: テクニカル + ファンダメンタル詳細
     print("  [Step2] テクニカル・ファンダメンタル分析中...")
+    name_map = {**dict(zip(wl["ticker"], wl["name"])),
+                **dict(zip(load_watchlist(market)["ticker"], load_watchlist(market)["name"]))}
     tech_list = []
-    name_map  = dict(zip(wl["ticker"], wl["name"]))
     for t in screened:
         s = _technical_summary(t)
         if s:
-            s["name"] = name_map.get(t, t)
+            s["name"]        = name_map.get(t, t)
+            s["swing_score"] = score_map.get(t, 0)
             tech_list.append(s)
 
     if not tech_list:
@@ -403,30 +432,38 @@ def pick_from_screen(
     perf         = load_performance_summary()
     perf_section = f"\n{perf}\n" if perf else ""
 
-    # Step4: 最終判定
-    print("  [Step4] Claude が総合判定中...")
-    tech_text = _build_tech_text(tech_list, fund_map)
+    # Step4: 最終判定（スイング特化プロンプト）
+    print("  [Step4] Claude がスイング判定中...")
+    tech_text = _build_swing_tech_text(tech_list, fund_map)
 
-    judge_prompt = f"""あなたは機関投資家レベルの株式アナリストです。
-【戦略】中小型成長株の中から「決算・業績は好調だが株価が想定より低い（割安放置）」銘柄を発掘し、
-買いチャンスのある銘柄を上位{top_n}件ランキングしてください。
+    judge_prompt = f"""あなたはスイングトレード専門の株式アナリストです。
+【戦略】数日〜2週間での値幅取りを目的とするスイング取引に最適な銘柄を選定してください。
+「業績は好調だが株価が下押しされて反転シグナルが出ている中小型株」を最重要視します。
 
 {ctx_text}
 {perf_section}
-【テクニカル + ファンダメンタルデータ（中小型株スクリーニング済み）】
-評価軸（重要度順）:
-  ① 業績好調 × 株価割安: 売上成長率>5% かつ PER が業界平均より低い → 最優先
-  ② 売られすぎシグナル: RSI<35、BB下限付近、Stoch%K<20 → 押し目買いチャンス
-  ③ 反転シグナル: MACD が買いに転換、OBV が上昇 → エントリータイミング
-  ④ ROE>10% で稼ぐ力がある企業を優遇
-  ⑤ ATR14 低め（ボラ小さい）を安定性の加点要素に
+【テクニカル + ファンダメンタルデータ】
+swing_score: 0〜10点のスイング総合スコア（高いほど複合シグナル一致）
+評価軸（優先順）:
+  ① swing_score 8〜10: MACD転換+Stochゴールデンクロス+BB下限 が一致 → 最優先
+  ② swing_score 5〜7: 複数シグナルの部分一致 → 上位候補
+  ③ RSI 30〜50 かつ MACD買い転換: スイング黄金ゾーン（売られすぎ解消の初動）
+  ④ Stoch%K が 20以下から%Dを上抜け: 短期の強いリバウンドサイン
+  ⑤ BB 下限付近 + OBV 上昇: 出来高を伴った底打ち確認
+  ⑥ 業績好調（売上成長>5%、ROE>10%）で下落が一時的と判断できる銘柄を優遇
+  ⑦ ATR14 が適度に大きい（値幅が出る）銘柄を優遇
 {tech_text}
 
 【ランキング判断基準】
-- 1位: 業績好調・株価大幅下落・テクニカル反転シグナル の三拍子が揃う
-- 5位以内: 好業績 + 何らかの割安/反転シグナルあり
-- 10位以内: 業績は良いが株価は適正水準、テクニカル優位
-- 下位: ファンダメンタルか株価水準に懸念あり
+- 1位: swing_score高 + MACD転換確認済み + 業績好調 → 今すぐエントリー候補
+- 2〜5位: swing_score高め + 反転シグナル出始め → 数日以内のエントリー候補
+- 6〜10位: シグナル1〜2個一致、業績は良い → 押し目待ち候補
+- 下位: シグナル弱いが業績で補完 or 補完銘柄
+
+【reason 欄に必ず含めること】
+・エントリータイミングの判断（例：MACD転換済み、底打ち確認待ち、等）
+・スイングの値幅目標（例：SMA20まで+8%の余地）
+・損切り目安（例：直近安値 or ATR×1.5 が損切りライン）
 
 {_JUDGE_FORMAT.format(top_n=top_n)}"""
 
