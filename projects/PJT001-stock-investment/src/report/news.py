@@ -163,16 +163,16 @@ def fetch_youtube_news(channel_id: str, max_items: int = 5) -> list[dict]:
         return []
 
 
-def fetch_market_news(max_items: int = 25) -> list[dict]:
+def fetch_market_news(max_items: int = 45) -> list[dict]:
     """株探・YouTubeから市況ニュースを取得する"""
     items = []
 
     # 株探（最大15件）
     items += fetch_kabutan_news(max_items=15)
 
-    # YouTube 各チャンネル（1チャンネルあたり最大5件）
+    # YouTube 各チャンネル（1チャンネルあたり最大15件）
     for ch_id in YOUTUBE_CHANNELS:
-        items += fetch_youtube_news(channel_id=ch_id, max_items=5)
+        items += fetch_youtube_news(channel_id=ch_id, max_items=15)
 
     return items[:max_items]
 

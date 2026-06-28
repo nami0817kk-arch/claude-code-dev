@@ -213,7 +213,7 @@ def pick_from_news(market: str | None = None, top_n: int = 20) -> dict:
 
     # Step1: 市況ニュース収集（株探 + YouTube）& Claude が候補銘柄を抽出
     print("  [Step1] 市況ニュースを収集中（株探・YouTube）...")
-    raw_news  = fetch_market_news(max_items=20)
+    raw_news  = fetch_market_news(max_items=45)
     news_items = [f"- [{n['source']}] {n['title']}: {n['summary']}" for n in raw_news]
     news_text  = "\n".join(news_items)
 
