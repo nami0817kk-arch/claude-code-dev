@@ -186,12 +186,12 @@ def main():
     # pick-news コマンド
     p_pn = sub.add_parser("pick-news", help="ニュース起点の自動株選定")
     p_pn.add_argument("--market", choices=["JP", "US"], help="市場絞り込み (JP/US)")
-    p_pn.add_argument("--top", type=int, default=5, help="推奨件数 (デフォルト:5)")
+    p_pn.add_argument("--top", type=int, default=20, help="推奨件数 (デフォルト:20)")
 
     # pick-screen コマンド
     p_ps = sub.add_parser("pick-screen", help="スクリーニング起点の自動株選定")
     p_ps.add_argument("--market", choices=["JP", "US"], help="市場絞り込み (JP/US)")
-    p_ps.add_argument("--top", type=int, default=5, help="推奨件数 (デフォルト:5)")
+    p_ps.add_argument("--top", type=int, default=20, help="推奨件数 (デフォルト:20)")
 
     # screen コマンド
     p_screen = sub.add_parser("screen", help="条件でスクリーニング")
