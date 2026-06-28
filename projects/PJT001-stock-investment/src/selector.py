@@ -135,8 +135,9 @@ def _parse_judge(raw: str, tech_list: list[dict]) -> tuple[list[dict], str, str]
             item.setdefault("MACD方向",  t.get("MACD方向"))
             item.setdefault("SMA20比",   t.get("SMA20比"))
             item.setdefault("BB位置",    t.get("BB位置"))
-            item.setdefault("STOCH_K",   t.get("STOCH_K"))
+            item.setdefault("STOCH_K",    t.get("STOCH_K"))
             item.setdefault("confidence", None)
+            item.setdefault("news_basis", None)
         return rankings, summary, market_outlook
     except Exception:
         return [], raw, ""
@@ -154,6 +155,25 @@ _JUDGE_FORMAT = """
       "stars": "★★★★★",
       "confidence": 85,
       "reason": "テクニカル・ファンダメンタル・市場環境を踏まえた推奨理由を1文で簡潔に"
+    }}
+  ],
+  "summary": "市場環境と銘柄全体を踏まえた総評を2文以内で",
+  "market_outlook": "現在の市場環境における注意点を1文で"
+}}"""
+
+_JUDGE_FORMAT_NEWS = """
+【重要】rankings は必ず{top_n}件すべて出力してください。候補が多い場合も{top_n}位まで全件記載してください。
+回答は以下の JSON 形式のみで返してください（マークダウン・説明不要）:
+{{
+  "rankings": [
+    {{
+      "rank": 1,
+      "ticker": "7203.T",
+      "name": "トヨタ自動車",
+      "stars": "★★★★★",
+      "confidence": 85,
+      "reason": "テクニカル・ファンダメンタル・市場環境を踏まえた推奨理由を1文で簡潔に",
+      "news_basis": "選定の根拠となったニュース見出しを1〜2件、出典付きで記載（例: 【株探】決算上方修正を発表）"
     }}
   ],
   "summary": "市場環境と銘柄全体を踏まえた総評を2文以内で",
@@ -280,7 +300,7 @@ def pick_from_news(market: str | None = None, top_n: int = 20) -> dict:
 3. ニュースのポジティブ/ネガティブ度
 4. 市場センチメントとの整合性
 5. 過去実績データで成績の良い条件パターン
-{_JUDGE_FORMAT.format(top_n=top_n)}"""
+{_JUDGE_FORMAT_NEWS.format(top_n=top_n)}"""
 
     raw = _claude(judge_prompt, max_tokens=4096)
     rankings, summary, market_outlook = _parse_judge(raw, tech_list)

@@ -48,7 +48,8 @@ def _write_block(ws, result: dict, start_row: int, now: datetime):
     """1回分の結果ブロックを start_row から書き込む"""
     row = start_row
 
-    N = 12  # 列数
+    is_news = result.get("flow") == "ニュース起点"
+    N = 13 if is_news else 12  # ニュース起点は選定根拠列を追加
 
     # ── 実行時刻ヘッダー ────────────────────────
     vix = result.get("vix")
@@ -70,6 +71,8 @@ def _write_block(ws, result: dict, start_row: int, now: datetime):
     # ── 列ヘッダー ──────────────────────────────
     headers = ["順位", "銘柄コード", "銘柄名", "推奨度", "信頼度%",
                "終値", "RSI14", "MACD", "SMA20比", "BB位置", "Stoch%K", "推奨理由"]
+    if is_news:
+        headers.append("選定根拠ニュース")
     for col, h in enumerate(headers, 1):
         c = ws.cell(row=row, column=col, value=h)
         c.font      = Font(bold=True, color="FFFFFF", size=10, name="游ゴシック")
@@ -95,6 +98,8 @@ def _write_block(ws, result: dict, start_row: int, now: datetime):
         _cell(ws, row, 10, item.get("BB位置", ""),                bg=bg, align="center")
         _cell(ws, row, 11, item.get("STOCH_K"),                   bg=bg, align="center")
         _cell(ws, row, 12, item.get("reason", ""),                bg=bg, wrap=True)
+        if is_news:
+            _cell(ws, row, 13, item.get("news_basis", ""),        bg=bg, wrap=True)
         ws.row_dimensions[row].height = 42
         row += 1
 
@@ -145,16 +150,16 @@ def export(result: dict) -> Path:
         start_row = _last_row(ws) + 2  # 1行空けて追記
     else:
         ws = wb.create_sheet(title=sheet_name)
-        # シートタイトル行
-        ws.merge_cells("A1:L1")
+        # シートタイトル行（最大列数 M=13 に合わせる）
+        ws.merge_cells("A1:M1")
         c = ws["A1"]
         c.value     = f"投資推奨レポート　{now.strftime('%Y年%m月%d日')}"
         c.font      = Font(bold=True, color="FFFFFF", size=14, name="游ゴシック")
         c.fill      = _fill(C_HEADER)
         c.alignment = Alignment(horizontal="center", vertical="center")
         ws.row_dimensions[1].height = 30
-        # 列幅: 順位,銘柄コード,銘柄名,推奨度,信頼度%,終値,RSI14,MACD,SMA20比,BB位置,Stoch%K,推奨理由
-        for col, w in enumerate([6, 12, 18, 10, 8, 10, 8, 8, 8, 10, 8, 50], 1):
+        # 列幅: 順位,銘柄コード,銘柄名,推奨度,信頼度%,終値,RSI14,MACD,SMA20比,BB位置,Stoch%K,推奨理由,選定根拠ニュース
+        for col, w in enumerate([6, 12, 18, 10, 8, 10, 8, 8, 8, 10, 8, 45, 50], 1):
             ws.column_dimensions[get_column_letter(col)].width = w
         ws.freeze_panes = "A3"
         start_row = 2
