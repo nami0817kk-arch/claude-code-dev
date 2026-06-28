@@ -24,3 +24,7 @@ node_modules/
 
 # ログ
 *.log
+
+# データ（生データ・加工済みは除外、ポートフォリオは管理対象）
+data/raw/
+data/processed/
