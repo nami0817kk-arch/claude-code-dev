@@ -88,6 +88,8 @@ def _print_result(result: dict):
         print(f"\n{item['rank']}位: {item['name']}({item['ticker']})  {item.get('stars','')}{conf}")
         print(f"   終値:{item.get('close')}  RSI:{item.get('RSI14')}  MACD:{item.get('MACD方向')}  Stoch%K:{item.get('STOCH_K')}  BB:{item.get('BB位置')}")
         print(f"   {item.get('reason','')}")
+        if item.get("news_basis"):
+            print(f"   📰 {item.get('news_basis','')}")
     print(f"\n【総評】\n{result.get('summary','')}")
     if result.get("market_outlook"):
         print(f"\n【市場環境】\n{result.get('market_outlook','')}")
