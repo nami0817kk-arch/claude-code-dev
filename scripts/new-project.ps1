@@ -3,7 +3,6 @@
   [string]$Description = ""
 )
 
-$git  = "C:\Program Files\Git\bin\git.exe"
 $root = Split-Path $PSScriptRoot -Parent
 $proj = Join-Path $root "projects"
 $tmpl = Join-Path $root "templates\default"
@@ -26,9 +25,5 @@ if ($Description -ne "") {
   $content = $content -replace [regex]::Escape("このプロジェクトの目的・概要を記載する。"), $Description
 }
 [System.IO.File]::WriteAllText($readme, $content, [System.Text.Encoding]::UTF8)
-
-& $git -C $dir init | Out-Null
-& $git -C $dir add . | Out-Null
-& $git -C $dir commit -m "init: $id $Name" | Out-Null
 
 Write-Host "Created: $dir" -ForegroundColor Green
