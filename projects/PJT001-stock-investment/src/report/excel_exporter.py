@@ -3,6 +3,7 @@ from datetime import datetime
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from src.report.db_manager import save_recommendations, update_prices
 
 OUTPUT_FILE = (
     Path(__file__).parent.parent.parent / "data" / "reports" / "株式投資推奨レポート.xlsx"
@@ -145,5 +146,10 @@ def export(result: dict) -> Path:
         start_row = 2
 
     _write_block(ws, result, start_row, now)
+
+    # DB シートに記録 & 過去データの現在価格を更新
+    save_recommendations(result, wb)
+    update_prices(wb)
+
     wb.save(OUTPUT_FILE)
     return OUTPUT_FILE
