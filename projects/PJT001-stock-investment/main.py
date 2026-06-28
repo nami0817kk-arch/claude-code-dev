@@ -11,6 +11,7 @@ from src.data.fetcher import fetch_price, fetch_info, save_price
 from src.analysis.indicators import add_indicators
 from src.report.chart import candlestick
 from src.report.news import fetch_news, fetch_market_news, analyze_news
+from src.analysis.screener import screen, load_watchlist
 
 
 def cmd_chart(args):
@@ -68,6 +69,36 @@ def cmd_info(args):
             print(f"  {f:<20}: {val}")
 
 
+def cmd_screen(args):
+    print(f"スクリーニング中... (対象: {args.market or '全銘柄'})")
+    print(f"条件: RSI {args.min_rsi}〜{args.max_rsi}", end="")
+    if args.macd:
+        print(f"  MACD:{args.macd}", end="")
+    if args.below_sma20:
+        print("  終値<SMA20", end="")
+    if args.above_sma20:
+        print("  終値>SMA20", end="")
+    print()
+
+    df = screen(
+        market      = args.market,
+        min_rsi     = args.min_rsi,
+        max_rsi     = args.max_rsi,
+        macd_signal = args.macd,
+        below_sma20 = args.below_sma20,
+        above_sma20 = args.above_sma20,
+    )
+
+    print(f"\n{'='*70}")
+    if df.empty:
+        print("  条件に合う銘柄が見つかりませんでした。")
+    else:
+        print(f"  {len(df)} 件ヒット")
+        print(f"{'='*70}")
+        print(df.to_string(index=False))
+    print(f"{'='*70}")
+
+
 def cmd_news(args):
     print(f"ニュース取得中: {args.ticker}")
     items = fetch_news(args.ticker, max_items=10)
@@ -112,6 +143,15 @@ def main():
     p_info = sub.add_parser("info", help="銘柄基本情報を表示")
     p_info.add_argument("ticker", help="例: 7203.T / AAPL")
 
+    # screen コマンド
+    p_screen = sub.add_parser("screen", help="条件でスクリーニング")
+    p_screen.add_argument("--market", choices=["JP", "US"], help="市場絞り込み (JP/US)")
+    p_screen.add_argument("--min-rsi", type=float, default=0,   dest="min_rsi", help="RSI 下限 (デフォルト:0)")
+    p_screen.add_argument("--max-rsi", type=float, default=100, dest="max_rsi", help="RSI 上限 (デフォルト:100)")
+    p_screen.add_argument("--macd",    choices=["buy", "sell"],  help="MACD方向 buy/sell")
+    p_screen.add_argument("--below-sma20", action="store_true", dest="below_sma20", help="終値がSMA20を下回る")
+    p_screen.add_argument("--above-sma20", action="store_true", dest="above_sma20", help="終値がSMA20を上回る")
+
     # news コマンド
     p_news = sub.add_parser("news", help="ニュース収集 + Claude 分析")
     p_news.add_argument("ticker", help="例: 7203.T / AAPL")
@@ -123,6 +163,8 @@ def main():
         cmd_chart(args)
     elif args.command == "info":
         cmd_info(args)
+    elif args.command == "screen":
+        cmd_screen(args)
     elif args.command == "news":
         cmd_news(args)
     else:
