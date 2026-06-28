@@ -2,13 +2,14 @@ import feedparser
 import anthropic
 import os
 
-# 公開 RSS フィード（無料・認証不要）
-RSS_FEEDS = {
+# 市況ニュース（フォールバック用）
+MARKET_FEEDS = {
     "NHK経済":        "https://www.nhk.or.jp/rss/news/cat4.xml",
-    "Reuters Business": "https://feeds.reuters.com/reuters/businessNews",
-    "Reuters Markets":  "https://feeds.reuters.com/reuters/marketsNews",
     "Yahoo Finance JP": "https://news.yahoo.co.jp/rss/topics/business.xml",
 }
+
+# Google News 検索 RSS のテンプレート（銘柄名を埋め込んで使う）
+GOOGLE_NEWS_URL = "https://news.google.com/rss/search?q={query}&hl=ja&gl=JP&ceid=JP:ja"
 
 # 証券コード → 検索キーワード
 TICKER_KEYWORDS: dict[str, list[str]] = {
@@ -36,27 +37,32 @@ def _keywords_for(ticker: str) -> list[str]:
 
 
 def fetch_news(ticker: str, max_items: int = 10) -> list[dict]:
-    """RSS フィードから銘柄関連ニュースを取得する"""
+    """Google News RSS で銘柄関連ニュースを取得する"""
     keywords = _keywords_for(ticker)
     items = []
+    seen = set()
 
-    for source, url in RSS_FEEDS.items():
+    for kw in keywords:
+        if len(items) >= max_items:
+            break
+        url = GOOGLE_NEWS_URL.format(query=kw)
         try:
             feed = feedparser.parse(url)
-            for entry in feed.entries[:30]:
-                title   = entry.get("title", "")
-                summary = entry.get("summary", "")
-                text    = title + " " + summary
-                if any(kw in text for kw in keywords):
-                    items.append({
-                        "source":    source,
-                        "title":     title,
-                        "summary":   summary[:200],
-                        "published": entry.get("published", ""),
-                        "link":      entry.get("link", ""),
-                    })
-                    if len(items) >= max_items:
-                        break
+            for entry in feed.entries:
+                title = entry.get("title", "")
+                link  = entry.get("link", "")
+                if link in seen:
+                    continue
+                seen.add(link)
+                items.append({
+                    "source":    "Google News",
+                    "title":     title,
+                    "summary":   entry.get("summary", "")[:200],
+                    "published": entry.get("published", ""),
+                    "link":      link,
+                })
+                if len(items) >= max_items:
+                    break
         except Exception:
             continue
 
@@ -66,7 +72,7 @@ def fetch_news(ticker: str, max_items: int = 10) -> list[dict]:
 def fetch_market_news(max_items: int = 10) -> list[dict]:
     """銘柄を絞らず市況ニュースを取得する（フォールバック用）"""
     items = []
-    for source, url in RSS_FEEDS.items():
+    for source, url in MARKET_FEEDS.items():
         try:
             feed = feedparser.parse(url)
             for entry in feed.entries[:3]:
