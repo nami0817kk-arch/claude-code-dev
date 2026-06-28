@@ -24,6 +24,7 @@ from src.data.fetcher import fetch_price
 from src.analysis.indicators import add_indicators
 from src.analysis.screener import screen, load_watchlist
 from src.report.news import fetch_news, GOOGLE_NEWS_URL
+from src.report.db_manager import load_performance_summary
 
 
 def _claude(prompt: str, max_tokens: int = 1024) -> str:
@@ -189,14 +190,24 @@ def pick_from_news(market: str | None = None, top_n: int = 5) -> dict:
         f"  {t}: {'; '.join(news_by_ticker.get(t, []))}" for t in tickers
     )
 
+    perf = load_performance_summary()
+    perf_section = f"\n【過去推奨の実績データ（参考にして精度を上げてください）】\n{perf}\n" if perf else ""
+
     judge_prompt = f"""あなたは株式投資アナリストです。
 テクニカルデータとニュースを総合して投資推奨銘柄を上位{top_n}件ランキングしてください。
-
+{perf_section}
 【テクニカルデータ】
 {tech_text}
 
 【銘柄別ニュース】
 {news_text2}
+
+評価基準:
+- RSI 30未満: 強い売られすぎ（買いチャンス高）
+- RSI 30〜45: 売られすぎ傾向
+- MACD 買い方向: ポジティブ
+- BB 下限付近: 反発の可能性
+- 過去実績の条件が良好な銘柄を優先
 {_JUDGE_FORMAT}"""
 
     raw = _claude(judge_prompt, max_tokens=1024)
@@ -243,9 +254,12 @@ def pick_from_screen(market: str | None = None, top_n: int = 5) -> dict:
         for s in tech_list
     )
 
+    perf = load_performance_summary()
+    perf_section = f"\n【過去推奨の実績データ（参考にして精度を上げてください）】\n{perf}\n" if perf else ""
+
     judge_prompt = f"""あなたは株式投資アナリストです。
 テクニカルデータをもとに買いのチャンスがある銘柄を上位{top_n}件ランキングしてください。
-
+{perf_section}
 【テクニカルデータ（RSI 20〜60 スクリーニング済み）】
 {tech_text}
 
@@ -254,6 +268,7 @@ def pick_from_screen(market: str | None = None, top_n: int = 5) -> dict:
 - RSI 30〜45: 売られすぎ傾向
 - MACD 買い方向: ポジティブ
 - BB 下限付近: 反発の可能性
+- 過去実績で成績の良い条件パターンを優先
 {_JUDGE_FORMAT}"""
 
     raw = _claude(judge_prompt, max_tokens=1024)
