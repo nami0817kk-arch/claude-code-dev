@@ -1,10 +1,17 @@
+import re
 import feedparser
 import anthropic
 import os
+import requests
+from bs4 import BeautifulSoup
 
-MARKET_FEEDS = {
-    "NHK経済":          "https://www.nhk.or.jp/rss/news/cat4.xml",
-    "Yahoo Finance JP": "https://news.yahoo.co.jp/rss/topics/business.xml",
+KABUTAN_URL  = "https://kabutan.jp/news/marketnews/"
+YOUTUBE_RSS  = "https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+YOUTUBE_CH   = "UC5Qgc-tEFmm5iQX5tUy6TyA"  # 株リアルライブ
+
+_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+    "Accept-Language": "ja,en;q=0.9",
 }
 
 GOOGLE_NEWS_URL = "https://news.google.com/rss/search?q={query}&hl=ja&gl=JP&ceid=JP:ja"
@@ -103,27 +110,67 @@ def fetch_news(ticker: str, max_items: int = 10) -> list[dict]:
     return items
 
 
-def fetch_market_news(max_items: int = 10) -> list[dict]:
-    """市況ニュースを取得する（フォールバック用）"""
+def fetch_kabutan_news(max_items: int = 15) -> list[dict]:
+    """株探マーケットニュースをスクレイピングする"""
+    try:
+        resp = requests.get(KABUTAN_URL, headers=_HEADERS, timeout=10)
+        resp.encoding = "utf-8"
+        soup  = BeautifulSoup(resp.content, "lxml")
+        items = []
+        seen  = set()
+        for a in soup.find_all("a", href=True):
+            href  = a.get("href", "")
+            title = a.get_text(strip=True)
+            if "/news/" not in href or len(title) < 10 or title in seen:
+                continue
+            seen.add(title)
+            link = "https://kabutan.jp" + href if href.startswith("/") else href
+            items.append({
+                "source":    "株探",
+                "title":     title,
+                "summary":   "",
+                "published": "",
+                "link":      link,
+            })
+            if len(items) >= max_items:
+                break
+        return items
+    except Exception:
+        return []
+
+
+def fetch_youtube_news(channel_id: str = YOUTUBE_CH, max_items: int = 5) -> list[dict]:
+    """YouTube チャンネルの最新動画タイトルをRSSで取得する"""
+    try:
+        feed  = feedparser.parse(YOUTUBE_RSS.format(channel_id=channel_id))
+        ch    = feed.feed.get("title", "YouTube")
+        items = []
+        for entry in feed.entries[:max_items]:
+            desc = entry.get("summary", "")
+            desc = re.sub(r"<[^>]+>", "", desc)[:300]
+            items.append({
+                "source":    ch,
+                "title":     entry.get("title", ""),
+                "summary":   desc,
+                "published": entry.get("published", "")[:10],
+                "link":      entry.get("link", ""),
+            })
+        return items
+    except Exception:
+        return []
+
+
+def fetch_market_news(max_items: int = 20) -> list[dict]:
+    """株探・YouTubeから市況ニュースを取得する"""
     items = []
-    for source, url in MARKET_FEEDS.items():
-        try:
-            feed = feedparser.parse(url)
-            for entry in feed.entries[:3]:
-                import re
-                summary = re.sub(r"<[^>]+>", "", entry.get("summary", ""))[:400]
-                items.append({
-                    "source":    source,
-                    "title":     entry.get("title", ""),
-                    "summary":   summary,
-                    "published": entry.get("published", ""),
-                    "link":      entry.get("link", ""),
-                })
-        except Exception:
-            continue
-        if len(items) >= max_items:
-            break
-    return items
+
+    # 株探（最大15件）
+    items += fetch_kabutan_news(max_items=15)
+
+    # YouTube 株リアルライブ（最大5件）
+    items += fetch_youtube_news(max_items=5)
+
+    return items[:max_items]
 
 
 def analyze_news(news_items: list[dict], ticker: str) -> str:
@@ -146,7 +193,7 @@ def analyze_news(news_items: list[dict], ticker: str) -> str:
 【注意点】リスク要因があれば1文で"""
 
     message = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-haiku-4-5-20251001",
         max_tokens=512,
         messages=[{"role": "user", "content": prompt}]
     )

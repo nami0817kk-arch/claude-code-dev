@@ -22,11 +22,11 @@ import yfinance as yf
 from src.data.fetcher import fetch_price
 from src.analysis.indicators import add_indicators
 from src.analysis.screener import screen, load_watchlist
-from src.report.news import fetch_news, GOOGLE_NEWS_URL
+from src.report.news import fetch_news, fetch_market_news, GOOGLE_NEWS_URL
 from src.report.db_manager import load_performance_summary
 from src.data.market_sentiment import get_market_context, market_context_text
 
-MODEL = "claude-sonnet-4-6"
+MODEL = "claude-haiku-4-5-20251001"
 
 
 def _claude(prompt: str, max_tokens: int = 2048) -> str:
@@ -190,22 +190,11 @@ def pick_from_news(market: str | None = None, top_n: int = 20) -> dict:
         f"  {row['ticker']} ({row['name']})" for _, row in wl.iterrows()
     )
 
-    # Step1: 市況ニュース収集 & Claude が候補銘柄を抽出
-    print("  [Step1] 市況ニュースを収集中...")
-    news_items = []
-    for query in ["株式市場 投資 決算", "日本株 業績", "stock market earnings outlook", "economic forecast"]:
-        try:
-            feed = feedparser.parse(GOOGLE_NEWS_URL.format(query=query))
-            import re
-            for e in feed.entries[:6]:
-                summary = re.sub(r"<[^>]+>", "", e.get("summary", ""))[:300]
-                news_items.append(f"- {e.get('title','')}: {summary}")
-            if len(news_items) >= 24:
-                break
-        except Exception:
-            continue
-
-    news_text = "\n".join(news_items[:24])
+    # Step1: 市況ニュース収集（株探 + YouTube）& Claude が候補銘柄を抽出
+    print("  [Step1] 市況ニュースを収集中（株探・YouTube）...")
+    raw_news  = fetch_market_news(max_items=20)
+    news_items = [f"- [{n['source']}] {n['title']}: {n['summary']}" for n in raw_news]
+    news_text  = "\n".join(news_items)
 
     extract_prompt = f"""あなたは機関投資家レベルの株式アナリストです。
 以下のニュースを読み、ウォッチリストの中から「投資チャンスがありそうな銘柄」を最大{top_n}つ選んでください。
