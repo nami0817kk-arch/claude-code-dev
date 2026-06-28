@@ -20,7 +20,7 @@ _HEADERS = {
 GOOGLE_NEWS_URL = "https://news.google.com/rss/search?q={query}&hl=ja&gl=JP&ceid=JP:ja"
 
 TICKER_KEYWORDS: dict[str, list[str]] = {
-    # 日本株
+    # 日本株（大型）
     "7203.T": ["トヨタ自動車", "Toyota", "TOYOTA"],
     "6758.T": ["ソニー", "Sony", "SONY"],
     "9984.T": ["ソフトバンク", "SoftBank"],
@@ -41,7 +41,31 @@ TICKER_KEYWORDS: dict[str, list[str]] = {
     "4568.T": ["第一三共", "Daiichi Sankyo"],
     "9022.T": ["JR東海", "東海旅客鉄道"],
     "8058.T": ["三菱商事", "Mitsubishi Corp"],
-    # 米国株
+    # 日本株（中型）
+    "3697.T": ["SHIFT", "シフト"],
+    "6532.T": ["ベイカレント", "BayCurrent"],
+    "4480.T": ["メドレー", "MEDLEY"],
+    "3769.T": ["GMOペイメントゲートウェイ", "GMO-PG"],
+    "4385.T": ["メルカリ", "Mercari"],
+    "2413.T": ["エムスリー", "M3"],
+    "9697.T": ["カプコン", "CAPCOM"],
+    "4751.T": ["サイバーエージェント", "CyberAgent"],
+    "3092.T": ["ZOZO", "ゾゾ", "ZOZOTOWN"],
+    "4443.T": ["Sansan", "サンサン"],
+    "4776.T": ["サイボウズ", "Cybozu"],
+    "2379.T": ["ディップ", "dip"],
+    "7564.T": ["ワークマン", "Workman"],
+    "3923.T": ["ラクス", "Rakus"],
+    "8698.T": ["マネックス", "Monex"],
+    # 日本株（小型）
+    "4478.T": ["フリー", "freee"],
+    "3994.T": ["マネーフォワード", "Money Forward"],
+    "6200.T": ["インソース", "Insource"],
+    "7342.T": ["ウェルスナビ", "WealthNavi"],
+    "4552.T": ["JCRファーマ", "JCR Pharmaceuticals"],
+    "4565.T": ["そーせい", "Sosei"],
+    "6089.T": ["ウィルグループ", "Will Group"],
+    # 米国株（大型）
     "AAPL":  ["Apple", "アップル", "iPhone"],
     "MSFT":  ["Microsoft", "マイクロソフト"],
     "GOOGL": ["Google", "Alphabet", "グーグル"],
@@ -66,6 +90,12 @@ TICKER_KEYWORDS: dict[str, list[str]] = {
     "GS":    ["Goldman Sachs", "ゴールドマン"],
     "XOM":   ["ExxonMobil", "エクソン"],
     "CVX":   ["Chevron", "シェブロン"],
+    # 米国株（中型）
+    "BILL":  ["Bill.com", "ビルコム"],
+    "GTLB":  ["GitLab", "ギットラブ"],
+    "DOCN":  ["DigitalOcean", "デジタルオーシャン"],
+    "SMAR":  ["Smartsheet", "スマートシート"],
+    "RELY":  ["Remitly", "リミットリー"],
 }
 
 

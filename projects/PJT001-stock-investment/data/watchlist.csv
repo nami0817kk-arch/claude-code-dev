@@ -1,45 +1,72 @@
-ticker,name,market
-7203.T,トヨタ自動車,JP
-6758.T,ソニーグループ,JP
-9984.T,ソフトバンクグループ,JP
-6861.T,キーエンス,JP
-8306.T,三菱UFJフィナンシャル,JP
-7974.T,任天堂,JP
-6367.T,ダイキン工業,JP
-9433.T,KDDI,JP
-4519.T,中外製薬,JP
-8035.T,東京エレクトロン,JP
-9432.T,NTT,JP
-6954.T,ファナック,JP
-4063.T,信越化学工業,JP
-6501.T,日立製作所,JP
-7267.T,本田技研工業,JP
-6902.T,デンソー,JP
-6098.T,リクルートHD,JP
-4568.T,第一三共,JP
-9022.T,東海旅客鉄道,JP
-8058.T,三菱商事,JP
-AAPL,Apple,US
-MSFT,Microsoft,US
-GOOGL,Alphabet,US
-AMZN,Amazon,US
-NVDA,NVIDIA,US
-TSLA,Tesla,US
-META,Meta,US
-JPM,JPMorgan Chase,US
-JNJ,Johnson & Johnson,US
-V,Visa,US
-PG,Procter & Gamble,US
-UNH,UnitedHealth,US
-HD,Home Depot,US
-MA,Mastercard,US
-DIS,Disney,US
-NFLX,Netflix,US
-AMD,AMD,US
-CRM,Salesforce,US
-ADBE,Adobe,US
-ORCL,Oracle,US
-BAC,Bank of America,US
-GS,Goldman Sachs,US
-XOM,ExxonMobil,US
-CVX,Chevron,US
+ticker,name,market,cap_type
+7203.T,トヨタ自動車,JP,large
+6758.T,ソニーグループ,JP,large
+9984.T,ソフトバンクグループ,JP,large
+6861.T,キーエンス,JP,large
+8306.T,三菱UFJフィナンシャル,JP,large
+7974.T,任天堂,JP,large
+6367.T,ダイキン工業,JP,large
+9433.T,KDDI,JP,large
+4519.T,中外製薬,JP,large
+8035.T,東京エレクトロン,JP,large
+9432.T,NTT,JP,large
+6954.T,ファナック,JP,large
+4063.T,信越化学工業,JP,large
+6501.T,日立製作所,JP,large
+7267.T,本田技研工業,JP,large
+6902.T,デンソー,JP,large
+6098.T,リクルートHD,JP,large
+4568.T,第一三共,JP,large
+9022.T,東海旅客鉄道,JP,large
+8058.T,三菱商事,JP,large
+3697.T,SHIFT,JP,mid
+6532.T,ベイカレント・コンサルティング,JP,mid
+4480.T,メドレー,JP,mid
+3769.T,GMOペイメントゲートウェイ,JP,mid
+4385.T,メルカリ,JP,mid
+2413.T,エムスリー,JP,mid
+9697.T,カプコン,JP,mid
+4751.T,サイバーエージェント,JP,mid
+3092.T,ZOZO,JP,mid
+4443.T,Sansan,JP,mid
+4776.T,サイボウズ,JP,mid
+2379.T,ディップ,JP,mid
+7564.T,ワークマン,JP,mid
+3923.T,ラクス,JP,mid
+8698.T,マネックスグループ,JP,mid
+4478.T,フリー,JP,small
+3994.T,マネーフォワード,JP,small
+6200.T,インソース,JP,small
+7342.T,ウェルスナビ,JP,small
+4552.T,JCRファーマ,JP,small
+4565.T,そーせいグループ,JP,small
+6089.T,ウィルグループ,JP,small
+AAPL,Apple,US,large
+MSFT,Microsoft,US,large
+GOOGL,Alphabet,US,large
+AMZN,Amazon,US,large
+NVDA,NVIDIA,US,large
+TSLA,Tesla,US,large
+META,Meta,US,large
+JPM,JPMorgan Chase,US,large
+JNJ,Johnson & Johnson,US,large
+V,Visa,US,large
+PG,Procter & Gamble,US,large
+UNH,UnitedHealth,US,large
+HD,Home Depot,US,large
+MA,Mastercard,US,large
+DIS,Disney,US,large
+NFLX,Netflix,US,large
+AMD,AMD,US,large
+CRM,Salesforce,US,large
+ADBE,Adobe,US,large
+ORCL,Oracle,US,large
+BAC,Bank of America,US,large
+GS,Goldman Sachs,US,large
+XOM,ExxonMobil,US,large
+CVX,Chevron,US,large
+BILL,Bill.com,US,mid
+GTLB,GitLab,US,mid
+DOCN,DigitalOcean,US,mid
+SMAR,Smartsheet,US,mid
+RELY,Remitly,US,mid
