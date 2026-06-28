@@ -12,7 +12,7 @@ from src.analysis.indicators import add_indicators
 from src.report.chart import candlestick
 from src.report.news import fetch_news, fetch_market_news, analyze_news
 from src.analysis.screener import screen, load_watchlist
-from src.selector import pick_from_news, pick_from_screen
+from src.selector import pick_from_news, pick_from_screen, pick_from_youtube
 from src.report.excel_exporter import export as export_excel
 
 
@@ -120,24 +120,43 @@ def cmd_pick_screen(args):
         print(f"\nExcel 出力: {path}")
 
 
+def cmd_pick_youtube(args):
+    print(f"\n{'='*70}")
+    print(f"  自動株選定 YouTube起点  対象:{args.market or '日米全銘柄'}")
+    print(f"{'='*70}\n")
+    result = pick_from_youtube(market=args.market, top_n=args.top)
+    _print_result(result)
+    if "error" not in result:
+        path = export_excel(result)
+        print(f"\nExcel 出力: {path}")
+
+
 def cmd_run(args):
-    """ニュース起点・スクリーニング起点を両方実行する"""
+    """ニュース起点・YouTube起点・スクリーニング起点を全実行する"""
     cap = None if getattr(args, "large", False) else ["small", "mid"]
     cap_label = "全規模" if cap is None else "中小型"
     print(f"\n{'#'*70}")
-    print(f"  【実行】ニュース起点 + スクリーニング起点  対象:{args.market or '日米全銘柄'}  規模:{cap_label}")
+    print(f"  【実行】ニュース + YouTube + スクリーニング  対象:{args.market or '日米全銘柄'}  規模:{cap_label}")
     print(f"{'#'*70}")
 
-    # ① ニュース起点
-    print(f"\n--- ① ニュース起点 ---")
+    # ① ニュース起点（株探+YouTube 全体）
+    print(f"\n--- ① ニュース起点（株探+YouTube） ---")
     result_news = pick_from_news(market=args.market, top_n=args.top)
     _print_result(result_news)
     if "error" not in result_news:
         path = export_excel(result_news)
         print(f"\nExcel 出力: {path}")
 
-    # ② スクリーニング起点（中小型 × 好業績 × 割安）
-    print(f"\n--- ② スクリーニング起点（{cap_label}） ---")
+    # ② YouTube起点（YouTube動画のみ・15件）
+    print(f"\n--- ② YouTube起点（YouTube動画のみ） ---")
+    result_yt = pick_from_youtube(market=args.market, top_n=15)
+    _print_result(result_yt)
+    if "error" not in result_yt:
+        path = export_excel(result_yt)
+        print(f"\nExcel 出力: {path}")
+
+    # ③ スクリーニング起点（中小型スイング）
+    print(f"\n--- ③ スクリーニング起点（{cap_label}・スイング） ---")
     result_screen = pick_from_screen(market=args.market, top_n=args.top, cap_types=cap)
     _print_result(result_screen)
     if "error" not in result_screen:
@@ -145,7 +164,7 @@ def cmd_run(args):
         print(f"\nExcel 出力: {path}")
 
     print(f"\n{'#'*70}")
-    print(f"  完了: 両フロー実行済み")
+    print(f"  完了: 全3フロー実行済み")
     print(f"{'#'*70}")
 
 
@@ -234,6 +253,11 @@ def main():
     p_pn.add_argument("--market", choices=["JP", "US"], help="市場絞り込み (JP/US)")
     p_pn.add_argument("--top", type=int, default=20, help="推奨件数 (デフォルト:20)")
 
+    # pick-youtube コマンド
+    p_py = sub.add_parser("pick-youtube", help="YouTube動画起点の自動株選定（15件）")
+    p_py.add_argument("--market", choices=["JP", "US"], help="市場絞り込み (JP/US)")
+    p_py.add_argument("--top", type=int, default=15, help="推奨件数 (デフォルト:15)")
+
     # pick-screen コマンド
     p_ps = sub.add_parser("pick-screen", help="スクリーニング起点の自動株選定（デフォルト:中小型）")
     p_ps.add_argument("--market", choices=["JP", "US"], help="市場絞り込み (JP/US)")
@@ -264,6 +288,8 @@ def main():
         cmd_info(args)
     elif args.command == "pick-news":
         cmd_pick_news(args)
+    elif args.command == "pick-youtube":
+        cmd_pick_youtube(args)
     elif args.command == "pick-screen":
         cmd_pick_screen(args)
     elif args.command == "screen":

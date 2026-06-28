@@ -12,6 +12,7 @@ pick_from_screen: スクリーニング → テクニカル+ファンダメン�
 }
 """
 import json
+import re
 import os
 from datetime import date
 import anthropic
@@ -22,7 +23,7 @@ import yfinance as yf
 from src.data.fetcher import fetch_price
 from src.analysis.indicators import add_indicators
 from src.analysis.screener import screen, load_watchlist
-from src.report.news import fetch_news, fetch_market_news, GOOGLE_NEWS_URL
+from src.report.news import fetch_news, fetch_market_news, fetch_youtube_only_news, GOOGLE_NEWS_URL
 from src.report.db_manager import load_performance_summary
 from src.data.market_sentiment import get_market_context, market_context_text
 
@@ -118,29 +119,59 @@ def _bb_position(close, upper, lower) -> str:
     return "中央付近"
 
 
+def _extract_json_obj(text: str) -> dict | None:
+    """テキストからバランスブレースで最初のJSONオブジェクトを安全に抽出する"""
+    # マークダウンコードブロックを除去
+    text = re.sub(r"```(?:json)?\s*", "", text)
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_string = False
+    escape_next = False
+    for i, ch in enumerate(text[start:], start):
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == "\\" and in_string:
+            escape_next = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if not in_string:
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(text[start:i + 1])
+                    except json.JSONDecodeError:
+                        return None
+    return None
+
+
 def _parse_judge(raw: str, tech_list: list[dict]) -> tuple[list[dict], str, str]:
     """Claude の JSON 応答をパースして (rankings, summary, market_outlook) を返す"""
-    try:
-        start = raw.find("{")
-        end   = raw.rfind("}") + 1
-        data  = json.loads(raw[start:end])
-        rankings       = data.get("rankings", [])
-        summary        = data.get("summary", "")
-        market_outlook = data.get("market_outlook", "")
-        tech_map = {t["ticker"]: t for t in tech_list}
-        for item in rankings:
-            t = tech_map.get(item.get("ticker", ""), {})
-            item.setdefault("close",     t.get("close"))
-            item.setdefault("RSI14",     t.get("RSI14"))
-            item.setdefault("MACD方向",  t.get("MACD方向"))
-            item.setdefault("SMA20比",   t.get("SMA20比"))
-            item.setdefault("BB位置",    t.get("BB位置"))
-            item.setdefault("STOCH_K",    t.get("STOCH_K"))
-            item.setdefault("confidence", None)
-            item.setdefault("news_basis", None)
-        return rankings, summary, market_outlook
-    except Exception:
+    data = _extract_json_obj(raw)
+    if data is None:
         return [], raw, ""
+    rankings       = data.get("rankings", [])
+    summary        = data.get("summary", "")
+    market_outlook = data.get("market_outlook", "")
+    tech_map = {t["ticker"]: t for t in tech_list}
+    for item in rankings:
+        t = tech_map.get(item.get("ticker", ""), {})
+        item.setdefault("close",      t.get("close"))
+        item.setdefault("RSI14",      t.get("RSI14"))
+        item.setdefault("MACD方向",   t.get("MACD方向"))
+        item.setdefault("SMA20比",    t.get("SMA20比"))
+        item.setdefault("BB位置",     t.get("BB位置"))
+        item.setdefault("STOCH_K",    t.get("STOCH_K"))
+        item.setdefault("confidence", None)
+        item.setdefault("news_basis", None)
+    return rankings, summary, market_outlook
 
 
 _JUDGE_FORMAT = """
@@ -326,7 +357,7 @@ def pick_from_news(market: str | None = None, top_n: int = 20) -> dict:
 5. 過去実績データで成績の良い条件パターン
 {_JUDGE_FORMAT_NEWS.format(top_n=top_n)}"""
 
-    raw = _claude(judge_prompt, max_tokens=4096)
+    raw = _claude(judge_prompt, max_tokens=8192)
     rankings, summary, market_outlook = _parse_judge(raw, tech_list)
 
     return {
@@ -467,11 +498,135 @@ swing_score: 0〜10点のスイング総合スコア（高いほど複合シグ�
 
 {_JUDGE_FORMAT.format(top_n=top_n)}"""
 
-    raw = _claude(judge_prompt, max_tokens=4096)
+    raw = _claude(judge_prompt, max_tokens=8192)
     rankings, summary, market_outlook = _parse_judge(raw, tech_list)
 
     return {
         "flow":           "スクリーニング起点",
+        "market":         market or "全銘柄",
+        "date":           str(date.today()),
+        "rankings":       rankings,
+        "summary":        summary,
+        "market_outlook": market_outlook,
+        "vix":            ctx.get("VIX"),
+        "fear_greed":     ctx.get("FearGreed"),
+    }
+
+
+# ──────────────────────────────────────────────
+# Flow 3: YouTube動画 → テクニカル+ファンダメンタル → 判定
+# ──────────────────────────────────────────────
+
+def pick_from_youtube(market: str | None = None, top_n: int = 15) -> dict:
+    """
+    YouTubeチャンネル（株リアルライブ・投深ハイスクール）の最新動画タイトルのみを
+    情報源として銘柄を選定し、テクニカル+ファンダメンタルで評価してランキングする。
+    """
+    wl = load_watchlist(market)
+    watchlist_str = "\n".join(
+        f"  {row['ticker']} ({row['name']})" for _, row in wl.iterrows()
+    )
+
+    # Step1: YouTube動画タイトル取得 & Claude が候補銘柄を抽出
+    print("  [Step1] YouTube動画タイトルを収集中...")
+    yt_news = fetch_youtube_only_news(max_items=15)
+    if not yt_news:
+        return {"error": "YouTubeニュースの取得に失敗しました。"}
+
+    yt_lines = []
+    for n in yt_news:
+        line = f"- [{n['source']}] {n['title']}"
+        if n.get("summary"):
+            line += f": {n['summary'][:150]}"
+        yt_lines.append(line)
+    yt_text = "\n".join(yt_lines)
+
+    print(f"  [Step1] {len(yt_news)} 本の動画タイトルを取得")
+
+    extract_prompt = f"""あなたは株式投資アナリストです。
+以下のYouTube動画タイトルを読み、ウォッチリストの中から「動画で取り上げられている、または関連性が高い銘柄」を最大{top_n}件選んでください。
+動画タイトルに含まれるキーワード（業種・テーマ・銘柄名・銘柄コード）との関連を重視して選定してください。
+
+【YouTube動画タイトル一覧】
+{yt_text}
+
+【ウォッチリスト】
+{watchlist_str}
+
+回答は以下の JSON のみで返してください（説明不要）:
+{{"tickers": ["7203.T", "AAPL"]}}"""
+
+    print("  [Step1] Claude がYouTube動画から候補銘柄を抽出中...")
+    raw = _claude(extract_prompt, max_tokens=512)
+    data = _extract_json_obj(raw)
+    tickers = data.get("tickers", []) if data else []
+
+    # 不足分をウォッチリストで補完
+    all_tickers = wl["ticker"].tolist()
+    for t in all_tickers:
+        if t not in tickers:
+            tickers.append(t)
+        if len(tickers) >= top_n:
+            break
+
+    print(f"  [Step1] 候補 {len(tickers)} 件: {', '.join(tickers)}")
+
+    # Step2: テクニカル + ファンダメンタル分析
+    print("  [Step2] テクニカル・ファンダメンタル分析中...")
+    tech_list = []
+    for t in tickers:
+        s = _technical_summary(t)
+        if s:
+            name = wl[wl["ticker"] == t]["name"].values
+            s["name"] = name[0] if len(name) else t
+            tech_list.append(s)
+
+    fund_map = {}
+    for t in tickers:
+        fund_map[t] = _fundamental_data(t)
+
+    # Step3: 市場センチメント
+    print("  [Step3] 市場センチメントを確認中...")
+    ctx          = get_market_context()
+    ctx_text     = market_context_text(ctx)
+    perf         = load_performance_summary()
+    perf_section = f"\n{perf}\n" if perf else ""
+
+    # Step4: 最終判定（YouTube起点専用プロンプト）
+    print("  [Step4] Claude がYouTube動画起点で総合判定中...")
+    tech_text = _build_tech_text(tech_list, fund_map)
+
+    judge_prompt = f"""あなたは株式投資アナリストです。
+【戦略】以下のYouTube動画（投資系チャンネル）で取り上げられているテーマ・銘柄をもとに、
+テクニカル・ファンダメンタルを総合して投資推奨ランキングを作成してください。
+スイング取引（数日〜2週間）を前提とします。
+
+{ctx_text}
+{perf_section}
+【参考にしたYouTube動画タイトル】
+{yt_text}
+
+【テクニカル + ファンダメンタルデータ】
+{tech_text}
+
+【評価の優先順位】
+1. YouTube動画で明示的に取り上げられた銘柄やテーマとの関連性
+2. テクニカル指標（RSI売られすぎ、MACD買い転換、Stoch過売圏、BB下限）
+3. ファンダメンタル（売上成長率、ROE、PER割安）
+4. 市場センチメント（VIX・Fear&Greed）との整合性
+
+【reason 欄に必ず含めること】
+・どのYouTube動画のどのテーマと関連しているか
+・テクニカルのエントリータイミング
+・スイング目標（SMA20や直近高値まで何%）と損切り目安
+
+{_JUDGE_FORMAT_NEWS.format(top_n=top_n)}"""
+
+    raw = _claude(judge_prompt, max_tokens=8192)
+    rankings, summary, market_outlook = _parse_judge(raw, tech_list)
+
+    return {
+        "flow":           "YouTube起点",
         "market":         market or "全銘柄",
         "date":           str(date.today()),
         "rankings":       rankings,

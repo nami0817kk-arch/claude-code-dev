@@ -207,6 +207,15 @@ def fetch_market_news(max_items: int = 45) -> list[dict]:
     return items[:max_items]
 
 
+def fetch_youtube_only_news(max_items: int = 15) -> list[dict]:
+    """YouTubeチャンネルのみから市況動画タイトルを取得する（株探を除外）"""
+    items = []
+    per_ch = max(max_items // len(YOUTUBE_CHANNELS), 5)
+    for ch_id in YOUTUBE_CHANNELS:
+        items += fetch_youtube_news(channel_id=ch_id, max_items=per_ch)
+    return items[:max_items]
+
+
 def analyze_news(news_items: list[dict], ticker: str) -> str:
     """Claude でニュースを投資観点で分析する"""
     api_key = os.getenv("ANTHROPIC_API_KEY")
