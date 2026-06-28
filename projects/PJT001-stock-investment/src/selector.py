@@ -143,7 +143,8 @@ def _parse_judge(raw: str, tech_list: list[dict]) -> tuple[list[dict], str, str]
 
 
 _JUDGE_FORMAT = """
-回答は必ず以下の JSON 形式のみで返してください（マークダウン・説明不要）:
+【重要】rankings は必ず{top_n}件すべて出力してください。候補が多い場合も{top_n}位まで全件記載してください。
+回答は以下の JSON 形式のみで返してください（マークダウン・説明不要）:
 {{
   "rankings": [
     {{
@@ -152,10 +153,10 @@ _JUDGE_FORMAT = """
       "name": "トヨタ自動車",
       "stars": "★★★★★",
       "confidence": 85,
-      "reason": "テクニカル・ファンダメンタル・市場環境を踏まえた推奨理由を2文で"
+      "reason": "テクニカル・ファンダメンタル・市場環境を踏まえた推奨理由を1文で簡潔に"
     }}
   ],
-  "summary": "市場環境と銘柄全体を踏まえた総評を3文以内で",
+  "summary": "市場環境と銘柄全体を踏まえた総評を2文以内で",
   "market_outlook": "現在の市場環境における注意点を1文で"
 }}"""
 
@@ -215,11 +216,17 @@ def pick_from_news(market: str | None = None, top_n: int = 20) -> dict:
         s, e = raw.find("{"), raw.rfind("}") + 1
         tickers = json.loads(raw[s:e]).get("tickers", [])
     except Exception:
-        tickers = wl["ticker"].tolist()[:top_n]
+        tickers = []
 
-    if not tickers:
-        return {"error": "ニュースから投資候補銘柄を特定できませんでした。"}
-    print(f"  [Step1] 候補: {', '.join(tickers)}")
+    # ニュースから抽出が top_n に満たない場合はウォッチリスト全銘柄で補完
+    all_tickers = wl["ticker"].tolist()
+    for t in all_tickers:
+        if t not in tickers:
+            tickers.append(t)
+        if len(tickers) >= top_n:
+            break
+
+    print(f"  [Step1] 候補 {len(tickers)} 件: {', '.join(tickers)}")
 
     # Step2: テクニカル + ファンダメンタル分析
     print("  [Step2] テクニカル・ファンダメンタル分析中...")
@@ -273,9 +280,9 @@ def pick_from_news(market: str | None = None, top_n: int = 20) -> dict:
 3. ニュースのポジティブ/ネガティブ度
 4. 市場センチメントとの整合性
 5. 過去実績データで成績の良い条件パターン
-{_JUDGE_FORMAT}"""
+{_JUDGE_FORMAT.format(top_n=top_n)}"""
 
-    raw = _claude(judge_prompt, max_tokens=2048)
+    raw = _claude(judge_prompt, max_tokens=4096)
     rankings, summary, market_outlook = _parse_judge(raw, tech_list)
 
     return {
@@ -347,9 +354,9 @@ RSI 20〜60 のスクリーニングを通過した銘柄を、テクニカル�
 3. リスク管理（ATR14が低い＝安定性高い）
 4. 市場センチメント（VIX・Fear&Greed）との整合性
 5. 過去実績データで成績の良い条件パターン
-{_JUDGE_FORMAT}"""
+{_JUDGE_FORMAT.format(top_n=top_n)}"""
 
-    raw = _claude(judge_prompt, max_tokens=2048)
+    raw = _claude(judge_prompt, max_tokens=4096)
     rankings, summary, market_outlook = _parse_judge(raw, tech_list)
 
     return {
