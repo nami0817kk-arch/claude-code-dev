@@ -207,7 +207,7 @@ _JUDGE_FORMAT_NEWS = """
       "stars": "★★★★★",
       "confidence": 85,
       "reason": "テクニカル・ファンダメンタル・市場環境を踏まえた推奨理由を1文で簡潔に",
-      "news_basis": "選定の根拠となったニュース見出しを1〜2件、出典付きで記載（例: 【株探】決算上方修正を発表）"
+      "news_basis": "提供データ内の実際のニュース見出しのみ記載。関連ニュースがない銘柄は必ず空欄\"\"にすること。推測・要約・捏造禁止"
     }}
   ],
   "summary": "市場環境と銘柄全体を踏まえた総評を2文以内で",
@@ -350,6 +350,7 @@ def pick_from_news(market: str | None = None, top_n: int = 20) -> dict:
 {tech_text}
 
 【銘柄別ニュース（タイトル/概要）】
+※ 「関連ニュースなし」の銘柄は news_basis を必ず空欄にすること
 {news_text2}
 
 【評価の優先順位】
@@ -358,6 +359,11 @@ def pick_from_news(market: str | None = None, top_n: int = 20) -> dict:
 3. ニュースのポジティブ/ネガティブ度
 4. 市場センチメントとの整合性
 5. 過去実績データで成績の良い条件パターン
+
+【news_basis の記載ルール（厳守）】
+・上記【銘柄別ニュース】に記載された実際のニュース見出しのみ引用すること
+・「関連ニュースなし」の銘柄は news_basis を空欄（""）にすること
+・ニュースの推測・要約・補足・捏造は一切禁止
 {_JUDGE_FORMAT_NEWS.format(top_n=top_n)}"""
 
     raw = _claude(judge_prompt, max_tokens=8192)
@@ -642,8 +648,10 @@ def pick_from_youtube(market: str | None = None, top_n: int = 15) -> dict:
 4. 市場センチメント（VIX・Fear&Greed）との整合性
 
 【news_basis の記載ルール（厳守）】
-・YouTube言及銘柄のみ: どの動画タイトルのどのテーマと関連するかを具体的に記載
-・補完銘柄: news_basis は必ず空欄（""）にすること。YouTube情報を推測・捏造しないこと
+・YouTube言及銘柄のみ: 上記【参考にしたYouTube動画タイトル】から該当する動画タイトルをそのまま引用すること
+・補完銘柄: news_basis は必ず空欄（""）にすること
+・「〜として言及される見込み」「〜と関連すると考えられる」等の推測表現は禁止
+・提供された動画タイトル以外の情報を作らないこと
 
 【reason 欄に必ず含めること】
 ・テクニカルのエントリータイミング
