@@ -148,7 +148,10 @@ def _extract_json_obj(text: str) -> dict | None:
                     try:
                         return json.loads(text[start:i + 1])
                     except json.JSONDecodeError:
-                        return None
+                        try:
+                            return json.loads(text[start:i + 1], strict=False)
+                        except json.JSONDecodeError:
+                            return None
     return None
 
 

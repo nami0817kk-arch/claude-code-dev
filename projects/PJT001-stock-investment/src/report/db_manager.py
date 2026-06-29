@@ -92,6 +92,8 @@ def save_recommendations(result: dict, _wb=None):
            [RSI14],[MACD方向],[SMA20比],[BB位置])
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """
+    if not rows:
+        return
     with _connect() as con:
         cur = con.cursor()
         cur.executemany(sql, rows)
