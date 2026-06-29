@@ -562,17 +562,22 @@ def pick_from_youtube(market: str | None = None, top_n: int = 15) -> dict:
     print("  [Step1] Claude がYouTube動画から候補銘柄を抽出中...")
     raw = _claude(extract_prompt, max_tokens=512)
     data = _extract_json_obj(raw)
-    tickers = data.get("tickers", []) if data else []
+    yt_tickers = data.get("tickers", []) if data else []  # YouTube動画から直接抽出した銘柄
 
-    # 不足分をウォッチリストで補完
+    # 不足分をウォッチリストで補完（補完銘柄を別リストで管理）
+    tickers = list(yt_tickers)
+    supplemented = []
     all_tickers = wl["ticker"].tolist()
     for t in all_tickers:
         if t not in tickers:
             tickers.append(t)
+            supplemented.append(t)
         if len(tickers) >= top_n:
             break
 
-    print(f"  [Step1] 候補 {len(tickers)} 件: {', '.join(tickers)}")
+    yt_ticker_set = set(yt_tickers)
+    print(f"  [Step1] YouTube言及: {len(yt_tickers)} 件, 補完: {len(supplemented)} 件")
+    print(f"  [Step1] 候補計 {len(tickers)} 件: {', '.join(tickers)}")
 
     # Step2: テクニカル + ファンダメンタル分析
     print("  [Step2] テクニカル・ファンダメンタル分析中...")
@@ -582,6 +587,7 @@ def pick_from_youtube(market: str | None = None, top_n: int = 15) -> dict:
         if s:
             name = wl[wl["ticker"] == t]["name"].values
             s["name"] = name[0] if len(name) else t
+            s["yt_mentioned"] = t in yt_ticker_set  # YouTube言及フラグ
             tech_list.append(s)
 
     fund_map = {}
@@ -599,6 +605,16 @@ def pick_from_youtube(market: str | None = None, top_n: int = 15) -> dict:
     print("  [Step4] Claude がYouTube動画起点で総合判定中...")
     tech_text = _build_tech_text(tech_list, fund_map)
 
+    # YouTube言及銘柄と補完銘柄を明示
+    yt_mentioned_names = [
+        f"{t}({wl[wl['ticker']==t]['name'].values[0] if len(wl[wl['ticker']==t]) else t})"
+        for t in yt_tickers
+    ]
+    supplemented_names = [
+        f"{t}({wl[wl['ticker']==t]['name'].values[0] if len(wl[wl['ticker']==t]) else t})"
+        for t in supplemented
+    ]
+
     judge_prompt = f"""あなたは株式投資アナリストです。
 【戦略】以下のYouTube動画（投資系チャンネル）で取り上げられているテーマ・銘柄をもとに、
 テクニカル・ファンダメンタルを総合して投資推奨ランキングを作成してください。
@@ -609,6 +625,13 @@ def pick_from_youtube(market: str | None = None, top_n: int = 15) -> dict:
 【参考にしたYouTube動画タイトル】
 {yt_text}
 
+【銘柄の区分】
+■ YouTube動画で言及・関連する銘柄（news_basis にYouTube情報を記載してよい）:
+  {', '.join(yt_mentioned_names) if yt_mentioned_names else 'なし'}
+
+■ ウォッチリストから補完した銘柄（YouTube動画での言及なし。news_basis は空欄にすること）:
+  {', '.join(supplemented_names) if supplemented_names else 'なし'}
+
 【テクニカル + ファンダメンタルデータ】
 {tech_text}
 
@@ -618,8 +641,11 @@ def pick_from_youtube(market: str | None = None, top_n: int = 15) -> dict:
 3. ファンダメンタル（売上成長率、ROE、PER割安）
 4. 市場センチメント（VIX・Fear&Greed）との整合性
 
+【news_basis の記載ルール（厳守）】
+・YouTube言及銘柄のみ: どの動画タイトルのどのテーマと関連するかを具体的に記載
+・補完銘柄: news_basis は必ず空欄（""）にすること。YouTube情報を推測・捏造しないこと
+
 【reason 欄に必ず含めること】
-・どのYouTube動画のどのテーマと関連しているか
 ・テクニカルのエントリータイミング
 ・スイング目標（SMA20や直近高値まで何%）と損切り目安
 
