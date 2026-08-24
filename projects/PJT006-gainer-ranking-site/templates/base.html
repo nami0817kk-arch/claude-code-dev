@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}値上がり株ランキング{% endblock %}</title>
+<meta name="description" content="{% block description %}日本株の値上がり率ランキングを毎日更新して掲載しています。{% endblock %}">
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --card-bg: #ffffff;
+    --text: #1a1a1a;
+    --muted: #6b7280;
+    --accent: #d64545;
+    --border: #e5e7eb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  header.site-header {
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem;
+  }
+  header.site-header .inner {
+    max-width: 800px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  header.site-header a.logo {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: var(--text);
+    text-decoration: none;
+  }
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    margin-left: 1rem;
+    font-size: 0.9rem;
+  }
+  nav a:hover { color: var(--accent); }
+  main {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem;
+  }
+  .ad-slot {
+    max-width: 800px;
+    margin: 1rem auto;
+    padding: 0.5rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.75rem;
+    border: 1px dashed var(--border);
+  }
+  table.ranking {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card-bg);
+    font-size: 0.9rem;
+  }
+  table.ranking th, table.ranking td {
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+  }
+  table.ranking th:nth-child(2), table.ranking td:nth-child(2),
+  table.ranking th:nth-child(3), table.ranking td:nth-child(3) {
+    text-align: left;
+  }
+  table.ranking th { color: var(--muted); font-weight: normal; }
+  table.ranking td.gain { color: var(--accent); font-weight: bold; }
+  .archive-list a {
+    display: block;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    text-decoration: none;
+  }
+  .disclaimer {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: #fff8e1;
+    border: 1px solid #f0e0a0;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  footer {
+    max-width: 800px;
+    margin: 2rem auto 1rem;
+    padding: 1rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+  }
+  footer a { color: var(--muted); margin: 0 0.5rem; }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="inner">
+    <a class="logo" href="{{ base_url }}index.html">値上がり株ランキング</a>
+    <nav>
+      <a href="{{ base_url }}index.html">本日</a>
+      <a href="{{ base_url }}archive/index.html">過去のランキング</a>
+      <a href="{{ base_url }}about.html">このサイトについて</a>
+    </nav>
+  </div>
+</header>
+
+<!-- TODO: AdSense publisher ID を取得後、下記コメントアウトを外して設置する
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+-->
+<div class="ad-slot">
+  <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="0000000000" data-ad-format="auto"></ins>
+  <!-- 広告枠（AdSense審査通過後に有効化） -->
+</div>
+
+<main>
+{% block content %}{% endblock %}
+
+<div class="disclaimer">
+  本サイトに掲載する情報は投資判断の参考となる一般的な情報の提供を目的としており、
+  特定の銘柄の売買を推奨または勧誘するものではありません。掲載データの正確性・完全性を
+  保証するものではなく、投資に関する最終判断はご自身の責任で行ってください。
+  詳しくは<a href="{{ base_url }}about.html">このサイトについて</a>をご覧ください。
+</div>
+</main>
+
+<footer>
+  <a href="{{ base_url }}about.html">このサイトについて</a>
+  <a href="{{ base_url }}privacy.html">プライバシーポリシー</a>
+</footer>
+</body>
+</html>

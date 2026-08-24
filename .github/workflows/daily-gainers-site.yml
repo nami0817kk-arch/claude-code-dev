@@ -1,0 +1,66 @@
+name: Daily Gainers Site
+
+on:
+  schedule:
+    # 16:00 JST（東証大引け15:30後）= 07:00 UTC、平日のみ
+    - cron: "0 7 * * 1-5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+env:
+  PROJECT_DIR: projects/PJT006-gainer-ranking-site
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r ${{ env.PROJECT_DIR }}/requirements.txt
+
+      - name: Build site
+        run: python src/build_site.py
+        working-directory: ${{ env.PROJECT_DIR }}
+
+      - name: Commit ranking data if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${{ env.PROJECT_DIR }}/data"
+          if git diff --cached --quiet; then
+            echo "No new ranking data to commit."
+          else
+            git commit -m "chore: 値上がりランキングデータを更新"
+            git push
+          fi
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.PROJECT_DIR }}/output
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

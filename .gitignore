@@ -36,3 +36,6 @@ npm-debug.log*
 *.log
 tmp/
 temp/
+
+# PJT006 ビルド成果物（CI実行のたびに再生成）
+projects/PJT006-gainer-ranking-site/output/

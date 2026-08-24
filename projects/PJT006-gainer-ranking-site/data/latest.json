@@ -1,0 +1,245 @@
+{
+  "rec_date": "2026-08-24",
+  "rows": [
+    {
+      "rank": 1,
+      "code": "4170",
+      "name": "Ｋａｉｚｅｎ　Ｐｌａｔｆｏｒｍ",
+      "close": 172.0,
+      "gain_pct": 40.98,
+      "volume": 20894300
+    },
+    {
+      "rank": 2,
+      "code": "9444",
+      "name": "トーシンホールディングス",
+      "close": 319.0,
+      "gain_pct": 19.03,
+      "volume": 420900
+    },
+    {
+      "rank": 3,
+      "code": "4199",
+      "name": "ワンダープラネット",
+      "close": 958.0,
+      "gain_pct": 18.56,
+      "volume": 120900
+    },
+    {
+      "rank": 4,
+      "code": "9115",
+      "name": "明海グループ",
+      "close": 1327.0,
+      "gain_pct": 17.54,
+      "volume": 426100
+    },
+    {
+      "rank": 5,
+      "code": "6647",
+      "name": "森尾電機",
+      "close": 3740.0,
+      "gain_pct": 14.37,
+      "volume": 22900
+    },
+    {
+      "rank": 6,
+      "code": "4588",
+      "name": "オンコリスバイオファーマ",
+      "close": 3835.0,
+      "gain_pct": 13.46,
+      "volume": 2148500
+    },
+    {
+      "rank": 7,
+      "code": "6085",
+      "name": "アーキテクツ・スタジオ・ジャパン",
+      "close": 137.0,
+      "gain_pct": 12.3,
+      "volume": 28501300
+    },
+    {
+      "rank": 8,
+      "code": "5998",
+      "name": "アドバネクス",
+      "close": 2611.0,
+      "gain_pct": 11.87,
+      "volume": 76900
+    },
+    {
+      "rank": 9,
+      "code": "6613",
+      "name": "ＱＤレーザ",
+      "close": 2330.0,
+      "gain_pct": 10.95,
+      "volume": 5490200
+    },
+    {
+      "rank": 10,
+      "code": "6574",
+      "name": "コンヴァノ",
+      "close": 126.0,
+      "gain_pct": 10.53,
+      "volume": 14444900
+    },
+    {
+      "rank": 11,
+      "code": "8237",
+      "name": "松屋",
+      "close": 2702.0,
+      "gain_pct": 10.29,
+      "volume": 801000
+    },
+    {
+      "rank": 12,
+      "code": "8918",
+      "name": "ランド",
+      "close": 11.0,
+      "gain_pct": 10.0,
+      "volume": 356975900
+    },
+    {
+      "rank": 13,
+      "code": "6045",
+      "name": "レントラックス",
+      "close": 2277.0,
+      "gain_pct": 9.68,
+      "volume": 113200
+    },
+    {
+      "rank": 14,
+      "code": "6580",
+      "name": "ライトアップ",
+      "close": 974.0,
+      "gain_pct": 8.83,
+      "volume": 106900
+    },
+    {
+      "rank": 15,
+      "code": "6570",
+      "name": "共和コーポレーション",
+      "close": 4220.0,
+      "gain_pct": 8.76,
+      "volume": 154600
+    },
+    {
+      "rank": 16,
+      "code": "4380",
+      "name": "Ｍマート",
+      "close": 720.0,
+      "gain_pct": 8.27,
+      "volume": 24300
+    },
+    {
+      "rank": 17,
+      "code": "5724",
+      "name": "アサカ理研",
+      "close": 3060.0,
+      "gain_pct": 7.97,
+      "volume": 285500
+    },
+    {
+      "rank": 18,
+      "code": "7719",
+      "name": "東京衡機",
+      "close": 504.0,
+      "gain_pct": 7.92,
+      "volume": 1765400
+    },
+    {
+      "rank": 19,
+      "code": "6276",
+      "name": "シリウスビジョン",
+      "close": 394.0,
+      "gain_pct": 7.65,
+      "volume": 366700
+    },
+    {
+      "rank": 20,
+      "code": "7878",
+      "name": "光・彩",
+      "close": 1469.0,
+      "gain_pct": 7.54,
+      "volume": 10700
+    },
+    {
+      "rank": 21,
+      "code": "5253",
+      "name": "カバー",
+      "close": 1613.0,
+      "gain_pct": 7.46,
+      "volume": 2173500
+    },
+    {
+      "rank": 22,
+      "code": "9237",
+      "name": "笑美面",
+      "close": 965.0,
+      "gain_pct": 7.34,
+      "volume": 29400
+    },
+    {
+      "rank": 23,
+      "code": "5971",
+      "name": "共和工業所",
+      "close": 8390.0,
+      "gain_pct": 7.29,
+      "volume": 2100
+    },
+    {
+      "rank": 24,
+      "code": "6330",
+      "name": "東洋エンジニアリング",
+      "close": 2496.0,
+      "gain_pct": 7.22,
+      "volume": 4200800
+    },
+    {
+      "rank": 25,
+      "code": "3747",
+      "name": "インタートレード",
+      "close": 480.0,
+      "gain_pct": 7.14,
+      "volume": 233400
+    },
+    {
+      "rank": 26,
+      "code": "2814",
+      "name": "佐藤食品工業",
+      "close": 3700.0,
+      "gain_pct": 7.09,
+      "volume": 8700
+    },
+    {
+      "rank": 27,
+      "code": "5713",
+      "name": "住友金属鉱山",
+      "close": 11475.0,
+      "gain_pct": 6.64,
+      "volume": 5590200
+    },
+    {
+      "rank": 28,
+      "code": "6305",
+      "name": "日立建機",
+      "close": 6005.0,
+      "gain_pct": 6.4,
+      "volume": 6328700
+    },
+    {
+      "rank": 29,
+      "code": "2737",
+      "name": "トーメンデバイス",
+      "close": 30150.0,
+      "gain_pct": 6.35,
+      "volume": 146600
+    },
+    {
+      "rank": 30,
+      "code": "3647",
+      "name": "アスリナ",
+      "close": 123.0,
+      "gain_pct": 6.03,
+      "volume": 460400
+    }
+  ]
+}

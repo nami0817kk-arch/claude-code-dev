@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ rec_date }} 値上がり株ランキング TOP{{ rows|length }}｜値上がり株ランキング{% endblock %}
+{% block description %}{{ rec_date }}時点の日本株・値上がり率ランキング TOP{{ rows|length }}を掲載。{% endblock %}
+{% block content %}
+<h1>本日の値上がり株ランキング</h1>
+<p>更新日: {{ rec_date }}（東証プライム・スタンダード・グロース全市場対象）</p>
+{% include "_ranking_table.html" %}
+<p><a href="{{ base_url }}archive/index.html">過去のランキングを見る →</a></p>
+{% endblock %}
