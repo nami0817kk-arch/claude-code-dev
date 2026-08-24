@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}{{ rec_date }} 値上がり株ランキング｜値上がり株ランキング{% endblock %}
+{% block description %}{{ rec_date }}時点の日本株・値上がり率ランキングのアーカイブ。{% endblock %}
+{% block content %}
+<h1>{{ rec_date }} の値上がり株ランキング</h1>
+{% include "_ranking_table.html" %}
+<p><a href="index.html">← 過去のランキング一覧に戻る</a></p>
+{% endblock %}
