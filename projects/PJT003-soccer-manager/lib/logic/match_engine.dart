@@ -49,6 +49,24 @@ enum ChanceDecision { shoot, pass, longShot, aggressiveTackle, coverSpace }
 /// [PendingChanceDecision]が攻撃側の決定機か守備側の決定機かを表す。
 enum ChanceContext { attack, defense }
 
+/// 試合中いつでも変更できる、自クラブの大まかな采配方針。個別の決定機
+/// (シュート/パス等)とは独立して、以降の全ての決定機の成功率に反映される。
+enum MatchInstruction { balanced, aggressive, cautious }
+
+extension MatchInstructionLabel on MatchInstruction {
+  String get label => switch (this) {
+        MatchInstruction.balanced => '通常',
+        MatchInstruction.aggressive => 'リスクを取る',
+        MatchInstruction.cautious => '安全に下がる',
+      };
+
+  String get description => switch (this) {
+        MatchInstruction.balanced => '標準的なバランスで戦う',
+        MatchInstruction.aggressive => '攻撃の成功率が上がるが、守備の負担も増える',
+        MatchInstruction.cautious => '守備は安定するが、攻撃の迫力は落ちる',
+      };
+}
+
 /// オープンプレーの決定機で、ユーザーチームに判断を求めるための情報。
 /// [context]が[ChanceContext.attack]の場合はシュート/パス/ロングシュートを
 /// (各選択肢の成功率を[shootChance]/[passChance]/[longShotChance]として
@@ -132,6 +150,10 @@ class InteractiveHalfState {
   PendingChanceDecision? pending;
   // pending解決に必要な文脈(次のresolvePendingChance呼び出しでのみ使う)。
   bool? pendingIsHomeChance;
+
+  /// 自クラブの現在の采配方針。[MatchEngine.setInstruction]でいつでも
+  /// 変更でき、以降に生成される決定機の成功率へ反映される。
+  MatchInstruction instruction = MatchInstruction.balanced;
 
   /// 直近の[MatchEngine.resolvePendingChance]呼び出しで、この決定機の結果
   /// として実際に発生したイベント(得点・惜しいチャンス・カード)。何も
@@ -1617,6 +1639,43 @@ class MatchEngine {
   /// 積極的にタックルへ行った際に警告(まれに退場)を受ける基礎確率。
   static const double _aggressiveTackleCardChance = 0.16;
 
+  /// 「リスクを取る」采配時に、自クラブの攻撃側決定機の各成功率へ乗じる倍率。
+  static const double _aggressiveInstructionAttackMultiplier = 1.10;
+
+  /// 「リスクを取る」采配時に、自クラブの守備側決定機で相手に献上する
+  /// 成功率へ乗じる倍率(前掛かりになる分、守備の負担が増える)。
+  static const double _aggressiveInstructionDefenseMultiplier = 1.12;
+
+  /// 「安全に下がる」采配時に、自クラブの攻撃側決定機の各成功率へ乗じる倍率。
+  static const double _cautiousInstructionAttackMultiplier = 0.90;
+
+  /// 「安全に下がる」采配時に、自クラブの守備側決定機で相手に献上する
+  /// 成功率へ乗じる倍率(態勢を整える分、守備が安定する)。
+  static const double _cautiousInstructionDefenseMultiplier = 0.88;
+
+  static double _attackInstructionMultiplier(MatchInstruction instruction) =>
+      switch (instruction) {
+        MatchInstruction.aggressive => _aggressiveInstructionAttackMultiplier,
+        MatchInstruction.cautious => _cautiousInstructionAttackMultiplier,
+        MatchInstruction.balanced => 1.0,
+      };
+
+  static double _defenseInstructionMultiplier(MatchInstruction instruction) =>
+      switch (instruction) {
+        MatchInstruction.aggressive => _aggressiveInstructionDefenseMultiplier,
+        MatchInstruction.cautious => _cautiousInstructionDefenseMultiplier,
+        MatchInstruction.balanced => 1.0,
+      };
+
+  /// 自クラブの現在の采配方針を変更する。試合中いつでも呼び出せ、
+  /// 次に生成される決定機から反映される。
+  static void setInstruction(
+    InteractiveHalfState state,
+    MatchInstruction instruction,
+  ) {
+    state.instruction = instruction;
+  }
+
   /// [simulateMinutes]と同じ区間シミュレーションのセットアップ(カード生成・
   /// チャンス発生分の抽選・攻守力算出)を行い、チャンス評価に進む前の
   /// [InteractiveHalfState]を返す。呼び出し直後に内部で最初のチャンス評価まで
@@ -1917,18 +1976,22 @@ class MatchEngine {
             attackingLineup,
             excludeId: scorer?.id,
           );
+          final attackMult = _attackInstructionMultiplier(s.instruction);
           s.pending = PendingChanceDecision.attack(
             minute: minute,
             shooter: scorer!,
             passTarget: passTarget,
-            shootChance: _applyFinisherQuality(scoreProb, scorer).clamp(
+            shootChance:
+                (_applyFinisherQuality(scoreProb, scorer) * attackMult).clamp(
               0.0,
               1.0,
             ),
             passChance: passTarget != null
-                ? _applyFinisherQuality(scoreProb, passTarget).clamp(0.0, 1.0)
+                ? (_applyFinisherQuality(scoreProb, passTarget) * attackMult)
+                    .clamp(0.0, 1.0)
                 : null,
-            longShotChance: _applyLongShotQuality(scoreProb, scorer).clamp(
+            longShotChance:
+                (_applyLongShotQuality(scoreProb, scorer) * attackMult).clamp(
               0.0,
               1.0,
             ),
@@ -1940,12 +2003,15 @@ class MatchEngine {
           // 自クラブの守備側決定機: 積極的にタックルに行くか、カバーリングに
           // 専念するかを選べる(相手の得点成功率が変わる)。
           final baseAgainst = _applyFinisherQuality(scoreProb, scorer);
+          final defenseMult = _defenseInstructionMultiplier(s.instruction);
           s.pending = PendingChanceDecision.defense(
             minute: minute,
             attacker: scorer!,
             aggressiveChanceAgainst:
-                (baseAgainst * _aggressiveTackleReduction).clamp(0.0, 1.0),
-            safeChanceAgainst: (baseAgainst * _coverSpaceReduction).clamp(
+                (baseAgainst * _aggressiveTackleReduction * defenseMult)
+                    .clamp(0.0, 1.0),
+            safeChanceAgainst:
+                (baseAgainst * _coverSpaceReduction * defenseMult).clamp(
               0.0,
               1.0,
             ),

@@ -87,6 +87,10 @@ String matchCommentaryText(MatchEvent event, String teamName) {
           '$assistの絶妙なクロスに$scorerが合わせた！$teamNameが加点！',
           '$assistからのパスを受けた$scorerが冷静に決めた！',
           '$scorer、$assistとの見事なコンビネーションでゴール！',
+          '$assistが作った決定機を$scorerが確実に仕留める！',
+          '$teamNameお得意の形！$assistのお膳立てに$scorerが応えた！',
+          '一瞬の隙を突いた$assistのパス、$scorerが逃さず沈める！',
+          '$scorerと$assistの息の合った崩しから$teamNameが突き放す！',
         ];
       } else {
         templates = [
@@ -94,6 +98,10 @@ String matchCommentaryText(MatchEvent event, String teamName) {
           '$scorerが冷静にゴールを射抜く！$teamNameに勢いが生まれる！',
           '$teamNameのチャンス、こぼれ球を$scorerが押し込んだ！',
           '$scorer、値千金の一撃！$teamNameが加点！',
+          '$scorer、個の力でねじ込んだ！$teamNameスタンドが沸く！',
+          '誰も予想しなかった一撃、$scorerが決めた！',
+          '$teamName会心の攻撃！$scorerが仕留めた！',
+          '$scorer、執念のゴール！$teamNameに流れを引き寄せる一撃！',
         ];
       }
       break;
@@ -103,6 +111,9 @@ String matchCommentaryText(MatchEvent event, String teamName) {
         '$scorer、惜しい！ポストに嫌われた！',
         '$teamName、$scorerのシュートは決めきれず。',
         '$scorerのシュートはわずかに枠の外へ…',
+        '$teamNameに決定機！$scorerが放つもGKの正面…',
+        '$scorer渾身の一撃、クロスバーに跳ね返される！',
+        '惜しい！$scorerのシュートはブロックに阻まれた。',
       ];
       break;
     case MatchEventType.yellowCard:
@@ -110,6 +121,8 @@ String matchCommentaryText(MatchEvent event, String teamName) {
         '$scorerに主審からイエローカード。$teamNameは規律が問われる場面。',
         '$scorer、荒いプレーで警告を受ける。',
         '$teamNameの$scorerにカード提示。',
+        '$scorer、抗議のあまり警告を受けてしまう。',
+        '際どいタックルの$scorerに主審が笛、イエローが提示される。',
       ];
       break;
     case MatchEventType.redCard:
@@ -117,6 +130,8 @@ String matchCommentaryText(MatchEvent event, String teamName) {
         '$scorerに一発退場が言い渡された！$teamNameは数的不利に…',
         '$scorer、看過できないプレーで退場処分！',
         '$teamNameにとって痛恨の退場、$scorerがピッチを去る。',
+        'まさかの一発レッド！$scorerが涙のピッチ退場。',
+        '$scorer、この試合最大の誤算…退場でチームに大きな痛手。',
       ];
       break;
   }

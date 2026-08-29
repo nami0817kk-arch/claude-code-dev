@@ -2330,6 +2330,21 @@ class GameState extends ChangeNotifier {
   PendingChanceDecision? get pendingChanceDecision =>
       _liveSecondHalfState?.pending ?? _liveFirstHalfState?.pending;
 
+  /// 自クラブの試合中の現在の采配方針(既定は通常)。
+  MatchInstruction get currentMatchInstruction =>
+      (_liveSecondHalfState ?? _liveFirstHalfState)?.instruction ??
+      MatchInstruction.balanced;
+
+  /// 自クラブの試合中の采配方針を変更する。試合中いつでも呼べ、以降に
+  /// 生成される決定機の成功率へ反映される(ハーフタイム待ち・試合終了後は
+  /// 進行中のハーフが存在しないため何もしない)。
+  void setMatchInstruction(MatchInstruction instruction) {
+    final state = _liveSecondHalfState ?? _liveFirstHalfState;
+    if (state == null || state.isFinished) return;
+    MatchEngine.setInstruction(state, instruction);
+    notifyListeners();
+  }
+
   int get substitutionsUsed => _liveSubstitutionsUsed;
   bool get canMakeSubstitution =>
       _liveSubstitutionsUsed < maxSubstitutionsPerMatch;

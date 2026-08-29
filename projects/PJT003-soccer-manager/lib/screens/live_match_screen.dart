@@ -267,6 +267,53 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
     return '$label(相手$pct)→ 攻撃を防いだ!';
   }
 
+  /// AppBarに表示する采配方針ボタン。現在の方針をラベル表示し、タップで
+  /// 変更ダイアログを開く(通常/リスクを取る/安全に下がる)。
+  Widget _buildInstructionAction(GameState gameState) {
+    final current = gameState.currentMatchInstruction;
+    return TextButton.icon(
+      onPressed: () => _showInstructionDialog(gameState),
+      icon: const Icon(Icons.campaign, color: Colors.white),
+      label: Text(current.label, style: const TextStyle(color: Colors.white)),
+    );
+  }
+
+  Future<void> _showInstructionDialog(GameState gameState) async {
+    final current = gameState.currentMatchInstruction;
+    final choice = await showDialog<MatchInstruction>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('采配方針'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: MatchInstruction.values
+              .map(
+                (instruction) => ListTile(
+                  leading: Icon(
+                    instruction == current
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                  ),
+                  title: Text(instruction.label),
+                  subtitle: Text(instruction.description),
+                  onTap: () => Navigator.pop(ctx, instruction),
+                ),
+              )
+              .toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
+    );
+    if (choice != null && mounted) {
+      gameState.setMatchInstruction(choice);
+    }
+  }
+
   void _handleEvent(MatchEvent e) {
     setState(() => _revealed.add(e));
     if (e.type == MatchEventType.goal) {
@@ -310,6 +357,9 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
       appBar: AppBar(
         title: Text('第$matchday節'),
         automaticallyImplyLeading: false,
+        actions: (_phase == _Phase.firstHalf || _phase == _Phase.secondHalf)
+            ? [_buildInstructionAction(gameState)]
+            : null,
       ),
       body: _phase == _Phase.halfTime
           ? _HalfTimePanel(

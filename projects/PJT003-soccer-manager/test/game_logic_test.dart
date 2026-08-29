@@ -1726,6 +1726,70 @@ void main() {
   });
 
   test(
+      'MatchEngine.setInstruction(aggressive) raises the average attacking '
+      'success chance offered in PendingChanceDecision.attack compared to '
+      'cautious, across many interactive halves', () {
+    final home = PlayerGenerator.generateSquad(
+        id: 'insh', name: 'Instruction Home FC', strengthTier: 60);
+    final away = PlayerGenerator.generateSquad(
+        id: 'insa', name: 'Instruction Away FC', strengthTier: 60);
+    LineupUtils.autoFill(home);
+    LineupUtils.autoFill(away);
+
+    double averageShootChanceFor(MatchInstruction instruction) {
+      var sum = 0.0;
+      var count = 0;
+      for (int i = 0; i < 150; i++) {
+        final state = MatchEngine.beginInteractiveHalf(
+          home: home,
+          away: away,
+          startMinute: 1,
+          endMinute: 45,
+          interactiveTeamId: home.id,
+        );
+        MatchEngine.setInstruction(state, instruction);
+        while (!state.isFinished) {
+          final pending = state.pending!;
+          if (pending.context == ChanceContext.attack) {
+            sum += pending.shootChance!;
+            count++;
+            MatchEngine.resolvePendingChance(state, ChanceDecision.shoot);
+          } else {
+            MatchEngine.resolvePendingChance(state, ChanceDecision.coverSpace);
+          }
+        }
+      }
+      expect(count, greaterThan(0));
+      return sum / count;
+    }
+
+    final aggressiveAvg = averageShootChanceFor(MatchInstruction.aggressive);
+    final cautiousAvg = averageShootChanceFor(MatchInstruction.cautious);
+    expect(aggressiveAvg, greaterThan(cautiousAvg));
+  });
+
+  test(
+      'GameState.setMatchInstruction changes currentMatchInstruction for the '
+      'live half in progress, and has no effect before any match is live',
+      () async {
+    final gameState = GameState();
+    await gameState.startNewGame('テストFC');
+    expect(gameState.currentMatchInstruction, MatchInstruction.balanced);
+
+    // 進行中のハーフが存在しない間は変更しても既定のままとなる。
+    gameState.setMatchInstruction(MatchInstruction.aggressive);
+    expect(gameState.currentMatchInstruction, MatchInstruction.balanced);
+
+    await gameState.playNextMatchday(interactive: true);
+    gameState.setMatchInstruction(MatchInstruction.aggressive);
+    expect(gameState.currentMatchInstruction, MatchInstruction.aggressive);
+
+    while (gameState.pendingChanceDecision != null) {
+      await gameState.resolveChanceDecision(ChanceDecision.shoot);
+    }
+  });
+
+  test(
       'GameState.playNextMatchday stops at half-time for the user fixture; playSecondHalf finalizes it',
       () async {
     final gameState = GameState();
