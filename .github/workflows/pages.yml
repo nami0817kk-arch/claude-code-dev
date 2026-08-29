@@ -1,57 +1,93 @@
-# ツールサイト（PJT005）を GitHub Pages に公開する。
+# サイト全体を GitHub Pages に公開する。
 #
-# 使う前に GitHub 側で1度だけ設定が要る:
-#   リポジトリの Settings → Pages → Build and deployment → Source を
-#   「GitHub Actions」に変更する。
+# GitHub Pages はリポジトリにつき1つしかデプロイできないため、
+# 公開するものはこのワークフロー1本にまとめる。
+# 別々のワークフローに分けると、後に走ったほうが前のサイトを丸ごと置き換えてしまう。
 #
-# 公開URLは https://<ユーザー名>.github.io/<リポジトリ名>/ になる。
-# projects/PJT005-tool-factory/site.json の base_url をこのURLに合わせておくこと
-# （canonical と sitemap.xml に使われる）。
-name: ツールサイトを公開する
+#   /soccer-manager/  サッカーゲーム（Flutter Web）
+#   /tools/           生産管理の計算ツール（静的サイト）
+#
+# どちらか一方の変更で起動した場合でも、成果物は毎回すべて作り直す。
+# 片方だけをアップロードすると、もう片方がサイトから消えるため。
+name: サイトを公開する
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master
+      - main
     paths:
+      - "projects/PJT003-soccer-manager/**"
       - "projects/PJT005-tool-factory/**"
       - ".github/workflows/pages.yml"
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# 公開は同時に1つだけ走らせる。走行中のものは止めない。
 concurrency:
-  group: pages
+  group: "pages"
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: projects/PJT005-tool-factory
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      # ── サッカーゲーム（Flutter Web） ──────────────────
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        working-directory: projects/PJT003-soccer-manager
+        run: flutter pub get
+
+      - name: Run tests
+        working-directory: projects/PJT003-soccer-manager
+        run: flutter test
+
+      - name: Build web
+        working-directory: projects/PJT003-soccer-manager
+        run: flutter build web --release --base-href "/claude-code-dev/soccer-manager/"
+
+      # ── 計算ツール（静的サイト） ────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # 収益導線の無いツールや壊れた定義があれば、ここで止める
-      - name: テスト
+      # 収益導線の無いツールや壊れた定義があれば、ここで止まる
+      - name: Test tools
+        working-directory: projects/PJT005-tool-factory
         run: python -m unittest discover -s tests
 
-      - name: ビルド
+      - name: Build tools
+        working-directory: projects/PJT005-tool-factory
         run: python build.py
 
-      - uses: actions/configure-pages@v5
+      # ── まとめてアップロードする ──────────────────────
+      - name: Assemble Pages artifact
+        run: |
+          mkdir -p dist/soccer-manager/legal dist/tools
+          cp -r projects/PJT003-soccer-manager/build/web/* dist/soccer-manager/
+          cp projects/PJT003-soccer-manager/legal/*.html dist/soccer-manager/legal/
+          cp -r projects/PJT005-tool-factory/dist/* dist/tools/
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
         with:
-          path: projects/PJT005-tool-factory/dist
+          enablement: true
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
 
   deploy:
     needs: build
@@ -60,5 +96,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - id: deployment
+      - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4

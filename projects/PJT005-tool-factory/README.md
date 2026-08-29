@@ -93,19 +93,28 @@ TOOL = Tool(
 
 ### GitHub Pages に自動公開する
 
-`.github/workflows/pages.yml` を用意してある。`master` に push すると、
-テスト → ビルド → 公開まで自動で走る。
+リポジトリ直下の `.github/workflows/pages.yml` が、`master` への push で
+テスト → ビルド → 公開まで自動で実行する。設定済みなので、追加の作業は不要。
 
-**GitHub 側で1度だけ設定が要る。**
-
-1. リポジトリの **Settings → Pages → Build and deployment → Source** を
-   「**GitHub Actions**」に変更する
-2. 公開URL（`https://<ユーザー名>.github.io/<リポジトリ名>/`）を
-   `site.json` の `base_url` に設定する
-3. `master` に push する
+公開先は `https://<ユーザー名>.github.io/<リポジトリ名>/tools/`。
+`site.json` の `base_url` もこれに合わせてある。
 
 テストが落ちるとビルドされないので、収益導線の無いツールや壊れた定義が
 公開されることはない。
+
+**このワークフローはサイト全体を1本で扱う。**
+GitHub Pages はリポジトリにつき1つしかデプロイできないため、
+PJT003-soccer-manager と PJT005-tool-factory を同じワークフローで
+それぞれのサブディレクトリに配置している。
+
+```
+/soccer-manager/  サッカーゲーム（Flutter Web）
+/tools/           このプロジェクト
+```
+
+**ワークフローを分けてはいけない。** 別々にすると、後に走ったほうが
+前のサイトを丸ごと置き換えてしまう。同じ理由で、片方の変更で起動した場合でも
+両方をビルドしてアップロードしている。
 
 ### 手動で公開する場合
 
