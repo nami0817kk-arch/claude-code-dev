@@ -314,12 +314,19 @@ class TrainingEngine {
   /// applyWeeklyTrainingと同様に適用する。
   static const double passiveGrowthFactor = 0.4;
 
+  /// 若手(24歳未満)のCPU選手に適用する追加の成長係数。世代交代で入って
+  /// くる若手が現在能力の低いまま伸び悩むと、リーグ全体の平均戦力が
+  /// シーズンを追うごとに下がり続ける(長期実測で確認)ため、若いうちは
+  /// ユーザークラブの育成に近い速度でポテンシャルへ向かって成長させる。
+  static const double cpuYouthGrowthBonus = 2.5;
+
   static void applyPassiveCpuGrowth(Team team) {
     for (final p in team.players) {
       if (p.isLoanedOut) continue;
+      final youthBonus = p.age < 24 ? cpuYouthGrowthBonus : 1.0;
       if (p.position.group == PositionGroup.gk) {
         for (final k in AttributeKeys.goalkeeping) {
-          _grow(p, k, 0.5 * passiveGrowthFactor);
+          _grow(p, k, 0.5 * passiveGrowthFactor * youthBonus);
         }
       } else if (p.position.group == PositionGroup.def) {
         for (final k in [
@@ -328,7 +335,7 @@ class TrainingEngine {
           AttributeKeys.positioning,
           AttributeKeys.anticipation,
         ]) {
-          _grow(p, k, 0.5 * passiveGrowthFactor);
+          _grow(p, k, 0.5 * passiveGrowthFactor * youthBonus);
         }
       } else {
         for (final k in [
@@ -337,7 +344,7 @@ class TrainingEngine {
           AttributeKeys.dribbling,
           AttributeKeys.offTheBall,
         ]) {
-          _grow(p, k, 0.5 * passiveGrowthFactor);
+          _grow(p, k, 0.5 * passiveGrowthFactor * youthBonus);
         }
       }
       if (p.age >= _declineStartAge(p.growthType) &&

@@ -6538,8 +6538,11 @@ void main() {
     for (final r in retirees) {
       expect(team.players.any((p) => p.id == r.id), isFalse);
     }
-    final newYoungsters = team.players.where((p) => p.age < 25);
-    expect(newYoungsters.length, retirees.length);
+    // 補充選手は21〜27歳の若手〜即戦力。引退者の補充に加えて、30歳以上の
+    // 下位選手1〜2人も世代交代で入れ替わるため、若返った人数は
+    // 引退者数以上になる。
+    final recruits = team.players.where((p) => p.age >= 21 && p.age <= 27);
+    expect(recruits.length, greaterThanOrEqualTo(retirees.length));
   });
 
   test(
@@ -8820,5 +8823,47 @@ void main() {
           .length,
       greaterThanOrEqualTo(5),
     );
+  });
+
+  test(
+      'CPU squads keep a stable average rating across many seasons of '
+      'aging, retirement and passive growth (no long-term league deflation)',
+      () {
+    // かつては世代交代の補充選手が18歳前後(現在能力≈ポテンシャルの6割)で
+    // 生成されており、10シーズンでリーグ平均総合力が51→40まで下がる
+    // デフレを実測した。この回帰テストは「加齢+衰え+引退+世代交代+
+    // 受動的成長」を8シーズン分回しても平均戦力が大きく漸減/漸増しない
+    // ことを固定する。乱数依存のため複数チームの平均と広めの許容幅を使う。
+    double avgOverall(Team t) =>
+        t.players.map((p) => p.overall).reduce((a, b) => a + b) /
+        t.players.length;
+
+    const teamCount = 6;
+    const seasons = 8;
+    const weeksPerSeason = 38;
+    double initialSum = 0;
+    double finalSum = 0;
+    for (int i = 0; i < teamCount; i++) {
+      final team = PlayerGenerator.generateSquad(
+        id: 'cpuStab$i',
+        name: 'CPU安定$i FC',
+        strengthTier: 50,
+      );
+      initialSum += avgOverall(team);
+      for (int s = 0; s < seasons; s++) {
+        for (int w = 0; w < weeksPerSeason; w++) {
+          TrainingEngine.applyPassiveCpuGrowth(team);
+        }
+        for (final p in team.players) {
+          p.age += 1;
+        }
+        RetirementEngine.resolveAndReplaceForCpu(team);
+      }
+      finalSum += avgOverall(team);
+    }
+    final drift = (finalSum - initialSum) / teamCount;
+    expect(drift, greaterThan(-6.0),
+        reason: '8シーズンでCPU平均戦力が大きく下がる(リーグデフレ)のは退行');
+    expect(drift, lessThan(8.0), reason: '逆に大きく上がり続ける(インフレ)のも退行');
   });
 }

@@ -63,7 +63,13 @@ import '../logic/weather_engine.dart';
 import '../data/name_pool.dart';
 
 const int maxSquadSize = 26;
-const int minSquadSize = 12;
+
+/// スカッドの最低人数。放出・ローン放出はこの人数を割り込む操作を拒否し、
+/// 契約満了・ローン満了でこれを下回った場合はフリーエージェントで自動補充
+/// される。12だと負傷・出場停止が重なった際に11人を組めなくなる危険が
+/// あるため(長期実測で12人に張り付く状態を確認)、ベンチ要員を含めて
+/// 最低限回る16人とする。
+const int minSquadSize = 16;
 
 /// ライブ観戦できるカップ試合の種別。リーグ戦([GameState.playNextMatchday])
 /// と同じインタラクティブ進行を、どの大会の試合として開始するかを表す。
