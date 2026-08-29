@@ -294,11 +294,14 @@ class MatchEngine {
         return attr(AttributeKeys.composure) >= 80 ? 1.09 : 1.0;
       case PlayerTrait.leaderOnPitch:
         return attr(AttributeKeys.leadership) >= 80 ? 1.09 : 1.0;
-      // 波・安定性
+      // 波・安定性。streaky/volatileTalentは他の47特性と同様、期待値が
+      // 1.0をわずかに上回るようレンジを設計する(=リスクを取るだけの
+      // 見返りがある)。metronomeだけは「安定こそが持ち味」という特性の
+      // 性質上、期待値をあえて1.0のまま(振れ幅の小ささのみが価値)にする。
       case PlayerTrait.streaky:
-        return 0.8 + _rng.nextDouble() * 0.4;
+        return 0.85 + _rng.nextDouble() * 0.4;
       case PlayerTrait.volatileTalent:
-        return 0.7 + _rng.nextDouble() * 0.6;
+        return 0.75 + _rng.nextDouble() * 0.65;
       case PlayerTrait.metronome:
         return 0.95 + _rng.nextDouble() * 0.1;
       // 技術・フィジカル属性依存
@@ -344,6 +347,18 @@ class MatchEngine {
         return attr(AttributeKeys.acceleration) >= 80 ? 1.06 : 1.0;
       case PlayerTrait.fearlessDefender:
         return attr(AttributeKeys.bravery) >= 80 ? 1.06 : 1.0;
+      // サッカー漫画のような劇的な特性(複合条件はより希少なので、その分
+      // 倍率も他の単一条件の特性より大きくする)
+      case PlayerTrait.divineReflexes:
+        return attr(AttributeKeys.reflexes) >= 80 ? 1.07 : 1.0;
+      case PlayerTrait.awayDayHero:
+        return !isHome && -diff >= 8 ? 1.12 : 1.0;
+      case PlayerTrait.risingPhoenix:
+        return p.morale <= 35 && attr(AttributeKeys.determination) >= 75
+            ? 1.14
+            : 1.0;
+      case PlayerTrait.veteranAce:
+        return p.age >= 30 && oppAvg >= 70 ? 1.11 : 1.0;
     }
   }
 
@@ -452,17 +467,20 @@ class MatchEngine {
         PlayerDuty.attack => 0.80,
       };
 
-  /// ロールに応じた貢献度補正。ロールが重視する能力値の平均が選手本来の
-  /// 攻撃力/守備力より高ければボーナス、低ければペナルティになる
-  /// (=適性の合わないロールを割り当てると損をする)。
+  /// ロールに応じた貢献度補正。ロールが重視する能力値の平均が選手の
+  /// 総合力より高ければボーナス、低ければペナルティになる
+  /// (=適性の合わないロールを割り当てると損をする)。基準を総合力に
+  /// 揃えているのは、ロール自動割当(PlayerGenerator._pickRole)が
+  /// 「重視する能力値の平均が総合力を明確に上回るか」で判定しているため。
+  /// 攻撃/守備どちらの位相で評価する場合も基準は同じ総合力であり、
+  /// forAttackはあくまで「今どちらの位相の貢献として使うか」を表す。
   static double roleMultiplier(Player p, {required bool forAttack}) {
     final keyAttributes = p.role.keyAttributes;
     if (keyAttributes.isEmpty) return 1.0;
-    final base = forAttack ? p.attack : p.defense;
     final roleRating =
         keyAttributes.fold<int>(0, (s, k) => s + p.attributeValue(k)) /
             keyAttributes.length;
-    return (1 + (roleRating - base) / 130).clamp(0.8, 1.3);
+    return (1 + (roleRating - p.overall) / 130).clamp(0.8, 1.3);
   }
 
   /// 本職以外のポジションで起用された際の貢献度ペナルティ。副ポジションと

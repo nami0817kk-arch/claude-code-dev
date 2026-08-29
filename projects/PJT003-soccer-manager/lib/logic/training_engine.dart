@@ -621,6 +621,7 @@ class TrainingEngine {
     PlayerTrait.tirelessRunner: AttributeKeys.workRate,
     PlayerTrait.explosiveStart: AttributeKeys.acceleration,
     PlayerTrait.fearlessDefender: AttributeKeys.bravery,
+    PlayerTrait.divineReflexes: AttributeKeys.reflexes,
   };
 
   /// 選手が[trait]の特訓にどれだけ向いているかを表す倍率(特訓成功率に乗算)。

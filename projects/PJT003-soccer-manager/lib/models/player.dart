@@ -601,6 +601,11 @@ enum PlayerTrait {
   tirelessRunner,
   explosiveStart,
   fearlessDefender,
+  // サッカー漫画のような劇的な特性(複合条件・GK属性の活用)
+  divineReflexes,
+  awayDayHero,
+  risingPhoenix,
+  veteranAce,
 }
 
 extension PlayerTraitInfo on PlayerTrait {
@@ -655,6 +660,10 @@ extension PlayerTraitInfo on PlayerTrait {
         PlayerTrait.tirelessRunner => '尽きせぬ運動量',
         PlayerTrait.explosiveStart => '爆発的な加速',
         PlayerTrait.fearlessDefender => '恐れを知らぬ守備',
+        PlayerTrait.divineReflexes => '神がかった反応',
+        PlayerTrait.awayDayHero => 'アウェイの逆境児',
+        PlayerTrait.risingPhoenix => '不屈の闘志',
+        PlayerTrait.veteranAce => '伝説のベテランエース',
       };
 
   String get description => switch (this) {
@@ -708,6 +717,10 @@ extension PlayerTraitInfo on PlayerTrait {
         PlayerTrait.tirelessRunner => '豊富な運動量でピッチを走り回る。',
         PlayerTrait.explosiveStart => '鋭い加速力で相手を置き去りにする。',
         PlayerTrait.fearlessDefender => '勇敢さを武器に体を張ったプレーを見せる。',
+        PlayerTrait.divineReflexes => '神がかった反応速度で、並みのシュートを寄せ付けない守護神。',
+        PlayerTrait.awayDayHero => 'アウェイでの大きな逆境ほど、燃え上がって真価を発揮する。',
+        PlayerTrait.risingPhoenix => '苦境で意気消沈するどころか、そこから闘志を燃やして這い上がる。',
+        PlayerTrait.veteranAce => '経験を積んだベテランが、大一番でこそその真価を見せつける。',
       };
 }
 
@@ -790,6 +803,10 @@ extension PlayerTraitCategoryOf on PlayerTrait {
         PlayerTrait.tirelessRunner => PlayerTraitCategory.technical,
         PlayerTrait.explosiveStart => PlayerTraitCategory.technical,
         PlayerTrait.fearlessDefender => PlayerTraitCategory.personality,
+        PlayerTrait.divineReflexes => PlayerTraitCategory.technical,
+        PlayerTrait.awayDayHero => PlayerTraitCategory.personality,
+        PlayerTrait.risingPhoenix => PlayerTraitCategory.personality,
+        PlayerTrait.veteranAce => PlayerTraitCategory.talent,
       };
 }
 

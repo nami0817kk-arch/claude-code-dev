@@ -4486,6 +4486,38 @@ void main() {
   });
 
   test(
+      'PlayerGenerator assigns duty in correlation with the already-assigned '
+      "role's attacking/defensive character, so a defensive-minded "
+      'midfield role (anchorMan) ends up with defend duty far more often '
+      'than an attacking-minded one (wideMidfielder)', () {
+    final anchorDefendCounts = <bool>[];
+    final wideDefendCounts = <bool>[];
+    for (int i = 0; i < 2000; i++) {
+      // Position.dmはtackling/marking/positioningが優遇されるため
+      // アンカーマン(tackling+positioning)に、Position.mrはcrossing/pace
+      // が優遇されるためワイドMF(crossing+pace)に、それぞれ高確率で
+      // ロールが決まる(いずれもMID大分類でデューティ確率式は共通)。
+      final dmPlayer =
+          PlayerGenerator.generate(position: Position.dm, strengthTier: 60);
+      if (dmPlayer.role == PlayerRole.anchorMan) {
+        anchorDefendCounts.add(dmPlayer.duty == PlayerDuty.defend);
+      }
+      final mrPlayer =
+          PlayerGenerator.generate(position: Position.mr, strengthTier: 60);
+      if (mrPlayer.role == PlayerRole.wideMidfielder) {
+        wideDefendCounts.add(mrPlayer.duty == PlayerDuty.defend);
+      }
+    }
+    expect(anchorDefendCounts.length, greaterThan(10));
+    expect(wideDefendCounts.length, greaterThan(10));
+    final anchorDefendRate =
+        anchorDefendCounts.where((b) => b).length / anchorDefendCounts.length;
+    final wideDefendRate =
+        wideDefendCounts.where((b) => b).length / wideDefendCounts.length;
+    expect(anchorDefendRate, greaterThan(wideDefendRate));
+  });
+
+  test(
       'MatchEngine.tacticalImpact reflects raising each slider in the '
       'expected direction', () {
     final team = Team(id: 't', name: 'T', players: []);
@@ -4595,6 +4627,55 @@ void main() {
     expect(
         MatchEngine.roleMultiplier(mismatched, forAttack: true), lessThan(1.0));
     expect(MatchEngine.roleMultiplier(standard, forAttack: true), 1.0);
+  });
+
+  test(
+      'MatchEngine.roleMultiplier judges role fit against overall ability, '
+      'not just the attack/defense composite for that phase (matching the '
+      'threshold PlayerGenerator._pickRole itself uses for assignment)', () {
+    final p = Player(
+        id: 'role-overall',
+        name: 'role-overall',
+        age: 24,
+        position: Position.mc,
+        potential: 90);
+    for (final key in AttributeKeys.all) {
+      p.setAttributeValue(key, 30);
+    }
+    // アンカーマンの重視属性(tackling/positioning)は70とほどほどだが、
+    // それ以外の守備・技術・フィジカル系の能力値を高くしておくことで、
+    // 攻撃力(finishing等が低いまま=低い)より総合力の方が高い選手を作る。
+    p.role = PlayerRole.anchorMan;
+    p.setAttributeValue(AttributeKeys.tackling, 70);
+    p.setAttributeValue(AttributeKeys.positioning, 70);
+    for (final key in [
+      AttributeKeys.marking,
+      AttributeKeys.anticipation,
+      AttributeKeys.strength,
+      AttributeKeys.aggression,
+      AttributeKeys.concentration,
+      AttributeKeys.bravery,
+      AttributeKeys.passing,
+      AttributeKeys.firstTouch,
+      AttributeKeys.vision,
+      AttributeKeys.technique,
+      AttributeKeys.crossing,
+      AttributeKeys.decisions,
+      AttributeKeys.teamwork,
+      AttributeKeys.stamina,
+      AttributeKeys.naturalFitness,
+      AttributeKeys.workRate,
+      AttributeKeys.acceleration,
+    ]) {
+      p.setAttributeValue(key, 95);
+    }
+
+    // 攻撃複合値(finishing等)は30のままなので、基準をp.attackにしていた
+    // 旧実装ならroleRating(70)がそれを上回りボーナスになってしまっていた。
+    // 総合力(守備・技術・フィジカルが高いため70を上回る)を基準にすることで
+    // 正しくペナルティになる。
+    expect(p.overall, greaterThan(70));
+    expect(MatchEngine.roleMultiplier(p, forAttack: true), lessThan(1.0));
   });
 
   test(
@@ -5449,15 +5530,15 @@ void main() {
   });
 
   test(
-      'PlayerTrait.category classifies all 50 traits into exactly 18 '
-      'technical, 18 personality and 14 talent traits', () {
+      'PlayerTrait.category classifies all 54 traits into exactly 19 '
+      'technical, 20 personality and 15 talent traits', () {
     final byCategory = <PlayerTraitCategory, int>{};
     for (final t in PlayerTrait.values) {
       byCategory[t.category] = (byCategory[t.category] ?? 0) + 1;
     }
-    expect(byCategory[PlayerTraitCategory.technical], 18);
-    expect(byCategory[PlayerTraitCategory.personality], 18);
-    expect(byCategory[PlayerTraitCategory.talent], 14);
+    expect(byCategory[PlayerTraitCategory.technical], 19);
+    expect(byCategory[PlayerTraitCategory.personality], 20);
+    expect(byCategory[PlayerTraitCategory.talent], 15);
   });
 
   test(
@@ -6949,7 +7030,7 @@ void main() {
 
   test(
       'MatchEngine rolls a streaky player\'s matchFormMultiplier within the '
-      'documented 0.8-1.2 variance band', () {
+      'documented 0.85-1.25 variance band', () {
     final team = PlayerGenerator.generateSquad(
         id: 'streaky-team', name: 'Streaky FC', strengthTier: 60);
     team.formation = Formation.f442;
@@ -6965,14 +7046,14 @@ void main() {
 
     MatchEngine.simulate(home: team, away: opponent, matchday: 1);
 
-    expect(streakyPlayer.matchFormMultiplier, inInclusiveRange(0.8, 1.2));
+    expect(streakyPlayer.matchFormMultiplier, inInclusiveRange(0.85, 1.25));
   });
 
   test(
-      'PlayerTrait has 50 distinct patterns, each with a non-empty label/description',
+      'PlayerTrait has 54 distinct patterns, each with a non-empty label/description',
       () {
-    expect(PlayerTrait.values.length, 50);
-    expect(PlayerTrait.values.map((t) => t.label).toSet().length, 50,
+    expect(PlayerTrait.values.length, 54);
+    expect(PlayerTrait.values.map((t) => t.label).toSet().length, 54,
         reason: 'trait labels should all be distinct');
     for (final t in PlayerTrait.values) {
       expect(t.label, isNotEmpty);
@@ -7026,6 +7107,102 @@ void main() {
         away: makeUniformTeam('strong-opp-2', 90),
         matchday: 1);
     expect(bully2.matchFormMultiplier, 1.0);
+  });
+
+  test(
+      'MatchEngine applies divineReflexes based on the goalkeeping reflexes '
+      'attribute, the first trait to make use of it', () {
+    final sharp = makeUniformTeam('reflex-sharp', 60);
+    final sharpGk = sharp.players.firstWhere((p) => p.position == Position.gk);
+    sharpGk.trait = PlayerTrait.divineReflexes;
+    sharpGk.setAttributeValue(AttributeKeys.reflexes, 85);
+    MatchEngine.simulate(
+        home: sharp,
+        away: makeUniformTeam('reflex-sharp-opp', 60),
+        matchday: 1);
+    expect(sharpGk.matchFormMultiplier, 1.07);
+
+    final dull = makeUniformTeam('reflex-dull', 60);
+    final dullGk = dull.players.firstWhere((p) => p.position == Position.gk);
+    dullGk.trait = PlayerTrait.divineReflexes;
+    MatchEngine.simulate(
+        home: dull, away: makeUniformTeam('reflex-dull-opp', 60), matchday: 1);
+    expect(dullGk.matchFormMultiplier, 1.0);
+  });
+
+  test(
+      'MatchEngine applies awayDayHero only when playing away as a clear '
+      'underdog, not when at home in the same situation', () {
+    final smallAway = makeUniformTeam('away-hero-small', 45);
+    final hero = smallAway.players
+        .firstWhere((p) => smallAway.startingXI.contains(p.id));
+    hero.trait = PlayerTrait.awayDayHero;
+    MatchEngine.simulate(
+        home: makeUniformTeam('away-hero-big-home', 60),
+        away: smallAway,
+        matchday: 1);
+    expect(hero.matchFormMultiplier, 1.12);
+
+    final smallHome = makeUniformTeam('away-hero-small-home', 45);
+    final notHero = smallHome.players
+        .firstWhere((p) => smallHome.startingXI.contains(p.id));
+    notHero.trait = PlayerTrait.awayDayHero;
+    MatchEngine.simulate(
+        home: smallHome,
+        away: makeUniformTeam('away-hero-big-away', 60),
+        matchday: 1);
+    expect(notHero.matchFormMultiplier, 1.0);
+  });
+
+  test(
+      'MatchEngine applies risingPhoenix only when morale is low AND '
+      'determination is high, not for either condition alone', () {
+    final team = makeUniformTeam('phoenix', 60);
+    final phoenix =
+        team.players.firstWhere((p) => team.startingXI.contains(p.id));
+    phoenix.trait = PlayerTrait.risingPhoenix;
+    phoenix.morale = 20;
+    phoenix.setAttributeValue(AttributeKeys.determination, 80);
+    MatchEngine.simulate(
+        home: team, away: makeUniformTeam('phoenix-opp', 60), matchday: 1);
+    expect(phoenix.matchFormMultiplier, 1.14);
+
+    final team2 = makeUniformTeam('phoenix2', 60);
+    final notPhoenix =
+        team2.players.firstWhere((p) => team2.startingXI.contains(p.id));
+    notPhoenix.trait = PlayerTrait.risingPhoenix;
+    notPhoenix.morale = 80;
+    notPhoenix.setAttributeValue(AttributeKeys.determination, 80);
+    MatchEngine.simulate(
+        home: team2, away: makeUniformTeam('phoenix2-opp', 60), matchday: 1);
+    expect(notPhoenix.matchFormMultiplier, 1.0);
+  });
+
+  test(
+      'MatchEngine applies veteranAce only for an older player in a tough '
+      "(high opponent overall) match, not for a young player in the same "
+      'match', () {
+    final veteranTeam = makeUniformTeam('veteran-ace', 60);
+    final veteran = veteranTeam.players
+        .firstWhere((p) => veteranTeam.startingXI.contains(p.id));
+    veteran.trait = PlayerTrait.veteranAce;
+    veteran.age = 33;
+    MatchEngine.simulate(
+        home: veteranTeam,
+        away: makeUniformTeam('veteran-ace-opp', 75),
+        matchday: 1);
+    expect(veteran.matchFormMultiplier, 1.11);
+
+    final youngTeam = makeUniformTeam('young-ace', 60);
+    final young = youngTeam.players
+        .firstWhere((p) => youngTeam.startingXI.contains(p.id));
+    young.trait = PlayerTrait.veteranAce;
+    young.age = 22;
+    MatchEngine.simulate(
+        home: youngTeam,
+        away: makeUniformTeam('young-ace-opp', 75),
+        matchday: 1);
+    expect(young.matchFormMultiplier, 1.0);
   });
 
   test(
@@ -7208,7 +7385,7 @@ void main() {
   });
 
   test(
-      'MatchEngine rolls volatileTalent within a wider 0.7-1.3 band and '
+      'MatchEngine rolls volatileTalent within a wider 0.75-1.40 band and '
       'metronome within a tighter 0.95-1.05 band', () {
     final home = makeUniformTeam('home', 60);
     final away = makeUniformTeam('away', 60);
@@ -7221,8 +7398,31 @@ void main() {
 
     MatchEngine.simulate(home: home, away: away, matchday: 1);
 
-    expect(volatile.matchFormMultiplier, inInclusiveRange(0.7, 1.3));
+    expect(volatile.matchFormMultiplier, inInclusiveRange(0.75, 1.40));
     expect(steady.matchFormMultiplier, inInclusiveRange(0.95, 1.05));
+  });
+
+  test(
+      'streaky/volatileTalent have an expected matchFormMultiplier slightly '
+      'above 1.0 over many rolls, unlike a plain 50-50 gamble, so taking the '
+      'boom-or-bust risk is worthwhile on average like every other trait', () {
+    double averageMultiplier(PlayerTrait trait) {
+      var sum = 0.0;
+      const trials = 500;
+      for (int i = 0; i < trials; i++) {
+        final home = makeUniformTeam('avg-home-$trait-$i', 60);
+        final away = makeUniformTeam('avg-away-$trait-$i', 60);
+        final p =
+            home.players.firstWhere((p) => home.startingXI.contains(p.id));
+        p.trait = trait;
+        MatchEngine.simulate(home: home, away: away, matchday: 1);
+        sum += p.matchFormMultiplier;
+      }
+      return sum / trials;
+    }
+
+    expect(averageMultiplier(PlayerTrait.streaky), greaterThan(1.0));
+    expect(averageMultiplier(PlayerTrait.volatileTalent), greaterThan(1.0));
   });
 
   test(
@@ -7590,7 +7790,7 @@ void main() {
     final bench =
         home.players.firstWhere((p) => !home.startingXI.contains(p.id));
     bench.trait = PlayerTrait.streaky;
-    // 前の試合から残っていそうな、streakyの範囲(0.8〜1.2)外の値を仕込む。
+    // 前の試合から残っていそうな、streakyの範囲(0.85〜1.25)外の値を仕込む。
     bench.matchFormMultiplier = 5.0;
     bench.matchFormRolledThisMatch = false;
     home.startingXI[0] = bench.id;
@@ -7599,7 +7799,7 @@ void main() {
         home: home, away: away, startMinute: 46, endMinute: 90);
 
     expect(bench.matchFormRolledThisMatch, isTrue);
-    expect(bench.matchFormMultiplier, inInclusiveRange(0.8, 1.2));
+    expect(bench.matchFormMultiplier, inInclusiveRange(0.85, 1.25));
   });
 
   test(

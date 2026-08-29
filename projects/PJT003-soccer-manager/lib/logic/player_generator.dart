@@ -383,19 +383,48 @@ class PlayerGenerator {
     return best;
   }
 
+  /// ロールが持つ攻守の性格。-1に近いほど守備的、+1に近いほど攻撃的な
+  /// ロールであることを表す(未設定・中間的なロールは0)。デューティの
+  /// 割り当てをロールの性格と連動させるために使う。
+  static double _roleDutyLean(PlayerRole role) => switch (role) {
+        PlayerRole.stopper => -0.4,
+        PlayerRole.libero => -0.3,
+        PlayerRole.anchorMan => -0.6,
+        PlayerRole.ballPlayingDefender => 0.2,
+        PlayerRole.fullBack => 0.5,
+        PlayerRole.wingBack => 0.6,
+        PlayerRole.playmaker => 0.3,
+        PlayerRole.wideMidfielder => 0.4,
+        PlayerRole.mezzala => 0.4,
+        PlayerRole.deepLyingForward => -0.3,
+        _ => 0.0,
+      };
+
   /// 選手のポジション大分類から、デューティ(攻守の重心)を確率的に割り当てる。
+  /// 既に割り当て済みのロール(プレースタイル)が明確に攻撃的/守備的な
+  /// 性格を持つ場合は、その傾向にデューティも寄せる(例:アンカーマンは
+  /// 守備的デューティになりやすく、ウィングバックは攻撃的デューティに
+  /// なりやすい)ことで、ロールとデューティの矛盾を減らす。
   static PlayerDuty _pickDuty(Player p) {
     final roll = _rng.nextDouble();
+    final lean = _roleDutyLean(p.role);
     switch (p.position.group) {
       case PositionGroup.gk:
         return PlayerDuty.support;
       case PositionGroup.def:
-        return roll < 0.7 ? PlayerDuty.defend : PlayerDuty.support;
+        final defendThreshold = (0.7 - lean * 0.3).clamp(0.4, 0.9);
+        return roll < defendThreshold ? PlayerDuty.defend : PlayerDuty.support;
       case PositionGroup.mid:
-        if (roll < 0.5) return PlayerDuty.support;
-        return roll < 0.75 ? PlayerDuty.attack : PlayerDuty.defend;
+        // support比率は据え置き、残り半分をattack/defendの間でleanに応じて
+        // 配分し直す(leanが正なら攻撃寄りに、負なら守備寄りに配分を移す)。
+        const supportThreshold = 0.5;
+        if (roll < supportThreshold) return PlayerDuty.support;
+        final attackThreshold =
+            (supportThreshold + 0.25 + lean * 0.2).clamp(supportThreshold, 1.0);
+        return roll < attackThreshold ? PlayerDuty.attack : PlayerDuty.defend;
       case PositionGroup.att:
-        return roll < 0.7 ? PlayerDuty.attack : PlayerDuty.support;
+        final attackThreshold = (0.7 + lean * 0.2).clamp(0.4, 0.9);
+        return roll < attackThreshold ? PlayerDuty.attack : PlayerDuty.support;
     }
   }
 
