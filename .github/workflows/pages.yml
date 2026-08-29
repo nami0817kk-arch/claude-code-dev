@@ -6,6 +6,7 @@
 #
 #   /soccer-manager/  サッカーゲーム（Flutter Web）
 #   /tools/           生産管理の計算ツール（静的サイト）
+#   /price/           楽天 値下がりウォッチ（静的サイト）
 #
 # どちらか一方の変更で起動した場合でも、成果物は毎回すべて作り直す。
 # 片方だけをアップロードすると、もう片方がサイトから消えるため。
@@ -19,8 +20,12 @@ on:
     paths:
       - "projects/PJT003-soccer-manager/**"
       - "projects/PJT005-tool-factory/**"
+      - "projects/PJT006-price-tracker/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch: {}
+  # 価格収集ワークフローから呼び出す。GITHUB_TOKEN による push は
+  # 他のワークフローを起動しないため、収集後は明示的に呼ぶ必要がある。
+  workflow_call: {}
 
 permissions:
   contents: read
@@ -71,13 +76,24 @@ jobs:
         working-directory: projects/PJT005-tool-factory
         run: python build.py
 
+      # ── 値下がりウォッチ（静的サイト） ──────────────────
+      # 生成は記録済みデータからのみ行う。ここでは通信しない。
+      - name: Test price tracker
+        working-directory: projects/PJT006-price-tracker
+        run: python -m unittest discover -s tests
+
+      - name: Build price tracker
+        working-directory: projects/PJT006-price-tracker
+        run: python build.py
+
       # ── まとめてアップロードする ──────────────────────
       - name: Assemble Pages artifact
         run: |
-          mkdir -p dist/soccer-manager/legal dist/tools
+          mkdir -p dist/soccer-manager/legal dist/tools dist/price
           cp -r projects/PJT003-soccer-manager/build/web/* dist/soccer-manager/
           cp projects/PJT003-soccer-manager/legal/*.html dist/soccer-manager/legal/
           cp -r projects/PJT005-tool-factory/dist/* dist/tools/
+          cp -r projects/PJT006-price-tracker/dist/* dist/price/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

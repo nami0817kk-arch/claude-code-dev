@@ -1,0 +1,12 @@
+{
+  "name": "楽天 値下がりウォッチ",
+  "base_url": "https://nami0817kk-arch.github.io/claude-code-dev/price",
+  "description": "楽天市場の価格を毎日記録し、値下がりと過去最安値を機械的に判定して公開しています。",
+  "owner": "",
+  "contact_email": "",
+  "genres": [],
+  "hits_per_genre": 90,
+  "drop_threshold": 0.05,
+  "near_low_threshold": 0.02,
+  "history_tail_days": 90
+}

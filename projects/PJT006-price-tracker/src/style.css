@@ -1,0 +1,102 @@
+/* 明るいテーマを基準に定義し、暗いテーマでは色だけ差し替える。
+   端末の設定(prefers-color-scheme)と、明示指定(data-theme)の両方に対応する。 */
+:root {
+  --bg: #fbfbfa; --panel: #ffffff; --line: #e3e2df;
+  --ink: #23211d; --muted: #6d6a63; --accent: #1f6f5c;
+  --down: #b0392b; --low: #1f6f5c; --near: #8a6d1f; --flat: #6d6a63;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17161a; --panel: #201f24; --line: #34323a;
+    --ink: #eceaf0; --muted: #a09daa; --accent: #64c2a6;
+    --down: #f08a7c; --low: #64c2a6; --near: #d9b45c; --flat: #a09daa;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17161a; --panel: #201f24; --line: #34323a;
+  --ink: #eceaf0; --muted: #a09daa; --accent: #64c2a6;
+  --down: #f08a7c; --low: #64c2a6; --near: #d9b45c; --flat: #a09daa;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.7 -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+.wrap { max-width: 860px; margin: 0 auto; padding: 0 16px; }
+a { color: var(--accent); }
+
+.site-head { border-bottom: 1px solid var(--line); background: var(--panel); }
+.site-head .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; padding: 14px 16px; }
+.site-name { font-weight: 700; font-size: 17px; color: var(--ink); text-decoration: none; }
+.site-nav { display: flex; gap: 16px; font-size: 14px; }
+
+main { padding: 24px 16px 48px; }
+h1 { font-size: 24px; line-height: 1.4; margin: 0 0 8px; }
+h2 { font-size: 18px; margin: 28px 0 8px; }
+.lead { color: var(--muted); margin: 0 0 16px; }
+
+.ad-notice {
+  margin: 0 0 20px; padding: 8px 12px; font-size: 13px; color: var(--muted);
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+}
+
+.cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.card {
+  display: flex; gap: 14px; padding: 12px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: var(--radius);
+}
+.card .thumb { flex: 0 0 96px; }
+.card img, .card .noimg {
+  display: block; width: 96px; height: 96px; object-fit: contain;
+  background: var(--bg); border-radius: 6px;
+}
+.card .body { min-width: 0; }
+.card .name { display: block; font-weight: 600; text-decoration: none; color: var(--ink); }
+.card .name:hover { color: var(--accent); }
+.card .price { margin: 6px 0 2px; font-size: 15px; }
+.card .price strong { font-size: 19px; }
+.card .meta { margin: 0; font-size: 13px; color: var(--muted); }
+.was { color: var(--muted); text-decoration: line-through; margin-right: 4px; }
+.down { color: var(--down); font-weight: 700; margin-right: 8px; }
+.empty { padding: 24px; text-align: center; color: var(--muted); list-style: none;
+  border: 1px dashed var(--line); border-radius: var(--radius); }
+
+.badge { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px;
+  font-size: 12px; border: 1px solid currentColor; white-space: nowrap; }
+.badge.low { color: var(--low); } .badge.near { color: var(--near); }
+.badge.drop { color: var(--down); } .badge.flat { color: var(--flat); }
+
+.item .headline { font-size: 15px; margin: 12px 0; }
+.item .headline strong { font-size: 28px; }
+.chart { color: var(--accent); margin: 8px 0 20px; }
+.spark { width: 100%; max-width: 320px; height: auto; }
+.spark-none { color: var(--muted); font-size: 13px; }
+
+.facts { border-collapse: collapse; width: 100%; margin: 0 0 20px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+.facts th, .facts td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line);
+  font-size: 15px; }
+.facts tr:last-child th, .facts tr:last-child td { border-bottom: 0; }
+.facts th { color: var(--muted); font-weight: 500; white-space: nowrap; }
+
+.buy { display: inline-block; padding: 11px 22px; border-radius: var(--radius);
+  background: var(--accent); color: var(--bg); font-weight: 700; text-decoration: none; }
+.shop { color: var(--muted); font-size: 14px; }
+
+.static p, .static li { max-width: 62em; }
+
+.site-foot { border-top: 1px solid var(--line); background: var(--panel);
+  margin-top: 40px; padding: 20px 0 32px; font-size: 13px; color: var(--muted); }
+.foot-nav { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 12px; }
+.site-foot .disclaimer, .site-foot .copy, .updated { margin: 8px 0 0; }
+.site-foot .ad-notice { background: none; border: 0; padding: 0; margin: 8px 0 0; }
+
+@media (max-width: 480px) {
+  .card { gap: 10px; }
+  .card .thumb { flex-basis: 72px; }
+  .card img, .card .noimg { width: 72px; height: 72px; }
+  h1 { font-size: 21px; }
+}
