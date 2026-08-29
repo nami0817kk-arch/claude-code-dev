@@ -128,12 +128,27 @@ class CupEngine {
       matchday: matchday,
       weather: WeatherEngine.roll(),
     );
+    applyMatchResult(cup, allTeams, match, result);
+    return result;
+  }
+
+  /// 外部(ライブ観戦)で確定した[result]を[match]に適用し、引き分けなら
+  /// PK戦で勝者を決め、ラウンドが完了していれば次ラウンドを組む。
+  /// 自クラブのカップ戦をライブ観戦で戦った場合に、シミュレートの代わりに
+  /// この適用だけを行うための分離されたAPI。
+  static void applyMatchResult(
+    Cup cup,
+    List<Team> allTeams,
+    CupMatch match,
+    MatchResult result,
+  ) {
     match.result = result;
     if (result.homeGoals == result.awayGoals) {
+      final home = allTeams.firstWhere((t) => t.id == match.homeTeamId);
+      final away = allTeams.firstWhere((t) => t.id == match.awayTeamId);
       match.penaltyWinnerId = decidePenaltyWinner(home, away);
     }
     _advanceRoundIfComplete(cup);
-    return result;
   }
 
   static bool _advanceRoundIfComplete(Cup cup) {

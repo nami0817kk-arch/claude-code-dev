@@ -65,6 +65,10 @@ import '../data/name_pool.dart';
 const int maxSquadSize = 26;
 const int minSquadSize = 12;
 
+/// ライブ観戦できるカップ試合の種別。リーグ戦([GameState.playNextMatchday])
+/// と同じインタラクティブ進行を、どの大会の試合として開始するかを表す。
+enum LiveCupKind { domestic, continentalGroup, continentalKnockout, superCup }
+
 /// 1リーグあたりの参加クラブ数(自クラブ含む)。実際の主要リーグに近い規模とする。
 const int teamsPerLeague = 20;
 
@@ -722,6 +726,22 @@ class GameState extends ChangeNotifier {
     }
     final player = userTeam.players.firstWhere((p) => p.id == playerId);
     player.personalityTraitTrainingTarget = target;
+    notifyListeners();
+    _persist();
+  }
+
+  /// 選手個別の育成プラン(目標ロール)を設定する。nullで解除。
+  /// 選手のポジション大分類で選択できないロール、およびstandard
+  /// (プレースタイルを指定しない)は無視する。
+  void setDevelopmentTargetRole(String playerId, PlayerRole? role) {
+    if (_save == null) return;
+    final player = userTeam.players.firstWhere((p) => p.id == playerId);
+    if (role != null &&
+        (role == PlayerRole.standard ||
+            !role.allowedGroups.contains(player.position.group))) {
+      return;
+    }
+    player.developmentTargetRole = role;
     notifyListeners();
     _persist();
   }
@@ -2307,9 +2327,78 @@ class GameState extends ChangeNotifier {
   int _liveSubstitutionsUsed = 0;
   static const int maxSubstitutionsPerMatch = 3;
 
+  // ---- カップ戦のライブ観戦(リーグ戦と同じ進行を再利用する) ----
+  LiveCupKind? _liveCupKind;
+  Team? _liveCupHome;
+  Team? _liveCupAway;
+  Weather? _liveCupWeather;
+  CupMatch? _liveCupMatch;
+  CupTie? _liveCupTie;
+
+  /// ライブ観戦したカップ試合がPK戦で決着した場合などの補足文言
+  /// (フルタイム画面で表示する。次のライブ試合開始時にクリアされる)。
+  String? lastLiveCupNote;
+
+  /// ライブ観戦中のカップ試合の要約(なければnull)。LiveMatchScreenが
+  /// リーグの[liveFixture]の代わりに参照する。
+  ({
+    String homeTeamId,
+    String awayTeamId,
+    Weather weather,
+    String competitionLabel,
+  })? get liveCupDescriptor {
+    final kind = _liveCupKind;
+    if (kind == null || _liveCupHome == null || _liveCupAway == null) {
+      return null;
+    }
+    return (
+      homeTeamId: _liveCupHome!.id,
+      awayTeamId: _liveCupAway!.id,
+      weather: _liveCupWeather ?? Weather.clear,
+      competitionLabel: switch (kind) {
+        LiveCupKind.domestic => domesticCup?.name ?? '国内カップ',
+        LiveCupKind.continentalGroup ||
+        LiveCupKind.continentalKnockout =>
+          _save?.continentalCup?.name ?? '大陸カップ',
+        LiveCupKind.superCup => 'スーパーカップ',
+      },
+    );
+  }
+
+  /// 進行中のライブ試合のホーム/アウェイ(リーグ・カップ共通)。
+  Team? get _liveHomeTeam {
+    if (_liveCupHome != null) return _liveCupHome;
+    final f = _liveFixture;
+    if (f == null || _save == null) return null;
+    return _save!.league.teams.firstWhere((t) => t.id == f.homeTeamId);
+  }
+
+  Team? get _liveAwayTeam {
+    if (_liveCupAway != null) return _liveCupAway;
+    final f = _liveFixture;
+    if (f == null || _save == null) return null;
+    return _save!.league.teams.firstWhere((t) => t.id == f.awayTeamId);
+  }
+
+  Weather get _liveWeatherNow =>
+      _liveCupWeather ?? _liveFixture?.weather ?? Weather.clear;
+
+  /// IDからチームを探す(自リーグ+カップ参加チーム全体。見つからなければnull)。
+  /// 大陸カップの外国クラブなど、リーグ順位表に存在しないチームの表示に使う。
+  Team? teamById(String id) {
+    if (_save == null) return null;
+    for (final t in allTeamsForCups) {
+      if (t.id == id) return t;
+    }
+    for (final t in _save!.allTeams) {
+      if (t.id == id) return t;
+    }
+    return null;
+  }
+
   /// 自クラブの試合が前半終了・ハーフタイム待ちの状態かどうか。
   bool get isHalfTime =>
-      _liveFixture != null &&
+      (_liveFixture != null || _liveCupKind != null) &&
       (_liveFirstHalfState?.isFinished ?? false) &&
       _liveSecondHalfState == null;
 
@@ -2415,7 +2504,8 @@ class GameState extends ChangeNotifier {
     // 上書きされてしまうため、多重実行を防止する。simulateAheadMatchdays等
     // 既にisBusyな状態からの正当なネスト呼び出しはここでは弾かない
     // (isBusyは他の重い処理とも共有する汎用フラグのため)。
-    if (_liveFixture != null) return null;
+    // カップ戦のライブ観戦中も同様に、並行してリーグ戦を始めさせない。
+    if (_liveFixture != null || _liveCupKind != null) return null;
     final league = _save!.league;
     final next = league.nextUnplayedFixture;
     if (next == null) return null;
@@ -2733,16 +2823,14 @@ class GameState extends ChangeNotifier {
   /// 最終的に試合が確定した際、その戻り値として[MatchResult]が得られる)。
   Future<MatchResult?> playSecondHalf({bool interactive = false}) async {
     if (_save == null ||
-        _liveFixture == null ||
+        (_liveFixture == null && _liveCupKind == null) ||
         _liveFirstHalfState == null ||
         !_liveFirstHalfState!.isFinished) {
       return null;
     }
-    final league = _save!.league;
-    final f = _liveFixture!;
-    final home = league.teams.firstWhere((t) => t.id == f.homeTeamId);
-    final away = league.teams.firstWhere((t) => t.id == f.awayTeamId);
-    final weather = f.weather ?? Weather.clear;
+    final home = _liveHomeTeam!;
+    final away = _liveAwayTeam!;
+    final weather = _liveWeatherNow;
 
     final state = MatchEngine.beginInteractiveHalf(
       home: home,
@@ -2792,14 +2880,13 @@ class GameState extends ChangeNotifier {
     final firstState = _liveFirstHalfState;
     if (firstState != null && !firstState.isFinished) {
       final event = MatchEngine.resolvePendingChance(firstState, decision);
-      if (firstState.isFinished && _liveFixture != null) {
-        final league = _save!.league;
-        final f = _liveFixture!;
-        final home = league.teams.firstWhere((t) => t.id == f.homeTeamId);
-        final away = league.teams.firstWhere((t) => t.id == f.awayTeamId);
-        final weather = f.weather ?? Weather.clear;
-        MatchEngine.applyHalfTimeFatigue(
-            home: home, away: away, weather: weather);
+      if (firstState.isFinished) {
+        final home = _liveHomeTeam;
+        final away = _liveAwayTeam;
+        if (home != null && away != null) {
+          MatchEngine.applyHalfTimeFatigue(
+              home: home, away: away, weather: _liveWeatherNow);
+        }
       }
       notifyListeners();
       await _persist();
@@ -2814,10 +2901,10 @@ class GameState extends ChangeNotifier {
   /// クリアする。
   Future<MatchResult> _finalizeSecondHalf(HalfResult second) async {
     final league = _save!.league;
-    final f = _liveFixture!;
-    final home = league.teams.firstWhere((t) => t.id == f.homeTeamId);
-    final away = league.teams.firstWhere((t) => t.id == f.awayTeamId);
-    final weather = f.weather ?? Weather.clear;
+    final f = _liveFixture;
+    final home = _liveHomeTeam!;
+    final away = _liveAwayTeam!;
+    final weather = _liveWeatherNow;
     final firstHalf = _liveFirstHalfState!.toHalfResult();
 
     final allEvents = [...firstHalf.events, ...second.events];
@@ -2866,9 +2953,9 @@ class GameState extends ChangeNotifier {
     _evaluateAchievements();
 
     final merged = MatchResult(
-      matchday: f.matchday,
-      homeTeamId: f.homeTeamId,
-      awayTeamId: f.awayTeamId,
+      matchday: f?.matchday ?? 0,
+      homeTeamId: home.id,
+      awayTeamId: away.id,
       homeGoals: homeGoals,
       awayGoals: awayGoals,
       events: allEvents,
@@ -2881,35 +2968,48 @@ class GameState extends ChangeNotifier {
       homeShotsOnTarget: homeShotsOnTarget,
       awayShotsOnTarget: awayShotsOnTarget,
     );
-    f.result = merged;
+    if (f != null) {
+      f.result = merged;
 
-    // 4節ごとに月間最優秀監督賞を判定する(ユーザーが受賞した場合のみ通知・記録する)。
-    if (f.matchday - _save!.lastManagerOfMonthCheckpoint >= 4) {
-      final fromMatchday = _save!.lastManagerOfMonthCheckpoint + 1;
-      final winnerName = AwardsEngine.computeManagerOfPeriod(
-        league,
-        fromMatchday: fromMatchday,
-        toMatchday: f.matchday,
-      );
-      if (winnerName == userTeam.name) {
-        final label = '第$fromMatchday-${f.matchday}節';
-        _save!.trophyHistory.add('シーズン${league.season} 月間最優秀監督賞($label)');
-        lastMonthlyManagerAward = label;
+      // 4節ごとに月間最優秀監督賞を判定する(ユーザーが受賞した場合のみ通知・記録する)。
+      if (f.matchday - _save!.lastManagerOfMonthCheckpoint >= 4) {
+        final fromMatchday = _save!.lastManagerOfMonthCheckpoint + 1;
+        final winnerName = AwardsEngine.computeManagerOfPeriod(
+          league,
+          fromMatchday: fromMatchday,
+          toMatchday: f.matchday,
+        );
+        if (winnerName == userTeam.name) {
+          final label = '第$fromMatchday-${f.matchday}節';
+          _save!.trophyHistory.add('シーズン${league.season} 月間最優秀監督賞($label)');
+          lastMonthlyManagerAward = label;
+        }
+        _save!.lastManagerOfMonthCheckpoint = f.matchday;
       }
-      _save!.lastManagerOfMonthCheckpoint = f.matchday;
-    }
 
-    var delta = BoardEngine.confidenceDeltaForMatch(merged, _save!.userTeamId);
-    if (isRivalFixture(f)) {
-      delta = (delta * derbyConfidenceMultiplier).round();
+      var delta =
+          BoardEngine.confidenceDeltaForMatch(merged, _save!.userTeamId);
+      if (isRivalFixture(f)) {
+        delta = (delta * derbyConfidenceMultiplier).round();
+      }
+      _save!.confidence = (_save!.confidence + delta).clamp(0, 100);
+    } else {
+      // カップ戦のライブ観戦: 結果を該当大会のブラケット/グループへ適用する
+      // (引き分け時のPK戦・敗退時の信頼度低下・賞金・優勝処理を含む)。
+      _applyLiveCupResult(merged);
     }
-    _save!.confidence = (_save!.confidence + delta).clamp(0, 100);
     _save!.pendingPressConference = PressConferenceEngine.generateFor(
       result: merged,
       userTeamId: _save!.userTeamId,
     );
 
     _liveFixture = null;
+    _liveCupKind = null;
+    _liveCupHome = null;
+    _liveCupAway = null;
+    _liveCupWeather = null;
+    _liveCupMatch = null;
+    _liveCupTie = null;
     _liveFirstHalfState = null;
     _liveSecondHalfState = null;
     _liveSubstitutionsUsed = 0;
@@ -3094,21 +3194,13 @@ class GameState extends ChangeNotifier {
     final cup = domesticCup;
     if (cup == null || cup.nextUnplayedMatch == null) return null;
     if (!_canAdvanceCup(cup.lastPlayedAtMatchday)) return null;
-    final userId = _save!.userTeamId;
 
+    final match = cup.nextUnplayedMatch!;
     final result = CupEngine.playNextMatch(cup, allTeamsForCups);
     cup.lastPlayedAtMatchday = _currentLeagueMatchdayMarker;
-    if (result != null &&
-        (result.homeTeamId == userId || result.awayTeamId == userId)) {
-      if (cup.isEliminated(userId)) {
-        _save!.confidence = (_save!.confidence - 1).clamp(0, 100);
-      }
-    }
-    if (cup.isComplete && cup.championId == userId && !cup.rewardClaimed) {
-      cup.rewardClaimed = true;
-      _save!.budget += 700;
-      _save!.confidence = (_save!.confidence + 10).clamp(0, 100);
-      _save!.trophyHistory.add('シーズン${_save!.league.season}: ${cup.name} 優勝');
+    if (result != null) {
+      _applyUserCupPostMatchEffects(result);
+      _afterDomesticCupMatchApplied(match);
     }
     notifyListeners();
     await _persist();
@@ -3140,16 +3232,15 @@ class GameState extends ChangeNotifier {
     final cup = _save!.continentalCup!;
     if (!_continentalHasNextMatch(cup)) return null;
     if (!_canAdvanceCup(cup.lastPlayedAtMatchday)) return null;
-    final userId = _save!.userTeamId;
+    final match = ContinentalCupEngine.nextGroupMatch(cup);
     final result = ContinentalCupEngine.playNextGroupMatch(
       cup,
       allTeamsForCups,
     );
     cup.lastPlayedAtMatchday = _currentLeagueMatchdayMarker;
-    if (result != null &&
-        (result.homeTeamId == userId || result.awayTeamId == userId) &&
-        cup.isEliminated(userId)) {
-      _save!.confidence = (_save!.confidence - 3).clamp(0, 100);
+    if (result != null && match != null) {
+      _applyUserCupPostMatchEffects(result);
+      _afterContinentalGroupMatchApplied(match);
     }
     notifyListeners();
     await _persist();
@@ -3162,22 +3253,15 @@ class GameState extends ChangeNotifier {
     final cup = _save!.continentalCup!;
     if (!_continentalHasNextMatch(cup)) return null;
     if (!_canAdvanceCup(cup.lastPlayedAtMatchday)) return null;
-    final userId = _save!.userTeamId;
+    final leg = ContinentalCupEngine.nextKnockoutLeg(cup);
     final result = ContinentalCupEngine.playNextKnockoutLeg(
       cup,
       allTeamsForCups,
     );
     cup.lastPlayedAtMatchday = _currentLeagueMatchdayMarker;
-    if (result != null &&
-        (result.homeTeamId == userId || result.awayTeamId == userId) &&
-        cup.isEliminated(userId)) {
-      _save!.confidence = (_save!.confidence - 3).clamp(0, 100);
-    }
-    if (cup.isComplete && cup.championId == userId && !cup.rewardClaimed) {
-      cup.rewardClaimed = true;
-      _save!.budget += 1500;
-      _save!.confidence = (_save!.confidence + 20).clamp(0, 100);
-      _save!.trophyHistory.add('シーズン${_save!.league.season}: ${cup.name} 優勝');
+    if (result != null && leg != null) {
+      _applyUserCupPostMatchEffects(result);
+      _afterContinentalKnockoutLegApplied(leg.tie);
     }
     notifyListeners();
     await _persist();
@@ -3208,13 +3292,275 @@ class GameState extends ChangeNotifier {
     if (result.homeGoals == result.awayGoals) {
       match.penaltyWinnerId = CupEngine.decidePenaltyWinner(home, away);
     }
+    _applyUserCupPostMatchEffects(result);
+    _afterSuperCupApplied(match);
+    notifyListeners();
+    await _persist();
+    return result;
+  }
+
+  // ---- カップ戦のライブ観戦と共通後処理 ----
+
+  /// 国内カップで1勝するごとの賞金(単位: 資金)。ラウンドが深いほど高額。
+  static int domesticCupWinPrizeFor(int round) => 20 + 15 * round;
+
+  /// 大陸カップのグループステージで1勝するごとの賞金。
+  static const int continentalGroupWinPrize = 40;
+
+  /// 大陸カップの決勝トーナメントで1タイ勝ち上がるごとの賞金。
+  static const int continentalTieWinPrize = 150;
+
+  bool get _isLiveMatchInProgress =>
+      _liveFixture != null || _liveCupKind != null;
+
+  /// 次の国内カップ未消化試合が自クラブの試合で、今すぐライブ観戦で
+  /// 戦えるか(消化間隔・他のライブ試合との競合も考慮)。
+  bool get canPlayNextDomesticCupMatchLive {
+    if (_save == null || _isLiveMatchInProgress) return false;
+    if (!canPlayNextDomesticCupMatch) return false;
+    final match = domesticCup?.nextUnplayedMatch;
+    if (match == null || match.isBye) return false;
+    final userId = _save!.userTeamId;
+    return match.homeTeamId == userId || match.awayTeamId == userId;
+  }
+
+  /// 次の大陸カップの試合(グループまたは決勝トーナメント)が自クラブの
+  /// 試合で、今すぐライブ観戦で戦えるか。
+  bool get canPlayNextContinentalMatchLive {
+    if (_save == null || _isLiveMatchInProgress) return false;
+    if (!canPlayNextContinentalMatch) return false;
+    final cup = _save!.continentalCup!;
+    final userId = _save!.userTeamId;
+    if (!cup.isGroupStageComplete) {
+      final match = ContinentalCupEngine.nextGroupMatch(cup);
+      return match != null &&
+          (match.homeTeamId == userId || match.awayTeamId == userId);
+    }
+    final leg = ContinentalCupEngine.nextKnockoutLeg(cup);
+    return leg != null && (leg.homeId == userId || leg.awayId == userId);
+  }
+
+  /// 保留中のスーパーカップをライブ観戦で戦えるか。
+  bool get canPlaySuperCupLive {
+    if (_save == null || _isLiveMatchInProgress) return false;
+    final match = _save!.pendingSuperCup;
+    if (match == null) return false;
+    final userId = _save!.userTeamId;
+    return match.homeTeamId == userId || match.awayTeamId == userId;
+  }
+
+  /// 自クラブのカップ試合をライブ観戦で開始する。開始できた場合、以降は
+  /// リーグ戦のライブ観戦と同じAPI([pendingChanceDecision] /
+  /// [resolveChanceDecision] / [playSecondHalf] / [makeLiveSubstitution] /
+  /// [setMatchInstruction]等)で進行し、後半完了時に結果が該当大会へ
+  /// 適用される(引き分け時のPK戦・賞金・敗退時の信頼度低下を含む)。
+  /// [kind]に大陸カップを渡した場合は、現在の進行状況に応じてグループ/
+  /// 決勝トーナメントを自動で選び分ける。開始できない場合はfalse。
+  Future<bool> startCupMatchLive(LiveCupKind kind) async {
+    if (_save == null || _isLiveMatchInProgress) return false;
+    final userId = _save!.userTeamId;
+    Team? home;
+    Team? away;
+    CupMatch? cupMatch;
+    CupTie? tie;
+    var resolvedKind = kind;
+    switch (kind) {
+      case LiveCupKind.domestic:
+        if (!canPlayNextDomesticCupMatchLive) return false;
+        cupMatch = domesticCup!.nextUnplayedMatch;
+        home = teamById(cupMatch!.homeTeamId);
+        away = teamById(cupMatch.awayTeamId);
+      case LiveCupKind.continentalGroup:
+      case LiveCupKind.continentalKnockout:
+        if (!canPlayNextContinentalMatchLive) return false;
+        final cup = _save!.continentalCup!;
+        if (!cup.isGroupStageComplete) {
+          resolvedKind = LiveCupKind.continentalGroup;
+          cupMatch = ContinentalCupEngine.nextGroupMatch(cup);
+          home = teamById(cupMatch!.homeTeamId);
+          away = teamById(cupMatch.awayTeamId);
+        } else {
+          resolvedKind = LiveCupKind.continentalKnockout;
+          final leg = ContinentalCupEngine.nextKnockoutLeg(cup)!;
+          tie = leg.tie;
+          home = teamById(leg.homeId);
+          away = teamById(leg.awayId);
+        }
+      case LiveCupKind.superCup:
+        if (!canPlaySuperCupLive) return false;
+        cupMatch = _save!.pendingSuperCup;
+        home = teamById(cupMatch!.homeTeamId);
+        away = teamById(cupMatch.awayTeamId);
+    }
+    if (home == null || away == null) return false;
+    final weather = WeatherEngine.roll();
+    _liveCupKind = resolvedKind;
+    _liveCupHome = home;
+    _liveCupAway = away;
+    _liveCupWeather = weather;
+    _liveCupMatch = cupMatch;
+    _liveCupTie = tie;
+    _liveSubstitutionsUsed = 0;
+    lastLiveCupNote = null;
+    _liveFirstHalfState = MatchEngine.beginInteractiveHalf(
+      home: home,
+      away: away,
+      startMinute: 1,
+      endMinute: 45,
+      interactiveTeamId: userId,
+      weather: weather,
+      homeAdvantageFactor: _homeAdvantageFor(home.id),
+    );
+    notifyListeners();
+    await _persist();
+    return true;
+  }
+
+  /// ライブ観戦で確定したカップ試合の結果を、該当大会へ適用する
+  /// (試合後効果は_finalizeSecondHalfの共通処理で適用済みのため行わない)。
+  void _applyLiveCupResult(MatchResult merged) {
+    final kind = _liveCupKind;
+    if (kind == null || _save == null) return;
+    switch (kind) {
+      case LiveCupKind.domestic:
+        final cup = domesticCup;
+        final match = _liveCupMatch;
+        if (cup == null || match == null) return;
+        CupEngine.applyMatchResult(cup, allTeamsForCups, match, merged);
+        cup.lastPlayedAtMatchday = _currentLeagueMatchdayMarker;
+        _noteLiveCupPenalty(match.penaltyWinnerId, merged);
+        _afterDomesticCupMatchApplied(match);
+      case LiveCupKind.continentalGroup:
+        final cup = _save!.continentalCup;
+        final match = _liveCupMatch;
+        if (cup == null || match == null) return;
+        ContinentalCupEngine.applyGroupMatchResult(
+            cup, allTeamsForCups, match, merged);
+        cup.lastPlayedAtMatchday = _currentLeagueMatchdayMarker;
+        _afterContinentalGroupMatchApplied(match);
+      case LiveCupKind.continentalKnockout:
+        final cup = _save!.continentalCup;
+        final tie = _liveCupTie;
+        if (cup == null || tie == null) return;
+        ContinentalCupEngine.applyKnockoutLegResult(
+            cup, allTeamsForCups, tie, merged);
+        cup.lastPlayedAtMatchday = _currentLeagueMatchdayMarker;
+        _noteLiveCupPenalty(tie.penaltyWinnerId, merged);
+        _afterContinentalKnockoutLegApplied(tie);
+      case LiveCupKind.superCup:
+        final match = _liveCupMatch;
+        if (match == null) return;
+        match.result = merged;
+        if (merged.homeGoals == merged.awayGoals) {
+          match.penaltyWinnerId =
+              CupEngine.decidePenaltyWinner(_liveCupHome!, _liveCupAway!);
+        }
+        _noteLiveCupPenalty(match.penaltyWinnerId, merged);
+        _afterSuperCupApplied(match);
+    }
+  }
+
+  /// ライブ観戦したカップ試合が同点でPK戦にもつれた場合、フルタイム画面で
+  /// 表示する決着の文言をセットする。
+  void _noteLiveCupPenalty(String? penaltyWinnerId, MatchResult merged) {
+    if (penaltyWinnerId == null) return;
+    if (merged.homeGoals != merged.awayGoals) return;
+    final winner = teamById(penaltyWinnerId);
+    if (winner == null) return;
+    lastLiveCupNote = 'PK戦の末、${winner.name}が勝ち上がり!';
+  }
+
+  /// 自クラブが関わるカップ試合に、リーグ戦と同じ試合後効果(疲労・負傷・
+  /// 警告累積・通算出場/得点の記録など)を適用する。カップ戦でも
+  /// ローテーションが意味を持つようにするための共通処理で、自動消化の
+  /// 経路から呼ぶ(ライブ観戦の経路では確定処理側で適用済み)。
+  void _applyUserCupPostMatchEffects(MatchResult result) {
+    if (_save == null) return;
+    final userId = _save!.userTeamId;
+    if (result.homeTeamId != userId && result.awayTeamId != userId) return;
+    final home = teamById(result.homeTeamId);
+    final away = teamById(result.awayTeamId);
+    if (home == null || away == null) return;
+    MatchEngine.applyPostMatchEffects(
+      home: home,
+      away: away,
+      homeInjuryFactor: _injuryFactorFor(home.id),
+      awayInjuryFactor: _injuryFactorFor(away.id),
+      events: result.events,
+      weather: result.weather,
+    );
+  }
+
+  /// 国内カップの1試合が大会へ適用された後の共通処理(自動消化・ライブ
+  /// 共通)。自クラブの勝利賞金・敗退時の信頼度低下・優勝報酬を扱う。
+  void _afterDomesticCupMatchApplied(CupMatch match) {
+    final cup = domesticCup;
+    if (cup == null || _save == null) return;
+    final userId = _save!.userTeamId;
+    final userInvolved =
+        match.homeTeamId == userId || match.awayTeamId == userId;
+    if (userInvolved) {
+      if (match.winnerId == userId) {
+        _save!.budget += domesticCupWinPrizeFor(match.round);
+      } else if (cup.isEliminated(userId)) {
+        _save!.confidence = (_save!.confidence - 1).clamp(0, 100);
+      }
+    }
+    if (cup.isComplete && cup.championId == userId && !cup.rewardClaimed) {
+      cup.rewardClaimed = true;
+      _save!.budget += 700;
+      _save!.confidence = (_save!.confidence + 10).clamp(0, 100);
+      _save!.trophyHistory.add('シーズン${_save!.league.season}: ${cup.name} 優勝');
+    }
+  }
+
+  /// 大陸カップのグループステージ1試合が適用された後の共通処理。
+  void _afterContinentalGroupMatchApplied(CupMatch match) {
+    final cup = _save?.continentalCup;
+    if (cup == null) return;
+    final userId = _save!.userTeamId;
+    final userInvolved =
+        match.homeTeamId == userId || match.awayTeamId == userId;
+    if (!userInvolved) return;
+    final r = match.result;
+    final userWon = r != null &&
+        ((r.homeTeamId == userId && r.homeGoals > r.awayGoals) ||
+            (r.awayTeamId == userId && r.awayGoals > r.homeGoals));
+    if (userWon) _save!.budget += continentalGroupWinPrize;
+    if (cup.isEliminated(userId)) {
+      _save!.confidence = (_save!.confidence - 3).clamp(0, 100);
+    }
+  }
+
+  /// 大陸カップの決勝トーナメント1レグが適用された後の共通処理。
+  void _afterContinentalKnockoutLegApplied(CupTie tie) {
+    final cup = _save?.continentalCup;
+    if (cup == null) return;
+    final userId = _save!.userTeamId;
+    final userInTie = tie.teamAId == userId || tie.teamBId == userId;
+    if (userInTie) {
+      if (tie.isComplete && tie.winnerId == userId) {
+        _save!.budget += continentalTieWinPrize;
+      }
+      if (cup.isEliminated(userId)) {
+        _save!.confidence = (_save!.confidence - 3).clamp(0, 100);
+      }
+    }
+    if (cup.isComplete && cup.championId == userId && !cup.rewardClaimed) {
+      cup.rewardClaimed = true;
+      _save!.budget += 1500;
+      _save!.confidence = (_save!.confidence + 20).clamp(0, 100);
+      _save!.trophyHistory.add('シーズン${_save!.league.season}: ${cup.name} 優勝');
+    }
+  }
+
+  /// スーパーカップの結果が確定した後の共通処理。
+  void _afterSuperCupApplied(CupMatch match) {
+    if (_save == null) return;
     if (match.winnerId == _save!.userTeamId) {
       _save!.trophyHistory.add('シーズン${_save!.league.season} スーパーカップ優勝');
     }
     _save!.pendingSuperCup = null;
-    notifyListeners();
-    await _persist();
-    return result;
   }
 
   /// 大陸カップに参加する海外クラブ名を生成する。5つの国風テーマから

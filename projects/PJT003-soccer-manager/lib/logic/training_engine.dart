@@ -214,6 +214,15 @@ class TrainingEngine {
       _grow(p, p.drillAttributeKey2!, 0.2 * growthMultiplier * intensityFactor);
     }
 
+    // 育成プラン: 目標ロールが設定されていれば、そのロールの重視能力値を
+    // 追加で伸ばす(ドリルほど強くはないが、フォーカスと無関係に毎週かかる)。
+    final targetRole = p.developmentTargetRole;
+    if (targetRole != null) {
+      for (final key in targetRole.keyAttributes) {
+        _grow(p, key, 0.25 * growthMultiplier * intensityFactor);
+      }
+    }
+
     // 特性トレーニング: 未保有の選手のみ、狙った技術特性を低確率で獲得する。
     if (p.trait == null && p.traitTrainingTarget != null) {
       _rollTraitAcquisition(p, p.traitTrainingTarget!, effectiveGrowth);

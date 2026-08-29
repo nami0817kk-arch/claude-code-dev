@@ -526,6 +526,15 @@ class _PlayerTrainingCard extends StatelessWidget {
                       label: const Text('ローテーション'),
                       onPressed: () => _showRotationPicker(context, p),
                     ),
+                    ActionChip(
+                      avatar: const Icon(Icons.flag, size: 18),
+                      label: Text(
+                        p.developmentTargetRole == null
+                            ? '育成プラン'
+                            : '目標: ${p.developmentTargetRole!.label}',
+                      ),
+                      onPressed: () => _showDevelopmentPlanPicker(context, p),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -577,6 +586,69 @@ class _PlayerTrainingCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 育成プラン(目標ロール)を選ぶピッカー。選手のポジション大分類で
+  /// 選択できるロールのみを表示する。
+  void _showDevelopmentPlanPicker(BuildContext context, Player p) {
+    final gameState = context.read<GameState>();
+    final candidates = PlayerRole.values
+        .where((r) =>
+            r != PlayerRole.standard &&
+            r.allowedGroups.contains(p.position.group))
+        .toList();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                '${p.name} の育成プラン(目標ロール)',
+                style: Theme.of(ctx).textTheme.titleMedium,
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                '設定したロールの重視能力値が、週次トレーニングで優先的に伸びるようになる。',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ),
+            if (p.developmentTargetRole != null)
+              ListTile(
+                leading: const Icon(Icons.clear),
+                title: const Text('育成プランを解除する'),
+                onTap: () {
+                  gameState.setDevelopmentTargetRole(p.id, null);
+                  Navigator.pop(ctx);
+                },
+              ),
+            for (final r in candidates)
+              ListTile(
+                leading: Icon(
+                  p.developmentTargetRole == r
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                ),
+                title: Text(r.label),
+                subtitle: Text(
+                  '${r.description}\n'
+                  '重視: ${r.keyAttributes.map(AttributeKeys.labelOf).join('・')}',
+                ),
+                isThreeLine: true,
+                onTap: () {
+                  gameState.setDevelopmentTargetRole(p.id, r);
+                  Navigator.pop(ctx);
+                },
+              ),
+          ],
+        ),
       ),
     );
   }

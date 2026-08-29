@@ -1185,9 +1185,21 @@ class _SuperCupCard extends StatelessWidget {
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerRight,
-              child: FilledButton(
-                onPressed: () => _play(context),
-                child: const Text('試合を行う'),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  if (gameState.canPlaySuperCupLive)
+                    FilledButton.icon(
+                      onPressed: () =>
+                          playCupMatchLive(context, LiveCupKind.superCup),
+                      icon: const Icon(Icons.sports_soccer),
+                      label: const Text('ライブで戦う'),
+                    ),
+                  OutlinedButton(
+                    onPressed: () => _play(context),
+                    child: const Text('クイック消化'),
+                  ),
+                ],
               ),
             ),
           ],

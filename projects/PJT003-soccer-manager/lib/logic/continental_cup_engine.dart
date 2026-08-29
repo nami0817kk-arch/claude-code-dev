@@ -114,11 +114,22 @@ class ContinentalCupEngine {
       matchday: match.round,
       weather: WeatherEngine.roll(),
     );
+    applyGroupMatchResult(cup, allTeams, match, result);
+    return result;
+  }
+
+  /// 外部(ライブ観戦)で確定した[result]をグループステージの[match]に
+  /// 適用する。全組の試合が終わっていれば決勝トーナメントを組む。
+  static void applyGroupMatchResult(
+    ContinentalCup cup,
+    List<Team> allTeams,
+    CupMatch match,
+    MatchResult result,
+  ) {
     match.result = result;
     if (cup.isGroupStageComplete) {
       _startKnockout(cup, allTeams);
     }
-    return result;
   }
 
   /// 各組の上位2チームから決勝トーナメント(準決勝)を組む。同組同士が
@@ -145,36 +156,59 @@ class ContinentalCupEngine {
     cup.knockoutRounds.add(semis);
   }
 
+  /// 決勝トーナメントで次に行われるレグ(対象タイとホーム/アウェイの
+  /// 割り当て)。2ndレグはホーム/アウェイを入れ替える。残っていなければnull。
+  static ({CupTie tie, String homeId, String awayId})? nextKnockoutLeg(
+    ContinentalCup cup,
+  ) {
+    if (cup.knockoutRounds.isEmpty) return null;
+    for (final tie in cup.knockoutRounds.last) {
+      if (tie.isComplete) continue;
+      final isFirstLeg = tie.legs.isEmpty;
+      final homeId = (tie.singleLeg || isFirstLeg) ? tie.teamAId : tie.teamBId;
+      final awayId = (tie.singleLeg || isFirstLeg) ? tie.teamBId : tie.teamAId;
+      return (tie: tie, homeId: homeId, awayId: awayId);
+    }
+    return null;
+  }
+
   /// 決勝トーナメントの次の未消化レグを1試合消化する(2ndレグはホーム/
   /// アウェイを入れ替える)。合計スコアが同点の場合はPK戦で決着する。
   static MatchResult? playNextKnockoutLeg(
     ContinentalCup cup,
     List<Team> allTeams,
   ) {
-    if (cup.knockoutRounds.isEmpty) return null;
-    final round = cup.knockoutRounds.last;
-    for (final tie in round) {
-      if (tie.isComplete) continue;
-      final isFirstLeg = tie.legs.isEmpty;
-      final homeId = (tie.singleLeg || isFirstLeg) ? tie.teamAId : tie.teamBId;
-      final awayId = (tie.singleLeg || isFirstLeg) ? tie.teamBId : tie.teamAId;
-      final home = allTeams.firstWhere((t) => t.id == homeId);
-      final away = allTeams.firstWhere((t) => t.id == awayId);
-      final result = MatchEngine.simulate(
-        home: home,
-        away: away,
-        matchday: 0,
-        weather: WeatherEngine.roll(),
-      );
-      tie.legs.add(result);
-      if (tie.isComplete &&
-          tie.goalsFor(tie.teamAId) == tie.goalsFor(tie.teamBId)) {
-        tie.penaltyWinnerId = CupEngine.decidePenaltyWinner(home, away);
-      }
-      _advanceKnockoutIfRoundComplete(cup);
-      return result;
+    final leg = nextKnockoutLeg(cup);
+    if (leg == null) return null;
+    final home = allTeams.firstWhere((t) => t.id == leg.homeId);
+    final away = allTeams.firstWhere((t) => t.id == leg.awayId);
+    final result = MatchEngine.simulate(
+      home: home,
+      away: away,
+      matchday: 0,
+      weather: WeatherEngine.roll(),
+    );
+    applyKnockoutLegResult(cup, allTeams, leg.tie, result);
+    return result;
+  }
+
+  /// 外部(ライブ観戦)で確定した[result]を決勝トーナメントの[tie]に
+  /// レグとして適用する。タイが完了して合計スコア同点ならPK戦で決着し、
+  /// ラウンドが完了していれば次ラウンドを組む。
+  static void applyKnockoutLegResult(
+    ContinentalCup cup,
+    List<Team> allTeams,
+    CupTie tie,
+    MatchResult result,
+  ) {
+    tie.legs.add(result);
+    if (tie.isComplete &&
+        tie.goalsFor(tie.teamAId) == tie.goalsFor(tie.teamBId)) {
+      final home = allTeams.firstWhere((t) => t.id == result.homeTeamId);
+      final away = allTeams.firstWhere((t) => t.id == result.awayTeamId);
+      tie.penaltyWinnerId = CupEngine.decidePenaltyWinner(home, away);
     }
-    return null;
+    _advanceKnockoutIfRoundComplete(cup);
   }
 
   static void _advanceKnockoutIfRoundComplete(ContinentalCup cup) {

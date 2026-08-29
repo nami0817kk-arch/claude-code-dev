@@ -1016,6 +1016,12 @@ class Player {
   /// 追加され、実際にそのポジションで起用できるようになる。
   String? trainingConvertTargetPosition;
 
+  /// 育成プラン: この選手を将来どのロール(プレースタイル)に育てたいか。
+  /// 設定すると、週次トレーニングでそのロールの重視能力値
+  /// ([PlayerRoleInfo.keyAttributes])が優先的に伸びる追加の成長判定が
+  /// 行われる。選手のポジション大分類に合ったロールのみ設定できる。
+  PlayerRole? developmentTargetRole;
+
   /// 選手特性(格上キラー/横綱相撲/波がある)。持たない選手も多い(null)。
   PlayerTrait? trait;
 
@@ -1096,6 +1102,7 @@ class Player {
     this.focusRotation,
     this.rotationWeekIndex = 0,
     this.trainingConvertTargetPosition,
+    this.developmentTargetRole,
     this.trait,
     this.growthType = PlayerGrowthType.balanced,
   })  : secondaryPositions = secondaryPositions ?? [],
@@ -1306,6 +1313,7 @@ class Player {
         'focusRotation': focusRotation?.map((f) => f.name).toList(),
         'rotationWeekIndex': rotationWeekIndex,
         'trainingConvertTargetPosition': trainingConvertTargetPosition,
+        'developmentTargetRole': developmentTargetRole?.name,
         'trait': trait?.name,
         'growthType': growthType.name,
       };
@@ -1423,6 +1431,13 @@ class Player {
       rotationWeekIndex: json['rotationWeekIndex'] as int? ?? 0,
       trainingConvertTargetPosition:
           json['trainingConvertTargetPosition'] as String?,
+      developmentTargetRole: json['developmentTargetRole'] == null
+          ? null
+          : enumFromName(
+              PlayerRole.values,
+              json['developmentTargetRole'] as String?,
+              PlayerRole.standard,
+            ),
       trait: json['trait'] == null
           ? null
           : enumFromName(

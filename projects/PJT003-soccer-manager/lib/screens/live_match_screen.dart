@@ -41,6 +41,10 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
   Timer? _goalFlashTimer;
   bool _decisionDialogShowing = false;
 
+  /// カップ戦のライブ観戦時の大会名(リーグ戦ならnullで「第X節」を表示)。
+  /// 試合終了後はliveCupDescriptorがクリアされるため、開始時に控えておく。
+  String? _competitionTitle;
+
   @override
   void dispose() {
     _goalFlashTimer?.cancel();
@@ -52,6 +56,7 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
     super.initState();
     final gameState = context.read<GameState>();
     _userTeamId = gameState.userTeam.id;
+    _competitionTitle = gameState.liveCupDescriptor?.competitionLabel;
     _segmentStartMinute = 0;
     _game = _buildSegmentGame(gameState, isSecondHalf: false);
   }
@@ -458,9 +463,12 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
   Widget build(BuildContext context) {
     final gameState = context.watch<GameState>();
     final fixture = gameState.liveFixture;
+    final cup = gameState.liveCupDescriptor;
     final matchday = fixture?.matchday ?? _finalResult?.matchday ?? 0;
-    final homeId = fixture?.homeTeamId ?? _finalResult?.homeTeamId;
-    final awayId = fixture?.awayTeamId ?? _finalResult?.awayTeamId;
+    final homeId =
+        fixture?.homeTeamId ?? cup?.homeTeamId ?? _finalResult?.homeTeamId;
+    final awayId =
+        fixture?.awayTeamId ?? cup?.awayTeamId ?? _finalResult?.awayTeamId;
     if (homeId == null || awayId == null) {
       return Scaffold(
         appBar: AppBar(
@@ -470,20 +478,24 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
         body: const Center(child: Text('試合情報がありません')),
       );
     }
-    final league = gameState.save!.league;
-    final home = league.teams.firstWhere((t) => t.id == homeId);
-    final away = league.teams.firstWhere((t) => t.id == awayId);
+    // カップ戦(特に大陸カップ)ではリーグ順位表に存在しないチームと
+    // 対戦しうるため、リーグ限定ではなく全チームから探す。
+    final home = gameState.teamById(homeId)!;
+    final away = gameState.teamById(awayId)!;
     final homeGoals = _revealed
         .where((e) => e.teamId == home.id && e.type == MatchEventType.goal)
         .length;
     final awayGoals = _revealed
         .where((e) => e.teamId == away.id && e.type == MatchEventType.goal)
         .length;
-    final weather = fixture?.weather ?? _finalResult?.weather ?? Weather.clear;
+    final weather = fixture?.weather ??
+        cup?.weather ??
+        _finalResult?.weather ??
+        Weather.clear;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('第$matchday節'),
+        title: Text(_competitionTitle ?? '第$matchday節'),
         automaticallyImplyLeading: false,
         actions: (_phase == _Phase.firstHalf || _phase == _Phase.secondHalf)
             ? [
@@ -559,6 +571,15 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
               ),
             if (finished)
               FullTimeBanner(userTeamId: _userTeamId, result: _finalResult),
+            if (finished && context.read<GameState>().lastLiveCupNote != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  context.read<GameState>().lastLiveCupNote!,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             if (finished)
               ManOfTheMatchBanner(
                 result: _finalResult,

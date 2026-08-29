@@ -8489,4 +8489,166 @@ void main() {
     final restoredTeam = Team.fromJson(team.toJson());
     expect(restoredTeam.tacticalMeetingCooldownWeeks, 2);
   });
+
+  test(
+      'GameState.startCupMatchLive plays a domestic cup match through the '
+      'same live interactive engine as league matches, applies the result '
+      'to the bracket (with a penalty winner on a draw), records post-match '
+      'effects (appearances) for user players, and pays a win prize', () async {
+    final gameState = GameState();
+    await gameState.startNewGame('テストFC');
+    // ブラケット消化順が自クラブの試合になるまで、他カードのカップ試合と
+    // リーグ戦(消化間隔の解消のため)を進める。自クラブの試合は自動では
+    // 消化しないため、必ずいずれ自クラブの番が来る。
+    for (int guard = 0; guard < 300; guard++) {
+      if (gameState.canPlayNextDomesticCupMatchLive) break;
+      if (gameState.domesticCup == null || gameState.domesticCup!.isComplete) {
+        break;
+      }
+      if (gameState.canPlayNextDomesticCupMatch) {
+        await gameState.playNextCupMatch();
+      } else {
+        await gameState.playNextMatchday();
+        await gameState.playSecondHalf();
+      }
+    }
+    expect(gameState.canPlayNextDomesticCupMatchLive, isTrue);
+
+    final cup = gameState.domesticCup!;
+    final match = cup.nextUnplayedMatch!;
+    final userId = gameState.userTeam.id;
+    final budgetBefore = gameState.save!.budget;
+    final appsBefore = gameState.userTeam.players
+        .fold<int>(0, (s, p) => s + p.careerAppearances);
+
+    expect(await gameState.startCupMatchLive(LiveCupKind.domestic), isTrue);
+    expect(gameState.liveCupDescriptor, isNotNull);
+    expect(gameState.liveCupDescriptor!.competitionLabel, cup.name);
+
+    // リーグ戦のライブ観戦と同じAPIで最後まで進行できる。
+    while (gameState.pendingChanceDecision != null) {
+      await gameState.resolveChanceDecision(ChanceDecision.shoot);
+    }
+    MatchResult? merged = await gameState.playSecondHalf(interactive: true);
+    while (merged == null && gameState.pendingChanceDecision != null) {
+      merged =
+          (await gameState.resolveChanceDecision(ChanceDecision.shoot)).merged;
+    }
+    expect(merged, isNotNull);
+
+    // 結果がブラケットに適用され、ライブ状態はクリアされている。
+    expect(match.result, isNotNull);
+    expect(match.result!.homeGoals, merged!.homeGoals);
+    expect(match.result!.awayGoals, merged.awayGoals);
+    expect(gameState.liveCupDescriptor, isNull);
+    if (merged.homeGoals == merged.awayGoals) {
+      expect(match.penaltyWinnerId, isNotNull, reason: 'ノックアウトの引き分けはPK戦で決着する');
+    }
+    if (match.winnerId == userId) {
+      expect(gameState.save!.budget, greaterThan(budgetBefore),
+          reason: 'カップ戦の勝ち上がり賞金が入る');
+    }
+
+    // カップ戦でも試合後効果が適用され、出場記録が増える。
+    final appsAfter = gameState.userTeam.players
+        .fold<int>(0, (s, p) => s + p.careerAppearances);
+    expect(appsAfter, greaterThan(appsBefore));
+  });
+
+  test(
+      'GameState.playNextCupMatch (quick-sim path) also applies post-match '
+      'effects to user players, so playing live and quick-simming cup '
+      'matches carry the same physical consequences', () async {
+    final gameState = GameState();
+    await gameState.startNewGame('テストFC');
+    for (int guard = 0; guard < 300; guard++) {
+      if (gameState.canPlayNextDomesticCupMatchLive) break;
+      if (gameState.domesticCup == null || gameState.domesticCup!.isComplete) {
+        break;
+      }
+      if (gameState.canPlayNextDomesticCupMatch) {
+        await gameState.playNextCupMatch();
+      } else {
+        await gameState.playNextMatchday();
+        await gameState.playSecondHalf();
+      }
+    }
+    expect(gameState.canPlayNextDomesticCupMatchLive, isTrue);
+    final appsBefore = gameState.userTeam.players
+        .fold<int>(0, (s, p) => s + p.careerAppearances);
+    final result = await gameState.playNextCupMatch();
+    expect(result, isNotNull);
+    final appsAfter = gameState.userTeam.players
+        .fold<int>(0, (s, p) => s + p.careerAppearances);
+    expect(appsAfter, greaterThan(appsBefore));
+  });
+
+  test(
+      'GameState.setDevelopmentTargetRole accepts only roles allowed for the '
+      "player's position group (standard is rejected), and the plan "
+      'round-trips through JSON', () async {
+    final gameState = GameState();
+    await gameState.startNewGame('テストFC');
+    final gk = gameState.userTeam.players
+        .firstWhere((p) => p.position.group == PositionGroup.gk);
+
+    gameState.setDevelopmentTargetRole(gk.id, PlayerRole.poacher);
+    expect(gk.developmentTargetRole, isNull, reason: 'FW用ロールはGKに設定できない');
+
+    gameState.setDevelopmentTargetRole(gk.id, PlayerRole.standard);
+    expect(gk.developmentTargetRole, isNull, reason: 'standardは目標にできない');
+
+    gameState.setDevelopmentTargetRole(gk.id, PlayerRole.sweeperKeeper);
+    expect(gk.developmentTargetRole, PlayerRole.sweeperKeeper);
+
+    final restored = Player.fromJson(gk.toJson());
+    expect(restored.developmentTargetRole, PlayerRole.sweeperKeeper);
+
+    gameState.setDevelopmentTargetRole(gk.id, null);
+    expect(gk.developmentTargetRole, isNull);
+  });
+
+  test(
+      'a development plan (target role) makes the weekly training grow that '
+      "role's key attributes clearly faster than an otherwise identical "
+      'player without a plan', () {
+    Team buildSoloTeam(String id, {PlayerRole? plan}) {
+      final p = Player(
+        id: '$id-p',
+        name: '$id-p',
+        age: 20,
+        position: Position.dm,
+        potential: 99,
+      );
+      for (final key in AttributeKeys.all) {
+        p.setAttributeValue(key, 30);
+      }
+      p.developmentTargetRole = plan;
+      final team = Team(id: id, name: id, players: [p]);
+      return team;
+    }
+
+    int keySum(Team t) {
+      final p = t.players.first;
+      return PlayerRole.anchorMan.keyAttributes
+          .fold<int>(0, (s, k) => s + p.attributeValue(k));
+    }
+
+    final planned = buildSoloTeam('plan', plan: PlayerRole.anchorMan);
+    final unplanned = buildSoloTeam('noplan');
+    const weeks = 200;
+    for (int i = 0; i < weeks; i++) {
+      // 疲労・負傷でトレーニング効果が偏らないよう、毎週リセットして
+      // 純粋な成長判定の差だけを比較する。
+      for (final t in [planned, unplanned]) {
+        final p = t.players.first;
+        p.fatigue = 0;
+        p.injuryWeeks = 0;
+      }
+      TrainingEngine.applyWeeklyTraining(planned);
+      TrainingEngine.applyWeeklyTraining(unplanned);
+    }
+    expect(keySum(planned), greaterThan(keySum(unplanned)),
+        reason: '育成プランの重視能力値(タックル・ポジショニング)が優先的に伸びるはず');
+  });
 }
