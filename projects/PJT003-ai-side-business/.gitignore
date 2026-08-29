@@ -22,8 +22,9 @@ venv/
 data/*.json
 data/reports/
 
-# 納品物・実行ログ（顧客の情報が入るため絶対に共有しない）
+# 納品物・記事・実行ログ（顧客情報や自サイトの資産が入るため共有しない）
 deliverables/
+articles/
 logs/
 
 # ログ

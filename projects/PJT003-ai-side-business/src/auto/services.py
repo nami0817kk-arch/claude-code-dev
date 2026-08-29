@@ -33,6 +33,8 @@ class Service:
     qa_points: list = field(default_factory=list)  # AI レビューの採点観点
     max_tokens: int = 16000
     extension: str = "md"
+    # アフィリエイトリンクを含む記事は、広告・PR表記が無いとステマ規制に触れる
+    disclosure_required: bool = False
 
     @property
     def price_label(self) -> str:

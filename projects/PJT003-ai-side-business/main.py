@@ -22,6 +22,11 @@ from src import coach, ideas, llm, pricing, proposal, research, roadmap, store, 
 from src.auto import cost as cost_mod
 from src.auto import jobs as jobs_mod
 from src.auto import services as services_mod
+from src.media import analytics as media_analytics
+from src.media import articles as media_articles
+from src.media import genre as media_genre
+from src.media import keywords as media_keywords
+from src.media import model as media_model
 from src import profile as profile_mod
 from src import report as report_mod
 
@@ -232,6 +237,140 @@ def cmd_report(args):
     print(f"レポートを出力しました: {path}")
 
 
+# ------------------------------------------------------- メディア運営
+
+def cmd_media(args):
+    action = args.media_command or "status"
+
+    if action == "params":
+        params = media_model.load_params()
+        if args.set:
+            for pair in args.set:
+                if "=" not in pair:
+                    print(f"書式が不正です: {pair}  （例: cvr=0.03）")
+                    sys.exit(1)
+                key, raw = pair.split("=", 1)
+                key = key.strip()
+                if key not in media_model.DEFAULTS:
+                    print(f"不明な項目です: {key}")
+                    print(f"指定できる項目: {', '.join(media_model.DEFAULTS)}")
+                    sys.exit(1)
+                current = media_model.DEFAULTS[key]
+                try:
+                    params[key] = type(current)(float(raw)) if isinstance(current, int) \
+                        else float(raw)
+                except ValueError:
+                    print(f"数値で指定してください: {pair}")
+                    sys.exit(1)
+            media_model.save_params(params)
+            print("更新しました。")
+        media_model.print_params(params)
+
+    elif action == "plan":
+        target = args.target or _require_profile()["target_income"]
+        media_model.print_plan(media_model.plan(
+            target=target, avg_volume=args.volume, model=args.model,
+            articles_per_month=args.per_month))
+
+    elif action == "simulate":
+        target = args.target or (profile_mod.load()["target_income"]
+                                 if profile_mod.exists() else 0)
+        # 記事1本あたりのAPI原価を、実測があればそれを使う
+        written = media_articles.load()
+        article_cost = (sum(a["cost_jpy"] for a in written) / len(written)
+                        if written else args.article_cost)
+        sim = media_model.simulate(
+            months=args.months, articles_per_month=args.per_month,
+            avg_volume=args.volume, target=target, model=args.model,
+            article_cost=article_cost)
+        media_model.print_simulation(sim, target=target)
+
+    elif action == "genre":
+        prof = _require_profile()
+        if media_genre.load() and not args.refresh:
+            media_genre.print_genres(detail=args.detail)
+            print("  作り直す: python main.py media genre --refresh")
+            return
+        print("ジャンルを検討中です...（30秒ほどかかります）")
+        genres = media_genre.generate(prof, target=prof["target_income"],
+                                      theme=args.theme, n=args.count,
+                                      articles_per_month=args.per_month)
+        media_genre.print_genres(genres, detail=args.detail)
+
+    elif action == "keywords":
+        if args.import_csv:
+            try:
+                r = media_keywords.import_volumes(args.import_csv)
+            except FileNotFoundError:
+                print(f"ファイルが見つかりません: {args.import_csv}")
+                sys.exit(1)
+            print(f"{r['read']} 件読み込み、{r['matched']}/{r['total']} 件のキーワードに"
+                  "検索数を反映しました。")
+            media_keywords.print_keywords(detail=args.detail)
+            return
+
+        saved = media_keywords.load()
+        if args.list or (saved and not args.refresh):
+            if not saved:
+                print("キーワードがまだありません。"
+                      '`python main.py media keywords --theme "テーマ"` を実行してください。')
+                return
+            media_keywords.print_keywords(top=args.top, detail=args.detail)
+            if not args.list:
+                print("  作り直す: python main.py media keywords --refresh")
+            return
+
+        prof = _require_profile()
+        theme = args.theme or media_keywords.theme()
+        if not theme:
+            print('テーマを指定してください。 例) python main.py media keywords '
+                  '--theme "業務効率化ツール"')
+            sys.exit(1)
+        print(f"「{theme}」のキーワードを設計中です...（30秒ほどかかります）")
+        media_keywords.print_keywords(
+            media_keywords.generate(prof, theme, n=args.count), detail=args.detail)
+
+    elif action == "write":
+        if not media_keywords.load():
+            print("先にキーワードを設計してください: "
+                  'python main.py media keywords --theme "テーマ"')
+            sys.exit(1)
+        media_articles.write_batch(kw_ids=args.ids, limit=args.limit,
+                                   options=args.options, use_ai_qa=not args.no_qa)
+
+    elif action == "publish":
+        record = media_analytics.record(args.id, published=args.date or store.today())
+        if not record:
+            print(f"記事 {args.id} が見つかりません。")
+            sys.exit(1)
+        print(f"公開日を記録しました: [{record['keyword_id']}] {record['keyword']}  "
+              f"{record['published_at']}")
+        print(f"  検索評価が付くまで約{media_model.load_params()['seo_lag_months']}ヶ月です。"
+              "その後に実績を記録してください。")
+
+    elif action == "stats":
+        if args.id:
+            record = media_analytics.record(args.id, pv=args.pv, revenue=args.revenue,
+                                            rank=args.rank)
+            if not record:
+                print(f"記事 {args.id} が見つかりません。")
+                sys.exit(1)
+            print(f"記録しました: [{record['keyword_id']}] {record['keyword']}  "
+                  f"{record.get('rank') or '-'}位 / {record.get('pv', 0):,}PV / "
+                  f"{record.get('revenue', 0):,}円")
+        media_analytics.print_articles()
+
+    elif action == "rewrite":
+        media_analytics.print_rewrite_queue()
+
+    elif action == "check":
+        media_analytics.print_calibration()
+
+    else:
+        media_analytics.print_articles()
+        media_analytics.print_rewrite_queue()
+
+
 # ------------------------------------------------------- 自動化エンジン
 
 def cmd_service(args):
@@ -345,7 +484,15 @@ def build_parser():
   5. task/revenue  実行して結果を記録する
   6. status / review  数字で確認し、毎週やり方を直す
 
-AIで自動化して納品する場合:
+アフィリエイト・広告収入（ストック型）の場合:
+  media genre     ジャンル候補を到達月数で比較する
+  media plan      目標月収から必要なPV・記事数を逆算する
+  media keywords  狙うキーワードを設計する
+  media write     記事を生成する
+  media stats     公開後の実績を記録する
+  media rewrite   直すべき記事を期待増加額の順に出す
+
+受注して納品する場合（つなぎの即金）:
   service      自動化できるサービスを確認する
   job add      依頼を登録する
   auto         未処理をまとめて生成・検品・納品ファイル出力（人手ゼロ）
@@ -456,6 +603,72 @@ AIで自動化して納品する場合:
     p_auto.add_argument("--retry", action="store_true",
                         help="前回失敗した案件も再実行する")
 
+    # ---- メディア運営（アフィリエイト・広告収入） ----
+    p_media = sub.add_parser(
+        "media", help="アフィリエイト・広告収入のメディア運営",
+        description="ストック型（アフィリエイト・広告）の収益設計から記事生成・改善まで")
+    msub = p_media.add_subparsers(dest="media_command")
+
+    m_params = msub.add_parser("params", help="収益モデルのパラメータを確認・変更")
+    m_params.add_argument("--set", nargs="+", metavar="KEY=VALUE",
+                          help="例) --set cvr=0.03 unit_price=10000")
+
+    m_plan = msub.add_parser("plan", help="目標月収から必要なPV・記事数を逆算")
+    m_plan.add_argument("--target", type=int, help="目標月収（既定:プロフィールの値）")
+    m_plan.add_argument("--volume", type=int, default=1000, help="想定検索数 (既定:1000)")
+    m_plan.add_argument("--per-month", type=int, default=8, dest="per_month",
+                        help="月に書く記事数 (既定:8)")
+    m_plan.add_argument("--model", default="both", choices=["both", "affiliate", "ad"],
+                        help="収益モデル (既定:both)")
+
+    m_sim = msub.add_parser("simulate", help="月ごとの収益・累積損益をシミュレーション")
+    m_sim.add_argument("--months", type=int, default=24, help="期間 (既定:24ヶ月)")
+    m_sim.add_argument("--per-month", type=int, default=8, dest="per_month",
+                       help="月に書く記事数 (既定:8)")
+    m_sim.add_argument("--volume", type=int, default=1000, help="想定検索数 (既定:1000)")
+    m_sim.add_argument("--target", type=int, help="目標月収（既定:プロフィールの値）")
+    m_sim.add_argument("--model", default="both", choices=["both", "affiliate", "ad"])
+    m_sim.add_argument("--article-cost", type=float, default=45, dest="article_cost",
+                       help="1記事あたりのAPI原価（実績があればそちらを使用）")
+
+    m_genre = msub.add_parser("genre", help="ジャンル候補を出して到達月数で比較")
+    m_genre.add_argument("--theme", default="", help="検討したい方向性")
+    m_genre.add_argument("--count", type=int, default=6, help="候補数 (既定:6)")
+    m_genre.add_argument("--per-month", type=int, default=8, dest="per_month",
+                         help="月に書ける記事数 (既定:8)")
+    m_genre.add_argument("--detail", action="store_true", help="詳細も表示")
+    m_genre.add_argument("--refresh", action="store_true", help="出し直す")
+
+    m_kw = msub.add_parser("keywords", help="キーワード設計と優先順位付け")
+    m_kw.add_argument("--theme", default="", help="メディアのテーマ")
+    m_kw.add_argument("--count", type=int, default=20, help="設計する件数 (既定:20)")
+    m_kw.add_argument("--top", type=int, default=0, help="表示件数")
+    m_kw.add_argument("--detail", action="store_true", help="タイトル案・狙う理由も表示")
+    m_kw.add_argument("--refresh", action="store_true", help="設計し直す")
+    m_kw.add_argument("--list", action="store_true", help="保存済みを表示（APIを呼ばない）")
+    m_kw.add_argument("--import", dest="import_csv", metavar="CSV",
+                      help="検索ボリュームのCSVを取り込む（1列目:キーワード 2列目:検索数）")
+
+    m_write = msub.add_parser("write", help="キーワードから記事を生成")
+    m_write.add_argument("ids", nargs="*", type=int, help="キーワード番号（省略時は未執筆すべて）")
+    m_write.add_argument("--limit", type=int, default=0, help="生成する本数の上限")
+    m_write.add_argument("--options", default="", help="追加の指定（トーン・文字数など）")
+    m_write.add_argument("--no-qa", action="store_true", dest="no_qa",
+                         help="AI検品をスキップ（機械チェックのみ）")
+
+    m_pub = msub.add_parser("publish", help="記事の公開日を記録する")
+    m_pub.add_argument("id", type=int, help="キーワード番号")
+    m_pub.add_argument("--date", default="", help="公開日 YYYY-MM-DD (既定:今日)")
+
+    m_stats = msub.add_parser("stats", help="記事の実績を記録・確認する")
+    m_stats.add_argument("id", nargs="?", type=int, help="キーワード番号")
+    m_stats.add_argument("--pv", type=int, help="月間PV")
+    m_stats.add_argument("--rank", type=int, help="検索順位")
+    m_stats.add_argument("--revenue", type=int, help="月間収益(円)")
+
+    msub.add_parser("rewrite", help="改善すべき記事を期待増加額の順に出す")
+    msub.add_parser("check", help="実測とモデルのズレを確認する")
+
     p_cost = sub.add_parser("cost", help="原価・粗利のレポート")
     p_cost.add_argument("--estimate", action="store_true",
                         help="実行前の概算（サービス別の想定原価と粗利率）")
@@ -470,6 +683,7 @@ COMMANDS = {
     "proposal": cmd_proposal, "review": cmd_review, "ask": cmd_ask,
     "report": cmd_report,
     "service": cmd_service, "job": cmd_job, "auto": cmd_auto, "cost": cmd_cost,
+    "media": cmd_media,
 }
 
 

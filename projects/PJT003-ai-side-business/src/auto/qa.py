@@ -10,6 +10,9 @@ from . import services
 
 PASS_SCORE = 80   # この点数未満なら修正に回す
 
+# ステマ規制上、アフィリエイト記事に必要な表記として認められる語
+DISCLOSURE_MARKS = ["PR", "ＰＲ", "広告", "プロモーション", "アフィリエイト", "スポンサー"]
+
 
 def mechanical(text: str, service) -> list:
     """AI を使わずに判定できる不備を返す。ここは絶対に見逃さない。"""
@@ -28,6 +31,12 @@ def mechanical(text: str, service) -> list:
     for word in services.FORBIDDEN:
         if word in text:
             issues.append(f"表現の問題: 「{word}」は景品表示法上のリスクがある")
+
+    # アフィリエイト記事の広告表記（2023年10月施行のステマ規制）
+    if getattr(service, "disclosure_required", False):
+        if not any(mark in text for mark in DISCLOSURE_MARKS):
+            issues.append(
+                "ステマ規制: 広告・PR表記が無い（記事冒頭に「本記事はプロモーションを含みます」等が必要）")
 
     # AI が付けがちな前置き・言い訳を検出する
     for pattern, label in [
