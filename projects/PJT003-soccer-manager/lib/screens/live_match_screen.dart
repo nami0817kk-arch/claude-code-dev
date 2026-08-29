@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../game/pitch_game.dart';
+import '../logic/match_engine.dart';
 import '../models/formation.dart';
 import '../models/match_result.dart';
 import '../models/player.dart';
@@ -31,11 +32,13 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
   _Phase _phase = _Phase.firstHalf;
   final List<MatchEvent> _revealed = [];
   int _currentMinute = 0;
+  int _segmentStartMinute = 0;
   MatchResult? _finalResult;
   late PitchGame _game;
   late final String _userTeamId;
   MatchEvent? _goalFlash;
   Timer? _goalFlashTimer;
+  bool _decisionDialogShowing = false;
 
   @override
   void dispose() {
@@ -48,16 +51,110 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
     super.initState();
     final gameState = context.read<GameState>();
     _userTeamId = gameState.userTeam.id;
-    final firstHalf = gameState.liveFirstHalf!;
-    _game = PitchGame(
-      events: firstHalf.events,
-      startMinute: 1,
-      endMinute: 45,
-      durationSeconds: 6,
+    _segmentStartMinute = 0;
+    _game = _buildSegmentGame(gameState, isSecondHalf: false);
+  }
+
+  /// 現在のセグメント(判断待ちが発生した分、なければハーフ終了分まで)の
+  /// PitchGameを組み立てる。判断待ちが1件もなければ従来通りハーフ全体を
+  /// 1つのセグメントとして扱う。
+  PitchGame _buildSegmentGame(GameState gameState,
+      {required bool isSecondHalf}) {
+    final pending = gameState.pendingChanceDecision;
+    final halfEnd = isSecondHalf ? 90 : 45;
+    final segmentEnd = pending?.minute ?? halfEnd;
+    final allEventsSoFar = isSecondHalf
+        ? gameState.liveSecondHalfEventsSoFar
+        : gameState.liveFirstHalfEventsSoFar;
+    final segmentEvents = allEventsSoFar
+        .where((e) => e.minute > _segmentStartMinute && e.minute <= segmentEnd)
+        .toList();
+    final segmentStart = _segmentStartMinute + 1;
+    final span = (segmentEnd - _segmentStartMinute).clamp(1, 45);
+    final durationSeconds = (span / 45 * 6).clamp(0.6, 6.0);
+    return PitchGame(
+      events: segmentEvents,
+      startMinute: segmentStart,
+      endMinute: segmentEnd,
+      durationSeconds: durationSeconds,
       onEvent: _handleEvent,
-      onFinished: () => setState(() => _phase = _Phase.halfTime),
+      onFinished: () => _handleSegmentFinished(isSecondHalf: isSecondHalf),
       onMinuteTick: (m) => setState(() => _currentMinute = m),
     );
+  }
+
+  void _handleSegmentFinished({required bool isSecondHalf}) {
+    _segmentStartMinute = _game.endMinute;
+    final gameState = context.read<GameState>();
+    final pending = gameState.pendingChanceDecision;
+    if (pending != null) {
+      _showChanceDecisionDialog(pending);
+      return;
+    }
+    if (!isSecondHalf) {
+      setState(() => _phase = _Phase.halfTime);
+    } else {
+      _handleFullTime();
+    }
+  }
+
+  Future<void> _showChanceDecisionDialog(PendingChanceDecision pending) async {
+    if (_decisionDialogShowing) return;
+    _decisionDialogShowing = true;
+    final gameState = context.read<GameState>();
+    final choice = await showDialog<ChanceDecision>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('決定機!'),
+        content: Text(
+          pending.passTarget != null
+              ? '${pending.shooter.name}がチャンス。自分で狙うか、より良い位置の'
+                  '${pending.passTarget!.name}へつなぐか選べる。'
+              : '${pending.shooter.name}がチャンス。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ChanceDecision.shoot),
+            child: const Text('シュート'),
+          ),
+          if (pending.passTarget != null)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, ChanceDecision.pass),
+              child: Text('パス(${pending.passTarget!.name}へ)'),
+            ),
+        ],
+      ),
+    );
+    _decisionDialogShowing = false;
+    if (!mounted) return;
+    final merged =
+        await gameState.resolveChanceDecision(choice ?? ChanceDecision.shoot);
+    if (!mounted) return;
+    if (merged != null) {
+      // この選択で試合(後半)がちょうど完了した。
+      final segmentEvents = merged.events
+          .where((e) => e.minute > _segmentStartMinute && e.minute <= 90)
+          .toList();
+      final span = (90 - _segmentStartMinute).clamp(1, 45);
+      setState(() {
+        _finalResult = merged;
+        _game = PitchGame(
+          events: segmentEvents,
+          startMinute: _segmentStartMinute + 1,
+          endMinute: 90,
+          durationSeconds: (span / 45 * 6).clamp(0.6, 6.0),
+          onEvent: _handleEvent,
+          onFinished: _handleFullTime,
+          onMinuteTick: (m) => setState(() => _currentMinute = m),
+        );
+      });
+      return;
+    }
+    final isSecondHalf = _phase == _Phase.secondHalf;
+    setState(() {
+      _game = _buildSegmentGame(gameState, isSecondHalf: isSecondHalf);
+    });
   }
 
   void _handleEvent(MatchEvent e) {
@@ -237,21 +334,31 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
 
   Future<void> _startSecondHalf() async {
     final gameState = context.read<GameState>();
-    final merged = await gameState.playSecondHalf();
-    if (merged == null || !mounted) return;
-    final secondHalfEvents = merged.events.where((e) => e.minute > 45).toList();
+    final merged = await gameState.playSecondHalf(interactive: true);
+    if (!mounted) return;
+    _segmentStartMinute = 45;
+    if (merged != null) {
+      // 後半にオープンプレーの決定機が1件もなく、即座に試合が確定した。
+      final secondHalfEvents =
+          merged.events.where((e) => e.minute > 45).toList();
+      setState(() {
+        _finalResult = merged;
+        _phase = _Phase.secondHalf;
+        _game = PitchGame(
+          events: secondHalfEvents,
+          startMinute: 46,
+          endMinute: 90,
+          durationSeconds: 6,
+          onEvent: _handleEvent,
+          onFinished: _handleFullTime,
+          onMinuteTick: (m) => setState(() => _currentMinute = m),
+        );
+      });
+      return;
+    }
     setState(() {
-      _finalResult = merged;
       _phase = _Phase.secondHalf;
-      _game = PitchGame(
-        events: secondHalfEvents,
-        startMinute: 46,
-        endMinute: 90,
-        durationSeconds: 6,
-        onEvent: _handleEvent,
-        onFinished: _handleFullTime,
-        onMinuteTick: (m) => setState(() => _currentMinute = m),
-      );
+      _game = _buildSegmentGame(gameState, isSecondHalf: true);
     });
   }
 

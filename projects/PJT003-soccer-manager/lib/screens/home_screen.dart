@@ -523,7 +523,7 @@ class HomeScreen extends StatelessWidget {
     final gameState = context.read<GameState>();
     final HalfResult? firstHalf;
     try {
-      firstHalf = await gameState.playNextMatchday();
+      firstHalf = await gameState.playNextMatchday(interactive: true);
     } catch (e) {
       if (context.mounted) _showProgressFailedSnackBar(context, e);
       return;

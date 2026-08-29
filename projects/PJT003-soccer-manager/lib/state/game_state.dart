@@ -2299,15 +2299,36 @@ class GameState extends ChangeNotifier {
 
   // ---- ハーフタイム対応の試合進行(自クラブの試合のみ) ----
   Fixture? _liveFixture;
-  HalfResult? _liveFirstHalf;
+  InteractiveHalfState? _liveFirstHalfState;
+  InteractiveHalfState? _liveSecondHalfState;
   int _liveSubstitutionsUsed = 0;
   static const int maxSubstitutionsPerMatch = 3;
 
   /// 自クラブの試合が前半終了・ハーフタイム待ちの状態かどうか。
-  bool get isHalfTime => _liveFixture != null && _liveFirstHalf != null;
+  bool get isHalfTime =>
+      _liveFixture != null &&
+      (_liveFirstHalfState?.isFinished ?? false) &&
+      _liveSecondHalfState == null;
 
   Fixture? get liveFixture => _liveFixture;
-  HalfResult? get liveFirstHalf => _liveFirstHalf;
+
+  /// 前半が完了した場合のみ結果を返す(判断待ちの間はnull)。
+  HalfResult? get liveFirstHalf =>
+      (_liveFirstHalfState != null && _liveFirstHalfState!.isFinished)
+          ? _liveFirstHalfState!.toHalfResult()
+          : null;
+
+  /// 前半でこれまでに確定したイベント一覧(判断待ちの間も参照できる)。
+  List<MatchEvent> get liveFirstHalfEventsSoFar =>
+      _liveFirstHalfState?.events ?? const [];
+
+  /// 後半でこれまでに確定したイベント一覧(判断待ちの間も参照できる)。
+  List<MatchEvent> get liveSecondHalfEventsSoFar =>
+      _liveSecondHalfState?.events ?? const [];
+
+  /// 現在進行中のハーフで、シュート/パスの判断待ちの決定機(なければnull)。
+  PendingChanceDecision? get pendingChanceDecision =>
+      _liveSecondHalfState?.pending ?? _liveFirstHalfState?.pending;
 
   int get substitutionsUsed => _liveSubstitutionsUsed;
   bool get canMakeSubstitution =>
@@ -2328,7 +2349,12 @@ class GameState extends ChangeNotifier {
   /// 次の節を進行する。CPU同士の試合は即座に消化するが、自クラブの試合は
   /// 前半のみをシミュレートしてハーフタイム状態にする(交代・戦術変更後、
   /// [playSecondHalf]で後半を消化する)。前半の結果を返す。
-  Future<HalfResult?> playNextMatchday() async {
+  /// [interactive]がtrueの場合、自クラブのオープンプレーの決定機で
+  /// シュート/パスの判断待ち([pendingChanceDecision])が発生しうる
+  /// (LiveMatchScreenでのライブ観戦時のみtrueにする)。falseの場合は
+  /// 常に「シュート」を選んだ場合と同じ結果になるよう即座に自動解決する
+  /// (クイックシム・裏側の節送りなど、判断を仰げない場面向け)。
+  Future<HalfResult?> playNextMatchday({bool interactive = false}) async {
     if (_save == null) return null;
     // 前半消化中(ハーフタイム)のまま二重に呼び出される(例: 画面を閉じて
     // 戻った際の再タップ)と、この節の他カード全試合の結果が新たな乱数で
@@ -2539,19 +2565,29 @@ class GameState extends ChangeNotifier {
           f.awayTeamId == _save!.userTeamId;
       if (isUserFixture) {
         userFixture = f;
-        userFirstHalf = MatchEngine.simulateMinutes(
+        final state = MatchEngine.beginInteractiveHalf(
           home: home,
           away: away,
           startMinute: 1,
           endMinute: 45,
+          interactiveTeamId: _save!.userTeamId,
           weather: weather,
           homeAdvantageFactor: _homeAdvantageFor(home.id),
         );
-        MatchEngine.applyHalfTimeFatigue(
-          home: home,
-          away: away,
-          weather: weather,
-        );
+        if (!interactive) {
+          while (!state.isFinished) {
+            MatchEngine.resolvePendingChance(state, ChanceDecision.shoot);
+          }
+        }
+        _liveFirstHalfState = state;
+        userFirstHalf = state.toHalfResult();
+        if (state.isFinished) {
+          MatchEngine.applyHalfTimeFatigue(
+            home: home,
+            away: away,
+            weather: weather,
+          );
+        }
       } else {
         f.result = MatchEngine.simulate(
           home: home,
@@ -2622,9 +2658,8 @@ class GameState extends ChangeNotifier {
     transferMarket = TransferMarket.generate();
     _refreshScoutCandidates();
 
-    if (userFixture != null && userFirstHalf != null) {
+    if (userFixture != null) {
       _liveFixture = userFixture;
-      _liveFirstHalf = userFirstHalf;
       _liveSubstitutionsUsed = 0;
     }
 
@@ -2637,36 +2672,107 @@ class GameState extends ChangeNotifier {
   }
 
   /// ハーフタイムでの交代・戦術変更を反映して後半を消化し、試合を確定する。
-  Future<MatchResult?> playSecondHalf() async {
-    if (_save == null || _liveFixture == null || _liveFirstHalf == null) {
+  /// [interactive]の意味は[playNextMatchday]と同じ。falseの場合は後半も
+  /// 即座に完了し、この呼び出しの戻り値だけで試合が確定する(従来通り)。
+  /// trueの場合、後半にもオープンプレーの決定機があれば判断待ちになり、
+  /// この呼び出しはnullを返す(その後[resolveChanceDecision]を繰り返して
+  /// 最終的に試合が確定した際、その戻り値として[MatchResult]が得られる)。
+  Future<MatchResult?> playSecondHalf({bool interactive = false}) async {
+    if (_save == null ||
+        _liveFixture == null ||
+        _liveFirstHalfState == null ||
+        !_liveFirstHalfState!.isFinished) {
       return null;
     }
     final league = _save!.league;
     final f = _liveFixture!;
     final home = league.teams.firstWhere((t) => t.id == f.homeTeamId);
     final away = league.teams.firstWhere((t) => t.id == f.awayTeamId);
-
     final weather = f.weather ?? Weather.clear;
-    final second = MatchEngine.simulateMinutes(
+
+    final state = MatchEngine.beginInteractiveHalf(
       home: home,
       away: away,
       startMinute: 46,
       endMinute: 90,
+      interactiveTeamId: _save!.userTeamId,
       weather: weather,
       homeAdvantageFactor: _homeAdvantageFor(home.id),
     );
-    final allEvents = [..._liveFirstHalf!.events, ...second.events];
-    final homeGoals = _liveFirstHalf!.homeGoals + second.homeGoals;
-    final awayGoals = _liveFirstHalf!.awayGoals + second.awayGoals;
-    final homeShots = _liveFirstHalf!.homeShots + second.homeShots;
-    final awayShots = _liveFirstHalf!.awayShots + second.awayShots;
+    if (!interactive) {
+      while (!state.isFinished) {
+        MatchEngine.resolvePendingChance(state, ChanceDecision.shoot);
+      }
+    }
+    _liveSecondHalfState = state;
+
+    if (state.isFinished) {
+      return _finalizeSecondHalf(state.toHalfResult());
+    }
+    notifyListeners();
+    await _persist();
+    return null;
+  }
+
+  /// 前半・後半のシュート/パスの判断待ち([pendingChanceDecision])を
+  /// [decision]で解決し、次の決定機(または試合終了)まで進行を再開する。
+  /// この呼び出しで試合(後半)がちょうど完了した場合のみ、確定した
+  /// [MatchResult]を返す(それ以外はnull)。
+  Future<MatchResult?> resolveChanceDecision(ChanceDecision decision) async {
+    if (_save == null) return null;
+    final secondState = _liveSecondHalfState;
+    if (secondState != null && !secondState.isFinished) {
+      MatchEngine.resolvePendingChance(secondState, decision);
+      if (secondState.isFinished) {
+        final merged = await _finalizeSecondHalf(secondState.toHalfResult());
+        return merged;
+      }
+      notifyListeners();
+      await _persist();
+      return null;
+    }
+    final firstState = _liveFirstHalfState;
+    if (firstState != null && !firstState.isFinished) {
+      MatchEngine.resolvePendingChance(firstState, decision);
+      if (firstState.isFinished && _liveFixture != null) {
+        final league = _save!.league;
+        final f = _liveFixture!;
+        final home = league.teams.firstWhere((t) => t.id == f.homeTeamId);
+        final away = league.teams.firstWhere((t) => t.id == f.awayTeamId);
+        final weather = f.weather ?? Weather.clear;
+        MatchEngine.applyHalfTimeFatigue(
+            home: home, away: away, weather: weather);
+      }
+      notifyListeners();
+      await _persist();
+    }
+    return null;
+  }
+
+  /// [playSecondHalf]/[resolveChanceDecision]から、後半がちょうど完了した
+  /// 際に呼ばれる。試合の確定処理(採点・疲労・負傷判定・マイルストーン・
+  /// 実績・理事会信頼度・記者会見)をまとめて行い、ライブ試合の一時状態を
+  /// クリアする。
+  Future<MatchResult> _finalizeSecondHalf(HalfResult second) async {
+    final league = _save!.league;
+    final f = _liveFixture!;
+    final home = league.teams.firstWhere((t) => t.id == f.homeTeamId);
+    final away = league.teams.firstWhere((t) => t.id == f.awayTeamId);
+    final weather = f.weather ?? Weather.clear;
+    final firstHalf = _liveFirstHalfState!.toHalfResult();
+
+    final allEvents = [...firstHalf.events, ...second.events];
+    final homeGoals = firstHalf.homeGoals + second.homeGoals;
+    final awayGoals = firstHalf.awayGoals + second.awayGoals;
+    final homeShots = firstHalf.homeShots + second.homeShots;
+    final awayShots = firstHalf.awayShots + second.awayShots;
     final homeShotsOnTarget =
-        _liveFirstHalf!.homeShotsOnTarget + second.homeShotsOnTarget;
+        firstHalf.homeShotsOnTarget + second.homeShotsOnTarget;
     final awayShotsOnTarget =
-        _liveFirstHalf!.awayShotsOnTarget + second.awayShotsOnTarget;
-    final totalChanceCount = _liveFirstHalf!.chanceCount + second.chanceCount;
+        firstHalf.awayShotsOnTarget + second.awayShotsOnTarget;
+    final totalChanceCount = firstHalf.chanceCount + second.chanceCount;
     final homePossession = totalChanceCount > 0
-        ? ((_liveFirstHalf!.possessionShareSum + second.possessionShareSum) /
+        ? ((firstHalf.possessionShareSum + second.possessionShareSum) /
                 totalChanceCount *
                 100)
             .round()
@@ -2745,7 +2851,8 @@ class GameState extends ChangeNotifier {
     );
 
     _liveFixture = null;
-    _liveFirstHalf = null;
+    _liveFirstHalfState = null;
+    _liveSecondHalfState = null;
     _liveSubstitutionsUsed = 0;
 
     notifyListeners();

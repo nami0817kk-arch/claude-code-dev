@@ -1489,6 +1489,122 @@ void main() {
   });
 
   test(
+      'MatchEngine.beginInteractiveHalf only pauses for the interactive '
+      "team's open-play chances, and auto-resolving every pending "
+      'decision with shoot always reaches isFinished', () {
+    final home = PlayerGenerator.generateSquad(
+        id: 'ih', name: 'Interactive Home FC', strengthTier: 60);
+    final away = PlayerGenerator.generateSquad(
+        id: 'ia', name: 'Interactive Away FC', strengthTier: 60);
+    LineupUtils.autoFill(home);
+    LineupUtils.autoFill(away);
+    final homeIds = MatchEngine.lineupOf(home).map((p) => p.id).toSet();
+
+    var pendingCount = 0;
+    for (int i = 0; i < 40; i++) {
+      final state = MatchEngine.beginInteractiveHalf(
+        home: home,
+        away: away,
+        startMinute: 1,
+        endMinute: 45,
+        interactiveTeamId: home.id,
+      );
+      while (!state.isFinished) {
+        final pending = state.pending!;
+        expect(homeIds.contains(pending.shooter.id), isTrue);
+        pendingCount++;
+        MatchEngine.resolvePendingChance(state, ChanceDecision.shoot);
+      }
+      expect(state.isFinished, isTrue);
+    }
+    expect(pendingCount, greaterThan(0));
+  });
+
+  test(
+      'MatchEngine.resolvePendingChance with pass redirects scoring credit '
+      'to the passTarget and makes the original shooter the assist '
+      'provider on a goal', () {
+    final home = PlayerGenerator.generateSquad(
+        id: 'ph', name: 'Pass Home FC', strengthTier: 85);
+    final away = PlayerGenerator.generateSquad(
+        id: 'pa', name: 'Pass Away FC', strengthTier: 15);
+    LineupUtils.autoFill(home);
+    LineupUtils.autoFill(away);
+
+    MatchEvent? passGoal;
+    Player? shooterAtDecision;
+    Player? passTargetAtDecision;
+    for (int i = 0; i < 4000 && passGoal == null; i++) {
+      final state = MatchEngine.beginInteractiveHalf(
+        home: home,
+        away: away,
+        startMinute: 1,
+        endMinute: 45,
+        interactiveTeamId: home.id,
+      );
+      while (!state.isFinished) {
+        final pending = state.pending!;
+        if (pending.passTarget == null) {
+          MatchEngine.resolvePendingChance(state, ChanceDecision.shoot);
+          continue;
+        }
+        final eventsBefore = state.events.length;
+        final shooter = pending.shooter;
+        final passTarget = pending.passTarget!;
+        MatchEngine.resolvePendingChance(state, ChanceDecision.pass);
+        if (state.events.length > eventsBefore) {
+          final e = state.events[eventsBefore];
+          if (e.type == MatchEventType.goal && e.teamId == home.id) {
+            passGoal = e;
+            shooterAtDecision = shooter;
+            passTargetAtDecision = passTarget;
+            break;
+          }
+        }
+      }
+    }
+    expect(passGoal, isNotNull);
+    expect(passGoal!.scorerId, passTargetAtDecision!.id);
+    expect(passGoal.assistId, shooterAtDecision!.id);
+  });
+
+  test(
+      'GameState.playNextMatchday(interactive: true) can pause on '
+      'pendingChanceDecision, and resolving every decision with shoot '
+      'reaches a fully completed match just like the non-interactive path',
+      () async {
+    final gameState = GameState();
+    await gameState.startNewGame('テストFC');
+
+    final firstHalf = await gameState.playNextMatchday(interactive: true);
+    expect(firstHalf, isNotNull);
+
+    while (gameState.pendingChanceDecision != null) {
+      final result =
+          await gameState.resolveChanceDecision(ChanceDecision.shoot);
+      expect(result, isNull);
+    }
+    expect(gameState.isHalfTime, isTrue);
+
+    MatchResult? merged = await gameState.playSecondHalf(interactive: true);
+    while (merged == null && gameState.pendingChanceDecision != null) {
+      merged = await gameState.resolveChanceDecision(ChanceDecision.shoot);
+    }
+
+    expect(merged, isNotNull);
+    expect(gameState.isHalfTime, isFalse);
+    expect(gameState.liveFixture, isNull);
+    expect(gameState.pendingChanceDecision, isNull);
+    final mergedResult = merged!;
+    final fixture = gameState.save!.league
+        .fixturesForMatchday(mergedResult.matchday)
+        .firstWhere((f) =>
+            f.homeTeamId == mergedResult.homeTeamId &&
+            f.awayTeamId == mergedResult.awayTeamId);
+    expect(fixture.result, isNotNull);
+  });
+
+  test(
       'GameState.playNextMatchday stops at half-time for the user fixture; playSecondHalf finalizes it',
       () async {
     final gameState = GameState();

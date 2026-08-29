@@ -40,6 +40,94 @@ class HalfResult {
   });
 }
 
+/// シュート/パスの選択(オープンプレーの決定機のみ対象)。
+enum ChanceDecision { shoot, pass }
+
+/// オープンプレーの決定機で、ユーザーチームに対しシュート/パスの判断を
+/// 求めるための情報。[passTarget]がnullの場合はつなげる味方がおらず、
+/// パスは選べない(シュート一択)。
+class PendingChanceDecision {
+  final int minute;
+  final Player shooter;
+  final Player? passTarget;
+
+  const PendingChanceDecision({
+    required this.minute,
+    required this.shooter,
+    this.passTarget,
+  });
+}
+
+/// [MatchEngine.beginInteractiveHalf]/[MatchEngine.resolvePendingChance]が
+/// 進行状況を保持するための可変状態。[pending]がセットされている間は
+/// 進行が止まっており、[MatchEngine.resolvePendingChance]で解決されるまで
+/// 再開しない。
+class InteractiveHalfState {
+  final Team home;
+  final Team away;
+  final String interactiveTeamId;
+  final List<Player> homeLineup;
+  final List<Player> awayLineup;
+  final double homeAttackBase;
+  final double awayAttackBase;
+  final double homeDefenseBase;
+  final double awayDefenseBase;
+  final int? homeRedMinute;
+  final int? awayRedMinute;
+  final List<int> chanceMinutes;
+  final List<MatchEvent> events;
+
+  int chanceIndex = 0;
+  int homeGoals = 0;
+  int awayGoals = 0;
+  double homeMomentum = 0;
+  double awayMomentum = 0;
+  int homeShots = 0;
+  int awayShots = 0;
+  int homeShotsOnTarget = 0;
+  int awayShotsOnTarget = 0;
+  double possessionShareSum = 0;
+
+  PendingChanceDecision? pending;
+  // pending解決に必要な文脈(次のresolvePendingChance呼び出しでのみ使う)。
+  bool? pendingIsHomeChance;
+  double? pendingBaseScoreProb;
+
+  InteractiveHalfState({
+    required this.home,
+    required this.away,
+    required this.interactiveTeamId,
+    required this.homeLineup,
+    required this.awayLineup,
+    required this.homeAttackBase,
+    required this.awayAttackBase,
+    required this.homeDefenseBase,
+    required this.awayDefenseBase,
+    required this.homeRedMinute,
+    required this.awayRedMinute,
+    required this.chanceMinutes,
+    required this.events,
+  });
+
+  /// このハーフの進行が(判断待ちなく)完了したかどうか。
+  bool get isFinished => pending == null && chanceIndex >= chanceMinutes.length;
+
+  HalfResult toHalfResult() {
+    final sorted = [...events]..sort((a, b) => a.minute.compareTo(b.minute));
+    return HalfResult(
+      homeGoals: homeGoals,
+      awayGoals: awayGoals,
+      events: sorted,
+      homeShots: homeShots,
+      awayShots: awayShots,
+      homeShotsOnTarget: homeShotsOnTarget,
+      awayShotsOnTarget: awayShotsOnTarget,
+      possessionShareSum: possessionShareSum,
+      chanceCount: chanceMinutes.length,
+    );
+  }
+}
+
 class MatchEngine {
   static final Random _rng = Random();
 
@@ -1358,6 +1446,473 @@ class MatchEngine {
       if (marker == null || p.defense > marker.defense) marker = p;
     }
     team.manMarkerId = marker?.id;
+  }
+
+  // ============================================================
+  // インタラクティブ進行(自クラブの試合でシュート/パスを選べるモード)
+  //
+  // 以下は[simulateMinutes]/[simulate]とは完全に独立した並行実装。
+  // 既存の一括シミュレーション(CPU同士の試合・カップ戦・クイックシム)は
+  // 引き続き[simulateMinutes]/[simulate]をそのまま使い、一切変更しない。
+  // ここでは、ユーザーが出場する試合のオープンプレーの決定機でのみ
+  // [InteractiveHalfState.pending]に判断材料をセットして進行を一時停止し、
+  // [resolvePendingChance]で選んだ結果を反映して再開できるようにする。
+  // ============================================================
+
+  /// パス/シュートの選択を求める判断材料。ダイアログ表示に使う。
+  static const double _passWeightAttack = 1.0;
+
+  /// パスでチャンスを継続する際につなぐ味方を選ぶ。攻撃力で重み付けし、
+  /// 現状シュートする予定の選手は除外する(つなげる相手がいなければnull)。
+  static Player? _pickPassTarget(List<Player> lineup, {String? excludeId}) {
+    final candidates = lineup
+        .where(
+          (p) =>
+              p.id != excludeId &&
+              (p.position.group == PositionGroup.att ||
+                  p.position.group == PositionGroup.mid),
+        )
+        .toList();
+    if (candidates.isEmpty) return null;
+    final total = candidates.fold<int>(
+      0,
+      (s, p) => s + (p.attack * _passWeightAttack).round(),
+    );
+    if (total <= 0) return candidates[_rng.nextInt(candidates.length)];
+    int r = _rng.nextInt(total);
+    for (final p in candidates) {
+      final w = (p.attack * _passWeightAttack).round();
+      if (r < w) return p;
+      r -= w;
+    }
+    return candidates.last;
+  }
+
+  static void _finalizeChance(
+    InteractiveHalfState s, {
+    required int minute,
+    required bool isHomeChance,
+    required Team attackingTeam,
+    required Player? scorer,
+    required Player? forcedAssist,
+    required double scoreProb,
+    required bool isPenalty,
+    required bool isDirectFreeKick,
+  }) {
+    final attackingLineup = isHomeChance ? s.homeLineup : s.awayLineup;
+    if (_rng.nextDouble() < scoreProb) {
+      final assist = (isPenalty || isDirectFreeKick)
+          ? null
+          : (forcedAssist ?? _pickAssist(attackingLineup, scorer));
+      s.events.add(
+        MatchEvent(
+          minute: minute,
+          teamId: attackingTeam.id,
+          scorerName: scorer?.name,
+          scorerId: scorer?.id,
+          assistName: assist?.name,
+          assistId: assist?.id,
+        ),
+      );
+      if (isHomeChance) {
+        s.homeGoals++;
+        s.homeShotsOnTarget++;
+        s.homeMomentum = (s.homeMomentum + 0.05).clamp(-0.08, 0.08);
+        s.awayMomentum = (s.awayMomentum - 0.02).clamp(-0.08, 0.08);
+      } else {
+        s.awayGoals++;
+        s.awayShotsOnTarget++;
+        s.awayMomentum = (s.awayMomentum + 0.05).clamp(-0.08, 0.08);
+        s.homeMomentum = (s.homeMomentum - 0.02).clamp(-0.08, 0.08);
+      }
+    } else if (_rng.nextDouble() < 0.45) {
+      if (isHomeChance) {
+        s.homeShotsOnTarget++;
+      } else {
+        s.awayShotsOnTarget++;
+      }
+      s.events.add(
+        MatchEvent(
+          minute: minute,
+          teamId: attackingTeam.id,
+          scorerName: scorer?.name,
+          scorerId: scorer?.id,
+          type: MatchEventType.chance,
+        ),
+      );
+    }
+    s.homeMomentum *= 0.9;
+    s.awayMomentum *= 0.9;
+  }
+
+  /// [simulateMinutes]と同じ区間シミュレーションのセットアップ(カード生成・
+  /// チャンス発生分の抽選・攻守力算出)を行い、チャンス評価に進む前の
+  /// [InteractiveHalfState]を返す。呼び出し直後に内部で最初のチャンス評価まで
+  /// 進めるため、[interactiveTeamId]の決定機が最初のチャンスにあれば
+  /// 即座に[InteractiveHalfState.pending]がセットされた状態で返る。
+  static InteractiveHalfState beginInteractiveHalf({
+    required Team home,
+    required Team away,
+    required int startMinute,
+    required int endMinute,
+    required String interactiveTeamId,
+    Weather weather = Weather.clear,
+    double homeAdvantageFactor = 1.06,
+  }) {
+    if (startMinute == 1) {
+      _rollMatchForm(home, away, weather);
+    } else {
+      _rollMatchFormForCurrentLineup(home, away, weather);
+    }
+    for (final p in home.players) {
+      p.yellowCardedThisHalf = false;
+    }
+    for (final p in away.players) {
+      p.yellowCardedThisHalf = false;
+    }
+
+    final homeLineup = lineupOf(home);
+    final awayLineup = lineupOf(away);
+    final homeMarkedId = markedTargetId(away, awayLineup, homeLineup);
+    final awayMarkedId = markedTargetId(home, homeLineup, awayLineup);
+
+    final homeAttackBase =
+        _attackPower(home, homeLineup, suppressedId: homeMarkedId) *
+            homeAdvantageFactor *
+            weather.attackMultiplier;
+    final awayAttackBase =
+        _attackPower(away, awayLineup, suppressedId: awayMarkedId) *
+            weather.attackMultiplier;
+    final homeDefenseBase =
+        _defensePower(home, homeLineup) * weather.defenseMultiplier;
+    final awayDefenseBase =
+        _defensePower(away, awayLineup) * weather.defenseMultiplier;
+
+    final events = <MatchEvent>[];
+    final span = endMinute - startMinute + 1;
+    final minutesUsed = <int>{};
+
+    int? homeRedMinute;
+    int? awayRedMinute;
+    final cardChances = ((1 + _rng.nextInt(4)) * span / 90).round().clamp(0, 6);
+    for (int i = 0; i < cardChances; i++) {
+      final minute = startMinute + _rng.nextInt(span);
+      if (minutesUsed.contains(minute)) continue;
+      minutesUsed.add(minute);
+      final isHomeTeam = _rng.nextBool();
+      final lineup = isHomeTeam ? homeLineup : awayLineup;
+      final team = isHomeTeam ? home : away;
+      final leader = _findCaptainOrVice(team, lineup);
+      if (leader != null &&
+          _rng.nextDouble() <
+              (0.15 + leader.attributeValue(AttributeKeys.leadership) / 400)) {
+        continue;
+      }
+      final target = _pickCardTarget(lineup);
+      if (target == null) continue;
+      final isSecondYellow = target.yellowCardedThisHalf;
+      final isRed = isSecondYellow || _rng.nextDouble() < 0.08;
+      if (!isRed) target.yellowCardedThisHalf = true;
+      events.add(
+        MatchEvent(
+          minute: minute,
+          teamId: team.id,
+          scorerName: target.name,
+          scorerId: target.id,
+          type: isRed ? MatchEventType.redCard : MatchEventType.yellowCard,
+        ),
+      );
+      if (isRed) {
+        if (isHomeTeam) {
+          homeRedMinute =
+              homeRedMinute == null ? minute : min(homeRedMinute, minute);
+        } else {
+          awayRedMinute =
+              awayRedMinute == null ? minute : min(awayRedMinute, minute);
+        }
+      }
+    }
+
+    for (final t in [home, away]) {
+      if (!t.timeWastingMode) continue;
+      if (_rng.nextDouble() >= 0.18 * span / 90) continue;
+      final minute = startMinute + _rng.nextInt(span);
+      if (minutesUsed.contains(minute)) continue;
+      final lineup = t.id == home.id ? homeLineup : awayLineup;
+      final target = _pickCardTarget(lineup);
+      if (target == null) continue;
+      minutesUsed.add(minute);
+      final isHomeTeam = t.id == home.id;
+      final isSecondYellow = target.yellowCardedThisHalf;
+      if (!isSecondYellow) target.yellowCardedThisHalf = true;
+      events.add(
+        MatchEvent(
+          minute: minute,
+          teamId: t.id,
+          scorerName: target.name,
+          scorerId: target.id,
+          type: isSecondYellow
+              ? MatchEventType.redCard
+              : MatchEventType.yellowCard,
+        ),
+      );
+      if (isSecondYellow) {
+        if (isHomeTeam) {
+          homeRedMinute =
+              homeRedMinute == null ? minute : min(homeRedMinute, minute);
+        } else {
+          awayRedMinute =
+              awayRedMinute == null ? minute : min(awayRedMinute, minute);
+        }
+      }
+    }
+
+    final totalChances =
+        ((9 + _rng.nextInt(8)) * span / 90 * weather.chanceCountMultiplier)
+            .round()
+            .clamp(1, 20);
+    final chanceMinutes = <int>[];
+    for (int i = 0; i < totalChances; i++) {
+      int minute = startMinute;
+      var guard = 0;
+      do {
+        minute = startMinute + _rng.nextInt(span);
+        guard++;
+      } while (minutesUsed.contains(minute) && guard < 50);
+      minutesUsed.add(minute);
+      chanceMinutes.add(minute);
+    }
+    chanceMinutes.sort();
+
+    final state = InteractiveHalfState(
+      home: home,
+      away: away,
+      interactiveTeamId: interactiveTeamId,
+      homeLineup: homeLineup,
+      awayLineup: awayLineup,
+      homeAttackBase: homeAttackBase,
+      awayAttackBase: awayAttackBase,
+      homeDefenseBase: homeDefenseBase,
+      awayDefenseBase: awayDefenseBase,
+      homeRedMinute: homeRedMinute,
+      awayRedMinute: awayRedMinute,
+      chanceMinutes: chanceMinutes,
+      events: events,
+    );
+    _advanceInteractiveHalf(state);
+    return state;
+  }
+
+  static void _advanceInteractiveHalf(InteractiveHalfState s) {
+    while (s.chanceIndex < s.chanceMinutes.length) {
+      final minute = s.chanceMinutes[s.chanceIndex];
+      final homeRedActive =
+          s.homeRedMinute != null && minute > s.homeRedMinute!;
+      final awayRedActive =
+          s.awayRedMinute != null && minute > s.awayRedMinute!;
+      final homeAttack = s.homeAttackBase * (homeRedActive ? 0.85 : 1.0);
+      final awayAttack = s.awayAttackBase * (awayRedActive ? 0.85 : 1.0);
+      final homeDefense = s.homeDefenseBase * (homeRedActive ? 0.82 : 1.0);
+      final awayDefense = s.awayDefenseBase * (awayRedActive ? 0.82 : 1.0);
+
+      final homeShare = homeAttack / (homeAttack + awayAttack);
+      s.possessionShareSum += homeShare;
+      final isHomeChance = _rng.nextDouble() < homeShare;
+      if (isHomeChance) {
+        s.homeShots++;
+      } else {
+        s.awayShots++;
+      }
+      final attackingLineup = isHomeChance ? s.homeLineup : s.awayLineup;
+      final defendingLineup = isHomeChance ? s.awayLineup : s.homeLineup;
+      final attackingTeam = isHomeChance ? s.home : s.away;
+      final defendingTeam = isHomeChance ? s.away : s.home;
+      final defendingDefense = isHomeChance ? awayDefense : homeDefense;
+      final attackingPower = isHomeChance ? homeAttack : awayAttack;
+      final momentum = isHomeChance ? s.homeMomentum : s.awayMomentum;
+
+      final diff = attackingPower - defendingDefense;
+      var scoreProb = (0.30 + diff / 220 + momentum).clamp(0.05, 0.75);
+      Player? scorer;
+      Player? forcedAssist;
+      bool isPenalty = false;
+      bool isDirectFreeKick = false;
+      bool isInteractiveOpenPlay = false;
+
+      if (_rng.nextDouble() < 0.25) {
+        // セットプレー(PK・直接FK・CK): 従来通り即座に解決する
+        // (シュート/パスの選択はオープンプレーの通常シュートに限定する)。
+        final subRoll = _rng.nextDouble();
+        if (subRoll < 0.15) {
+          isPenalty = true;
+          scorer = _pickSetPieceTaker(
+                attackingTeam.penaltyTakerId,
+                attackingLineup,
+              ) ??
+              _pickScorer(attackingLineup);
+          final penaltyAttr =
+              scorer?.attributeValue(AttributeKeys.penalties) ?? 50;
+          scoreProb = (0.55 + (penaltyAttr - 50) / 200).clamp(0.5, 0.9);
+        } else if (subRoll < 0.55) {
+          isDirectFreeKick = true;
+          scorer = _pickSetPieceTaker(
+                attackingTeam.freeKickTakerId,
+                attackingLineup,
+              ) ??
+              _pickScorer(attackingLineup);
+          final freeKickAttr =
+              scorer?.attributeValue(AttributeKeys.freeKick) ?? 50;
+          scoreProb = (0.18 + (freeKickAttr - 50) / 300).clamp(0.05, 0.35);
+          scoreProb = applySetPieceDefense(
+            scoreProb,
+            defendingTeam,
+            defendingLineup,
+          );
+        } else {
+          final cornerTaker = _pickSetPieceTaker(
+            attackingTeam.cornerTakerId,
+            attackingLineup,
+          );
+          scorer = _pickAerialTarget(
+            attackingLineup,
+            excludeId: cornerTaker?.id,
+          );
+          forcedAssist = cornerTaker;
+          if (cornerTaker != null) {
+            final cornersAttr = cornerTaker.attributeValue(
+              AttributeKeys.corners,
+            );
+            final longThrowsAttr = cornerTaker.attributeValue(
+              AttributeKeys.longThrows,
+            );
+            final deliveryQuality =
+                (cornersAttr * 0.8 + longThrowsAttr * 0.2).round();
+            scoreProb = (scoreProb * (1 + (deliveryQuality - 50) / 200)).clamp(
+              0.05,
+              0.75,
+            );
+          }
+          scoreProb = applySetPieceDefense(
+            scoreProb,
+            defendingTeam,
+            defendingLineup,
+          );
+          scoreProb = _applyHeaderQuality(scoreProb, scorer);
+        }
+      } else {
+        // オープンプレー: サイドでの1対1をまず判定する。
+        final right = _rng.nextBool();
+        final wideAttacker = _pickWideAttacker(attackingLineup, right);
+        final isWidePlay = wideAttacker != null && _rng.nextDouble() < 0.55;
+        if (isWidePlay) {
+          final marker = _findSameSideDefender(defendingLineup, right);
+          final wonDuel =
+              _rng.nextDouble() < _wideDuelWinProb(wideAttacker, marker);
+          if (wonDuel) {
+            // クロス→ヘディング: 従来通り即座に解決する(選択の対象外)。
+            scorer = _pickAerialTarget(
+              attackingLineup,
+              excludeId: wideAttacker.id,
+            );
+            forcedAssist = wideAttacker;
+            final crossQuality = wideAttacker.attributeValue(
+              AttributeKeys.crossing,
+            );
+            scoreProb = (scoreProb * (1 + (crossQuality - 50) / 250)).clamp(
+              0.05,
+              0.8,
+            );
+            if (scorer != null) {
+              scoreProb =
+                  scoreProb * _aerialDuelFactor(scorer, defendingLineup);
+            }
+            scoreProb = _applyHeaderQuality(scoreProb, scorer);
+          } else {
+            scorer = _pickScorer(attackingLineup);
+            scoreProb = (scoreProb * 0.7).clamp(0.05, 0.75);
+            isInteractiveOpenPlay = true;
+          }
+        } else {
+          scorer = _pickScorer(attackingLineup);
+          isInteractiveOpenPlay = true;
+        }
+      }
+
+      if (isInteractiveOpenPlay && attackingTeam.id == s.interactiveTeamId) {
+        final passTarget = _pickPassTarget(
+          attackingLineup,
+          excludeId: scorer?.id,
+        );
+        s.pending = PendingChanceDecision(
+          minute: minute,
+          shooter: scorer!,
+          passTarget: passTarget,
+        );
+        s.pendingIsHomeChance = isHomeChance;
+        s.pendingBaseScoreProb = scoreProb;
+        return; // ここで一時停止。再開はresolvePendingChanceから。
+      }
+
+      if (isInteractiveOpenPlay) {
+        scoreProb = _applyFinisherQuality(scoreProb, scorer);
+      }
+
+      _finalizeChance(
+        s,
+        minute: minute,
+        isHomeChance: isHomeChance,
+        attackingTeam: attackingTeam,
+        scorer: scorer,
+        forcedAssist: forcedAssist,
+        scoreProb: scoreProb,
+        isPenalty: isPenalty,
+        isDirectFreeKick: isDirectFreeKick,
+      );
+      s.chanceIndex++;
+    }
+  }
+
+  /// [state.pending]をユーザーの選択([decision])に基づいて解決し、次の決定機
+  /// (または半終了)まで進行を再開する。パスを選んでもつなげる味方がいない
+  /// 場合はシュートとして扱う。
+  static void resolvePendingChance(
+    InteractiveHalfState state,
+    ChanceDecision decision,
+  ) {
+    final pending = state.pending;
+    if (pending == null) return;
+    final isHomeChance = state.pendingIsHomeChance!;
+    final baseScoreProb = state.pendingBaseScoreProb!;
+    final attackingTeam = isHomeChance ? state.home : state.away;
+
+    Player finalScorer;
+    Player? forcedAssist;
+    if (decision == ChanceDecision.pass && pending.passTarget != null) {
+      finalScorer = pending.passTarget!;
+      forcedAssist = pending.shooter;
+    } else {
+      finalScorer = pending.shooter;
+      forcedAssist = null;
+    }
+    final finalScoreProb = _applyFinisherQuality(baseScoreProb, finalScorer);
+
+    state.pending = null;
+    state.pendingIsHomeChance = null;
+    state.pendingBaseScoreProb = null;
+
+    _finalizeChance(
+      state,
+      minute: pending.minute,
+      isHomeChance: isHomeChance,
+      attackingTeam: attackingTeam,
+      scorer: finalScorer,
+      forcedAssist: forcedAssist,
+      scoreProb: finalScoreProb,
+      isPenalty: false,
+      isDirectFreeKick: false,
+    );
+    state.chanceIndex++;
+    _advanceInteractiveHalf(state);
   }
 
   static MatchResult simulate({
