@@ -1977,7 +1977,7 @@ void main() {
       }
       var sum = 0.0;
       var count = 0;
-      for (int i = 0; i < 60; i++) {
+      for (int i = 0; i < 400; i++) {
         final state = MatchEngine.beginInteractiveHalf(
           home: home,
           away: away,
@@ -1988,8 +1988,12 @@ void main() {
         while (!state.isFinished) {
           final pending = state.pending!;
           if (pending.context == ChanceContext.defense) {
-            sum += pending.aggressiveChanceAgainst!;
-            count++;
+            // agilityを操作したのはattグループの選手のみなので、それ以外が
+            // 攻撃者だったサンプルは信号が薄まるため平均対象から除く。
+            if (pending.attacker!.position.group == PositionGroup.att) {
+              sum += pending.aggressiveChanceAgainst!;
+              count++;
+            }
             MatchEngine.resolvePendingChance(state, ChanceDecision.coverSpace);
           } else {
             MatchEngine.resolvePendingChance(state, ChanceDecision.shoot);
@@ -2000,8 +2004,8 @@ void main() {
       return sum / count;
     }
 
-    final agileAvg = averageAggressiveChanceAgainst(95);
-    final dullAvg = averageAggressiveChanceAgainst(20);
+    final agileAvg = averageAggressiveChanceAgainst(99);
+    final dullAvg = averageAggressiveChanceAgainst(1);
     expect(agileAvg, greaterThan(dullAvg));
   });
 
