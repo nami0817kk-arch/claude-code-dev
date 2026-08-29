@@ -580,6 +580,15 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
                   textAlign: TextAlign.center,
                 ),
               ),
+            if (finished && context.read<GameState>().lastCupPrizeNote != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  context.read<GameState>().lastCupPrizeNote!,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             if (finished)
               ManOfTheMatchBanner(
                 result: _finalResult,

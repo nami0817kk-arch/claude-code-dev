@@ -860,8 +860,16 @@ class PlayerDetailScreen extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(ctx);
               final gameState = context.read<GameState>();
+              final messenger = ScaffoldMessenger.of(context);
               final ok = await gameState.sellPlayer(playerId);
               ok ? FeedbackService.success() : FeedbackService.error();
+              if (ok) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(gameState.lastSaleNews ?? '選手を放出しました'),
+                  ),
+                );
+              }
               if (context.mounted && ok) {
                 Navigator.pop(context);
               }

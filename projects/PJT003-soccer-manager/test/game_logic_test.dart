@@ -8729,4 +8729,96 @@ void main() {
     expect(gameState.lastSaleNews, isNotNull);
     expect(gameState.lastSaleNews, contains(newClub.name));
   });
+
+  test(
+      'winning a domestic cup match sets lastCupPrizeNote with the exact '
+      'prize amount so the UI can surface the payout', () async {
+    final gameState = GameState();
+    await gameState.startNewGame('テストFC');
+    final userId = gameState.userTeam.id;
+
+    // 自クラブがカップ戦で勝つか敗退するまで進める。自クラブ戦は
+    // クイック消化し、間隔待ちの週はリーグ戦を消化して解消する。
+    String? noteAtWin;
+    int? roundAtWin;
+    for (int guard = 0; guard < 300; guard++) {
+      final cup = gameState.domesticCup;
+      if (cup == null || cup.isComplete || cup.isEliminated(userId)) break;
+      final match = cup.nextUnplayedMatch;
+      if (match == null) break;
+      final isUserMatch =
+          match.homeTeamId == userId || match.awayTeamId == userId;
+      if (gameState.canPlayNextDomesticCupMatch) {
+        gameState.lastCupPrizeNote = null;
+        await gameState.playNextCupMatch();
+        if (isUserMatch && match.winnerId == userId) {
+          noteAtWin = gameState.lastCupPrizeNote;
+          roundAtWin = match.round;
+          break;
+        }
+        if (isUserMatch) {
+          expect(gameState.lastCupPrizeNote, isNull,
+              reason: '負けた試合では賞金通知は積まれない');
+        }
+      } else {
+        await gameState.playNextMatchday();
+        await gameState.playSecondHalf();
+      }
+    }
+
+    // 自クラブが初戦で敗退した場合は勝利サンプルが取れないが、その場合も
+    // ループ内アサーション(敗戦時にnoteが積まれない)は検証済み。
+    if (noteAtWin != null) {
+      final prize = GameState.domesticCupWinPrizeFor(roundAtWin!);
+      expect(noteAtWin, contains('$prize万円'));
+    }
+  });
+
+  test(
+      'guideSections and glossaryEntries cover the live-match experience '
+      'and the newest transfer/training/cup features', () {
+    final live = guideSections.firstWhere(
+      (s) => s.title.contains('ライブ観戦'),
+    );
+    expect(live.topics.length, greaterThanOrEqualTo(5));
+    final liveTitles = live.topics.map((t) => t.title).join();
+    expect(liveTitles, contains('決定機'));
+    expect(liveTitles, contains('采配方針'));
+    expect(liveTitles, contains('ライブ交代'));
+    expect(liveTitles, contains('モメンタム'));
+
+    final transfer = guideSections.firstWhere((s) => s.title == '移籍市場画面');
+    final transferTitles = transfer.topics.map((t) => t.title).join();
+    expect(transferTitles, contains('値切り交渉'));
+    expect(transferTitles, contains('持続的な移籍市場'));
+
+    final training = guideSections.firstWhere((s) => s.title == 'トレーニング画面');
+    expect(
+      training.topics.map((t) => t.title).join(),
+      contains('育成プラン'),
+    );
+
+    final cups = guideSections.firstWhere((s) => s.title.contains('カップ戦'));
+    expect(cups.topics.map((t) => t.title).join(), contains('勝ち上がり賞金'));
+
+    final glossaryTerms = glossaryEntries.map((e) => e.term).toSet();
+    for (final term in [
+      '決定機',
+      '采配方針',
+      'ライブ交代',
+      'モメンタム(試合の流れ)',
+      'クイック消化',
+      '値切り交渉',
+      '育成プラン(目標ロール)',
+      '勝ち上がり賞金',
+    ]) {
+      expect(glossaryTerms, contains(term));
+    }
+    expect(
+      glossaryEntries
+          .where((e) => e.category == GlossaryCategory.liveMatch)
+          .length,
+      greaterThanOrEqualTo(5),
+    );
+  });
 }

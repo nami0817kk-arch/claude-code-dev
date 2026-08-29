@@ -7,6 +7,7 @@ enum GlossaryCategory {
   condition,
   contractTransfer,
   tactics,
+  liveMatch,
   club,
 }
 
@@ -17,6 +18,7 @@ extension GlossaryCategoryInfo on GlossaryCategory {
         GlossaryCategory.condition => 'コンディション・メンタル',
         GlossaryCategory.contractTransfer => '契約・移籍',
         GlossaryCategory.tactics => '戦術',
+        GlossaryCategory.liveMatch => 'ライブ観戦',
         GlossaryCategory.club => 'クラブ経営',
       };
 }
@@ -311,5 +313,58 @@ final List<GlossaryEntry> glossaryEntries = [
     category: GlossaryCategory.condition,
     description:
         '打撲(1-2週)・肉離れ(2-5週)・靭帯損傷(4-10週)の3種類があり、療養期間が異なる。基礎体力(naturalFitness)が高いほど負傷しにくく、同じ種類の負傷を繰り返すと再発しやすくなる。',
+  ),
+  const GlossaryEntry(
+    term: '決定機',
+    category: GlossaryCategory.liveMatch,
+    description:
+        'ライブ観戦中に訪れる得点/失点のチャンス。自クラブの攻撃側ではシュート/パス/ロングシュートを、守備側では積極的にタックル/カバーリングに専念を選ぶ。成功率は関わる選手の能力値の勝負(シューター対GKなど)から算出され、選択前に表示される。',
+  ),
+  const GlossaryEntry(
+    term: '采配方針',
+    category: GlossaryCategory.liveMatch,
+    description:
+        'ライブ観戦中にいつでも切り替えられる試合中の指示。通常/リスクを取る/安全に下がるの3方針があり、以降の決定機の成功率に攻守それぞれへ補正がかかる。',
+  ),
+  const GlossaryEntry(
+    term: 'ライブ交代',
+    category: GlossaryCategory.liveMatch,
+    description:
+        'ライブ観戦中、ハーフタイムを待たずに決定機の合間で交代枠を使って行う選手交代。目前の決定機に関わっている選手は、その決定機が解決するまで交代できない。',
+  ),
+  const GlossaryEntry(
+    term: 'モメンタム(試合の流れ)',
+    category: GlossaryCategory.liveMatch,
+    description:
+        'ライブ観戦画面のスコア下に表示される綱引きバー。ゴールなどで勢いづいた側に傾き、傾いている間はその側の決定機がわずかに決まりやすくなる。',
+  ),
+  const GlossaryEntry(
+    term: 'クイック消化',
+    category: GlossaryCategory.liveMatch,
+    description:
+        'ライブ観戦せず、試合結果だけを即座に確定させる進め方。カップ戦を含め、疲労・負傷・警告累積・出場記録などの試合後効果はライブ観戦と同じように適用される。',
+  ),
+  const GlossaryEntry(
+    term: '値切り交渉',
+    category: GlossaryCategory.contractTransfer,
+    description:
+        '移籍市場の選手を想定移籍金より安い提示額で獲得しようとする交渉。提示額の割合が高いほど成立しやすく、55%以下では必ず決裂する。決裂した選手とはその週は再交渉できない。',
+  ),
+  const GlossaryEntry(
+    term: '移籍市場の入れ替わり',
+    category: GlossaryCategory.contractTransfer,
+    description:
+        '移籍市場の顔ぶれは毎週数人だけが入れ替わる持続的な仕組み。狙っていた選手を翌週以降も追える一方、いつまでも市場に残っているとは限らない。',
+  ),
+  const GlossaryEntry(
+    term: '育成プラン(目標ロール)',
+    category: GlossaryCategory.condition,
+    description:
+        '選手ごとに目標とするロール(プレースタイル)を設定する仕組み。週次トレーニングでそのロールが重視する能力値が優先的に伸びる。ポジションの大分類に合うロールのみ設定できる。',
+  ),
+  const GlossaryEntry(
+    term: '勝ち上がり賞金',
+    category: GlossaryCategory.club,
+    description: 'カップ戦で1勝(1タイ勝ち抜け)するごとに得られる賞金。ラウンドが深いほど高額で、優勝時はさらに優勝ボーナスが加わる。',
   ),
 ];

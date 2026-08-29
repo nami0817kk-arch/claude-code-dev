@@ -3506,6 +3506,7 @@ class GameState extends ChangeNotifier {
     _liveCupTie = tie;
     _liveSubstitutionsUsed = 0;
     lastLiveCupNote = null;
+    lastCupPrizeNote = null;
     _liveFirstHalfState = MatchEngine.beginInteractiveHalf(
       home: home,
       away: away,
@@ -3595,6 +3596,12 @@ class GameState extends ChangeNotifier {
     );
   }
 
+  /// 直近のカップ戦で自クラブが獲得した賞金の通知文。賞金は従来budgetへ
+  /// 無言で加算されており、プレイヤーが「勝つと賞金が入る」ことに気づけ
+  /// なかったため、獲得のたびにここへ文言を積み、UI側(クイック消化の
+  /// SnackBar/ライブのフルタイム画面)が表示後にnullへ戻す。
+  String? lastCupPrizeNote;
+
   /// 国内カップの1試合が大会へ適用された後の共通処理(自動消化・ライブ
   /// 共通)。自クラブの勝利賞金・敗退時の信頼度低下・優勝報酬を扱う。
   void _afterDomesticCupMatchApplied(CupMatch match) {
@@ -3605,7 +3612,9 @@ class GameState extends ChangeNotifier {
         match.homeTeamId == userId || match.awayTeamId == userId;
     if (userInvolved) {
       if (match.winnerId == userId) {
-        _save!.budget += domesticCupWinPrizeFor(match.round);
+        final prize = domesticCupWinPrizeFor(match.round);
+        _save!.budget += prize;
+        lastCupPrizeNote = '勝利賞金として$prize万円を獲得!';
       } else if (cup.isEliminated(userId)) {
         _save!.confidence = (_save!.confidence - 1).clamp(0, 100);
       }
@@ -3630,7 +3639,10 @@ class GameState extends ChangeNotifier {
     final userWon = r != null &&
         ((r.homeTeamId == userId && r.homeGoals > r.awayGoals) ||
             (r.awayTeamId == userId && r.awayGoals > r.homeGoals));
-    if (userWon) _save!.budget += continentalGroupWinPrize;
+    if (userWon) {
+      _save!.budget += continentalGroupWinPrize;
+      lastCupPrizeNote = '勝利賞金として$continentalGroupWinPrize万円を獲得!';
+    }
     if (cup.isEliminated(userId)) {
       _save!.confidence = (_save!.confidence - 3).clamp(0, 100);
     }
@@ -3645,6 +3657,7 @@ class GameState extends ChangeNotifier {
     if (userInTie) {
       if (tie.isComplete && tie.winnerId == userId) {
         _save!.budget += continentalTieWinPrize;
+        lastCupPrizeNote = '勝ち上がり賞金として$continentalTieWinPrize万円を獲得!';
       }
       if (cup.isEliminated(userId)) {
         _save!.confidence = (_save!.confidence - 3).clamp(0, 100);

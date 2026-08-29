@@ -14,6 +14,16 @@ import '../widgets/responsive_body.dart';
 import 'live_match_screen.dart';
 import 'match_screen.dart';
 
+/// カップ戦のクイック消化後に、自クラブが賞金を獲得していればSnackBarで
+/// 知らせる(表示した通知は消費してnullへ戻す)。ライブ観戦はフルタイム
+/// 画面側で表示するため、こちらはクイック消化の各導線から呼ぶ。
+void showCupPrizeSnackBar(BuildContext context, GameState gameState) {
+  final note = gameState.lastCupPrizeNote;
+  if (note == null) return;
+  gameState.lastCupPrizeNote = null;
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(note)));
+}
+
 /// 自クラブのカップ試合をライブ観戦で開始し、試合画面へ遷移する。
 /// リーグ戦のライブ観戦と同じ画面・同じ操作(決定機の判断・交代・采配)で
 /// 戦える。開始できなかった場合はSnackBarで知らせる。
@@ -182,6 +192,7 @@ class _DomesticCupTab extends StatelessWidget {
         (match.homeTeamId == userId || match.awayTeamId == userId);
     final result = await gameState.playNextCupMatch();
     if (!context.mounted) return;
+    showCupPrizeSnackBar(context, gameState);
     if (result != null && isUserMatch) {
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -378,6 +389,7 @@ class _ContinentalCupTab extends StatelessWidget {
         (match.homeTeamId == userId || match.awayTeamId == userId);
     final result = await gameState.playNextContinentalGroupMatch();
     if (!context.mounted) return;
+    showCupPrizeSnackBar(context, gameState);
     if (result != null && isUserMatch) {
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -403,6 +415,7 @@ class _ContinentalCupTab extends StatelessWidget {
     final isUserTie = tie.teamAId == userId || tie.teamBId == userId;
     final result = await gameState.playNextContinentalKnockoutLeg();
     if (!context.mounted) return;
+    showCupPrizeSnackBar(context, gameState);
     if (result != null && isUserTie) {
       Navigator.of(context).push(
         MaterialPageRoute(
