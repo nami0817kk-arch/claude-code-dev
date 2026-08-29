@@ -19,6 +19,9 @@ except ImportError:
     pass
 
 from src import coach, ideas, llm, pricing, proposal, research, roadmap, store, tracker
+from src.auto import cost as cost_mod
+from src.auto import jobs as jobs_mod
+from src.auto import services as services_mod
 from src import profile as profile_mod
 from src import report as report_mod
 
@@ -229,6 +232,105 @@ def cmd_report(args):
     print(f"レポートを出力しました: {path}")
 
 
+# ------------------------------------------------------- 自動化エンジン
+
+def cmd_service(args):
+    if args.action == "show":
+        if not args.key:
+            print("サービス名を指定してください。 例) python main.py service show minutes")
+            sys.exit(1)
+        service = services_mod.get(args.key)
+        if not service:
+            print(f"不明なサービス: {args.key}")
+            print(f"指定できるのは: {', '.join(services_mod.keys())}")
+            sys.exit(1)
+        services_mod.print_service(service)
+    else:
+        services_mod.print_services()
+
+
+def _read_input(args) -> str:
+    """--input（ファイル）か --text（直接）から依頼内容を読む。"""
+    if args.input:
+        path = Path(args.input)
+        if not path.exists():
+            print(f"ファイルが見つかりません: {path}")
+            sys.exit(1)
+        return path.read_text(encoding="utf-8")
+    if args.text:
+        return " ".join(args.text)
+    print("入力を指定してください。")
+    print('  例) python main.py job add minutes --input meeting.txt --price 5000')
+    print('      python main.py job add blog --text "テーマ: 副業の始め方" --price 8000')
+    sys.exit(1)
+
+
+def cmd_job(args):
+    if args.action == "add":
+        if not args.service:
+            print(f"サービスを指定してください: {', '.join(services_mod.keys())}")
+            sys.exit(1)
+        if not services_mod.get(args.service):
+            print(f"不明なサービス: {args.service}")
+            print(f"指定できるのは: {', '.join(services_mod.keys())}")
+            sys.exit(1)
+        job = jobs_mod.add(args.service, _read_input(args), title=args.title,
+                           client=args.client, price=args.price, options=args.options)
+        print(f"登録しました: [{job['id']}] {job['title']}  "
+              f"<{services_mod.get(job['service']).name}>")
+        print("  実行: python main.py auto")
+
+    elif args.action == "run":
+        if not args.id:
+            print("案件番号を指定してください。 例) python main.py job run 1")
+            sys.exit(1)
+        job = jobs_mod.find(args.id)
+        if not job:
+            print(f"案件 {args.id} が見つかりません。")
+            sys.exit(1)
+        jobs_mod.run(job, record_revenue=not args.no_revenue, use_ai_qa=not args.no_qa)
+
+    elif args.action == "show":
+        if not args.id:
+            print("案件番号を指定してください。 例) python main.py job show 1")
+            sys.exit(1)
+        job = jobs_mod.find(args.id)
+        if not job:
+            print(f"案件 {args.id} が見つかりません。")
+            sys.exit(1)
+        jobs_mod.print_job(job)
+
+    elif args.action == "delivered":
+        job = jobs_mod.find(args.id)
+        if not job:
+            print(f"案件 {args.id} が見つかりません。")
+            sys.exit(1)
+        recorded = jobs_mod.record_sale(job)
+        jobs_mod.update(args.id, status="delivered")
+        print(f"納品済みにしました: [{job['id']}] {job['title']}")
+        if recorded:
+            print(f"  売上 {job['price']:,}円 を計上しました。")
+
+    elif args.action == "rm":
+        print("削除しました。" if jobs_mod.remove(args.id) else f"案件 {args.id} が見つかりません。")
+
+    else:
+        jobs_mod.print_jobs(show_all=args.all)
+
+
+def cmd_auto(args):
+    jobs_mod.run_pending(record_revenue=not args.no_revenue, use_ai_qa=not args.no_qa,
+                         limit=args.limit, retry_failed=args.retry)
+
+
+def cmd_cost(args):
+    if args.estimate:
+        target = profile_mod.load()["target_income"] if profile_mod.exists() else 0
+        cost_mod.print_estimates(target_income=target)
+    else:
+        cost_mod.print_summary()
+
+
 # ---------------------------------------------------------------- CLI
 
 def build_parser():
@@ -242,6 +344,12 @@ def build_parser():
   4. plan      90日ロードマップを作り、タスクに落とす
   5. task/revenue  実行して結果を記録する
   6. status / review  数字で確認し、毎週やり方を直す
+
+AIで自動化して納品する場合:
+  service      自動化できるサービスを確認する
+  job add      依頼を登録する
+  auto         未処理をまとめて生成・検品・納品ファイル出力（人手ゼロ）
+  cost         API原価と粗利率を確認する
 """)
     sub = parser.add_subparsers(dest="command")
 
@@ -317,6 +425,41 @@ def build_parser():
     p_report = sub.add_parser("report", help="Markdown レポートを出力する")
     p_report.add_argument("--idea", type=int, help="調査・計画も含めるアイデア番号")
 
+    # ---- 自動化エンジン ----
+    p_svc = sub.add_parser("service", help="自動化できるサービスの一覧・詳細")
+    p_svc.add_argument("action", nargs="?", default="list", choices=["list", "show"])
+    p_svc.add_argument("key", nargs="?", help="show のときのサービス名")
+
+    p_job = sub.add_parser("job", help="案件の登録・実行・確認")
+    p_job.add_argument("action", nargs="?", default="list",
+                       choices=["list", "add", "run", "show", "delivered", "rm"])
+    p_job.add_argument("service", nargs="?", help="add のときのサービス名")
+    p_job.add_argument("--id", type=int, help="run/show/delivered/rm の対象案件番号")
+    p_job.add_argument("--input", help="依頼内容のファイルパス")
+    p_job.add_argument("--text", nargs="+", help="依頼内容を直接指定")
+    p_job.add_argument("--title", default="", help="案件名")
+    p_job.add_argument("--client", default="", help="クライアント名")
+    p_job.add_argument("--price", type=int, default=0, help="受注金額(円)")
+    p_job.add_argument("--options", default="", help="追加の指定（トーン・文字数など）")
+    p_job.add_argument("--all", action="store_true", help="納品済みも表示する")
+    p_job.add_argument("--no-revenue", action="store_true", dest="no_revenue",
+                       help="売上に自動記録しない")
+    p_job.add_argument("--no-qa", action="store_true", dest="no_qa",
+                       help="AI検品をスキップする（機械チェックのみ・原価を抑える）")
+
+    p_auto = sub.add_parser("auto", help="未処理の案件をまとめて自動処理する")
+    p_auto.add_argument("--limit", type=int, default=0, help="処理する件数の上限")
+    p_auto.add_argument("--no-revenue", action="store_true", dest="no_revenue",
+                        help="売上に自動記録しない")
+    p_auto.add_argument("--no-qa", action="store_true", dest="no_qa",
+                        help="AI検品をスキップする（機械チェックのみ）")
+    p_auto.add_argument("--retry", action="store_true",
+                        help="前回失敗した案件も再実行する")
+
+    p_cost = sub.add_parser("cost", help="原価・粗利のレポート")
+    p_cost.add_argument("--estimate", action="store_true",
+                        help="実行前の概算（サービス別の想定原価と粗利率）")
+
     return parser
 
 
@@ -326,6 +469,7 @@ COMMANDS = {
     "revenue": cmd_revenue, "status": cmd_status, "price": cmd_price,
     "proposal": cmd_proposal, "review": cmd_review, "ask": cmd_ask,
     "report": cmd_report,
+    "service": cmd_service, "job": cmd_job, "auto": cmd_auto, "cost": cmd_cost,
 }
 
 
@@ -346,6 +490,17 @@ def main():
                 args.id = None
         if args.id is None:
             print(f"タスク番号を指定してください。 例) python main.py task {args.action} 3")
+            sys.exit(1)
+
+    if args.command == "job" and args.action in ("run", "show", "delivered", "rm"):
+        # `job run 1` のように位置引数で番号を渡せるようにする
+        if args.id is None and args.service:
+            try:
+                args.id = int(args.service)
+            except ValueError:
+                args.id = None
+        if args.id is None:
+            print(f"案件番号を指定してください。 例) python main.py job {args.action} 1")
             sys.exit(1)
 
     if args.command == "revenue" and args.action == "add" and args.amount is None:
