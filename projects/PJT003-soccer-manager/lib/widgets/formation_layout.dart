@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/formation.dart';
 
 /// フォーメーションごとの選手配置座標(正規化: x=0左タッチライン〜1右タッチライン、

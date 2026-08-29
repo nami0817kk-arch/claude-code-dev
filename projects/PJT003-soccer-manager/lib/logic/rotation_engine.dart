@@ -37,21 +37,25 @@ class RotationEngine {
     // 提案の中で同じ控え選手が複数のスタメンの交代先として重複しないよう、
     // 一度提案に使った選手はここから除外していく。
     final benched = team.players
-        .where((p) =>
-            !team.startingXI.contains(p.id) &&
-            !p.isInjured &&
-            !p.isOnInternationalDuty &&
-            !p.isLoanedOut &&
-            !p.isSuspended)
+        .where(
+          (p) =>
+              !team.startingXI.contains(p.id) &&
+              !p.isInjured &&
+              !p.isOnInternationalDuty &&
+              !p.isLoanedOut &&
+              !p.isSuspended,
+        )
         .toList();
 
     final suggestions = <RotationSuggestion>[];
     for (final starter in starters) {
       if (starter.fatigue < fatigueThreshold) continue;
       final candidates = benched
-          .where((p) =>
-              p.canPlay(starter.position) &&
-              starter.fatigue - p.fatigue >= minFatigueImprovement)
+          .where(
+            (p) =>
+                p.canPlay(starter.position) &&
+                starter.fatigue - p.fatigue >= minFatigueImprovement,
+          )
           .toList()
         ..sort((a, b) {
           final byFatigue = a.fatigue.compareTo(b.fatigue);
@@ -60,14 +64,16 @@ class RotationEngine {
         });
       if (candidates.isEmpty) continue;
       final best = candidates.first;
-      suggestions.add(RotationSuggestion(
-        tiredPlayerId: starter.id,
-        tiredPlayerName: starter.name,
-        tiredFatigue: starter.fatigue,
-        replacementId: best.id,
-        replacementName: best.name,
-        replacementFatigue: best.fatigue,
-      ));
+      suggestions.add(
+        RotationSuggestion(
+          tiredPlayerId: starter.id,
+          tiredPlayerName: starter.name,
+          tiredFatigue: starter.fatigue,
+          replacementId: best.id,
+          replacementName: best.name,
+          replacementFatigue: best.fatigue,
+        ),
+      );
       benched.remove(best);
     }
     return suggestions;

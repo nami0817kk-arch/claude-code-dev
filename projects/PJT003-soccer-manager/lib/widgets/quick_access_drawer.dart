@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../data/quick_access_destinations.dart';
 import '../services/feedback_service.dart';
 import '../state/game_state.dart';
@@ -21,11 +22,14 @@ class QuickAccessDrawer extends StatelessWidget {
           children: [
             DrawerHeader(
               decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer),
+                color: Theme.of(context).colorScheme.primaryContainer,
+              ),
               child: Align(
                 alignment: Alignment.bottomLeft,
-                child: Text(clubName,
-                    style: Theme.of(context).textTheme.titleLarge),
+                child: Text(
+                  clubName,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
               ),
             ),
             for (final dest in quickAccessDestinations)

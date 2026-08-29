@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../services/feedback_service.dart';
 import '../state/game_state.dart';
 import '../widgets/player_face_avatar.dart';
@@ -42,10 +43,13 @@ class YouthIntakeScreen extends StatelessWidget {
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListTile(
                           leading: PlayerFaceAvatar(
-                              playerId: p.id, position: p.position),
+                            playerId: p.id,
+                            position: p.position,
+                          ),
                           title: Text(p.name),
                           subtitle: Text(
-                              '${p.age}歳 / 総合 ${p.overall} / 潜在 ${p.potential}'),
+                            '${p.age}歳 / 総合 ${p.overall} / 潜在 ${p.potential}',
+                          ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -98,13 +102,15 @@ class YouthIntakeScreen extends StatelessWidget {
         content: Text('$nameは入団せず解雇されます。この操作は元に戻せません。'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル'),
+          ),
           FilledButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await context
-                  .read<GameState>()
-                  .releaseYouthIntakePlayer(playerId);
+              await context.read<GameState>().releaseYouthIntakePlayer(
+                    playerId,
+                  );
               FeedbackService.tap();
             },
             child: const Text('解雇する'),

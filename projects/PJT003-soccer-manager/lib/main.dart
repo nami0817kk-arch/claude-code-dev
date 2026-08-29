@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+
 import 'services/feedback_service.dart';
 import 'state/game_state.dart';
 import 'state/settings_controller.dart';
@@ -112,21 +113,24 @@ class SoccerManagerApp extends StatelessWidget {
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
-        fillColor:
-            base.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        fillColor: base.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.4,
+        ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
       listTileTheme: ListTileThemeData(
@@ -155,10 +159,14 @@ class SoccerManagerApp extends StatelessWidget {
           FeedbackService.attach(settings);
           return MaterialApp(
             title: 'サッカー経営マネージャー',
-            theme:
-                _buildTheme(Brightness.light, boldText: settings.boldTextMode),
-            darkTheme:
-                _buildTheme(Brightness.dark, boldText: settings.boldTextMode),
+            theme: _buildTheme(
+              Brightness.light,
+              boldText: settings.boldTextMode,
+            ),
+            darkTheme: _buildTheme(
+              Brightness.dark,
+              boldText: settings.boldTextMode,
+            ),
             themeMode: settings.themeMode,
             builder: (context, child) {
               final mediaQuery = MediaQuery.of(context);
@@ -192,7 +200,8 @@ class _RootScreen extends StatelessWidget {
     }
     if (!settings.hasSeenOnboarding) {
       return OnboardingScreen(
-          onDone: () => settings.setHasSeenOnboarding(true));
+        onDone: () => settings.setHasSeenOnboarding(true),
+      );
     }
     return const StartScreen();
   }

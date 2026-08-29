@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/season_award.dart';
 import '../models/season_record.dart';
 import '../state/game_state.dart';
@@ -38,11 +39,16 @@ class SeasonHistoryScreen extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.history,
-                          size: 64, color: Colors.grey.shade400),
+                      Icon(
+                        Icons.history,
+                        size: 64,
+                        color: Colors.grey.shade400,
+                      ),
                       const SizedBox(height: 12),
-                      const Text('まだ記録がありません(シーズン終了時に確定します)',
-                          textAlign: TextAlign.center),
+                      const Text(
+                        'まだ記録がありません(シーズン終了時に確定します)',
+                        textAlign: TextAlign.center,
+                      ),
                     ],
                   ),
                 ),
@@ -51,7 +57,9 @@ class SeasonHistoryScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 itemCount: history.length,
                 itemBuilder: (context, i) => _SeasonRecordCard(
-                    record: history[i], award: awardFor(history[i].season)),
+                  record: history[i],
+                  award: awardFor(history[i].season),
+                ),
               ),
       ),
     );
@@ -74,8 +82,10 @@ class _SeasonRecordCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text('シーズン${record.season}',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'シーズン${record.season}',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(width: 8),
                 if (record.wonLeague)
                   const _Badge(label: '優勝', color: Colors.amber),
@@ -104,12 +114,17 @@ class _SeasonRecordCard extends StatelessWidget {
                 spacing: 6,
                 runSpacing: 6,
                 children: record.cupsWon
-                    .map((name) => Chip(
-                          avatar: const Icon(Icons.emoji_events,
-                              size: 16, color: Colors.amber),
-                          label: Text('$name 優勝'),
-                          visualDensity: VisualDensity.compact,
-                        ))
+                    .map(
+                      (name) => Chip(
+                        avatar: const Icon(
+                          Icons.emoji_events,
+                          size: 16,
+                          color: Colors.amber,
+                        ),
+                        label: Text('$name 優勝'),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    )
                     .toList(),
               ),
             ],
@@ -120,18 +135,21 @@ class _SeasonRecordCard extends StatelessWidget {
               const Divider(height: 20),
               if (award!.topScorerName != null)
                 Text(
-                    '得点王: ${award!.topScorerName}（${award!.topScorerTeamName ?? '不明'}） '
-                    '${award!.topScorerGoals}得点',
-                    style: const TextStyle(fontSize: 12)),
+                  '得点王: ${award!.topScorerName}（${award!.topScorerTeamName ?? '不明'}） '
+                  '${award!.topScorerGoals}得点',
+                  style: const TextStyle(fontSize: 12),
+                ),
               if (award!.mvpName != null)
                 Text(
-                    'シーズンMVP: ${award!.mvpName}（${award!.mvpTeamName ?? '不明'}）',
-                    style: const TextStyle(fontSize: 12)),
+                  'シーズンMVP: ${award!.mvpName}（${award!.mvpTeamName ?? '不明'}）',
+                  style: const TextStyle(fontSize: 12),
+                ),
               if (award!.goldenGloveName != null)
                 Text(
-                    'ゴールデングラブ: ${award!.goldenGloveName}（${award!.goldenGloveTeamName ?? '不明'}） '
-                    '${award!.goldenGloveCleanSheets}試合無失点',
-                    style: const TextStyle(fontSize: 12)),
+                  'ゴールデングラブ: ${award!.goldenGloveName}（${award!.goldenGloveTeamName ?? '不明'}） '
+                  '${award!.goldenGloveCleanSheets}試合無失点',
+                  style: const TextStyle(fontSize: 12),
+                ),
             ],
           ],
         ),
@@ -157,8 +175,11 @@ class _Badge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style:
-            TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

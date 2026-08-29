@@ -21,8 +21,10 @@ class BoardEngine {
   }
 
   /// シーズン終了時の順位評価による信頼度の増減量を返す。
-  static int confidenceDeltaForSeasonEnd(
-      {required int finalRank, required int targetRank}) {
+  static int confidenceDeltaForSeasonEnd({
+    required int finalRank,
+    required int targetRank,
+  }) {
     if (finalRank <= targetRank) return 15;
     if (finalRank > targetRank + 2) return -20;
     return 0;
@@ -30,8 +32,10 @@ class BoardEngine {
 
   /// シーズン中盤(折り返し地点)の理事会レビューによる信頼度の増減量。
   /// シーズン終了時ほど大きくは動かないが、早期の軌道修正を促す。
-  static int midSeasonReviewDelta(
-      {required int currentRank, required int targetRank}) {
+  static int midSeasonReviewDelta({
+    required int currentRank,
+    required int targetRank,
+  }) {
     if (currentRank <= targetRank) return 8;
     if (currentRank > targetRank + 3) return -12;
     return 0;
@@ -68,8 +72,10 @@ class BoardEngine {
   }
 
   /// 最終順位に応じた賞金（万円）。
-  static int seasonPrizeMoney(
-      {required int finalRank, required int teamCount}) {
+  static int seasonPrizeMoney({
+    required int finalRank,
+    required int teamCount,
+  }) {
     final worst = teamCount;
     final ratio = worst <= 1 ? 1.0 : 1 - (finalRank - 1) / (worst - 1);
     return (300 + ratio * 2700).round();

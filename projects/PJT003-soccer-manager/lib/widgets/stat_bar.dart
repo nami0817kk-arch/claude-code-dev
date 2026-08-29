@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../state/settings_controller.dart';
 
 class StatBar extends StatelessWidget {
@@ -43,9 +44,10 @@ class StatBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(label),
-              Text('$value',
-                  style:
-                      TextStyle(color: barColor, fontWeight: FontWeight.bold)),
+              Text(
+                '$value',
+                style: TextStyle(color: barColor, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           const SizedBox(height: 4),

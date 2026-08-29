@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import '../models/attributes.dart';
 import '../models/club_infrastructure.dart';
 import '../models/player.dart';
@@ -28,7 +29,9 @@ class TrainingEngine {
     double careerGrowthBonus = 1.0,
   }) {
     final growthMultiplier = ClubInfrastructure.trainingGrowthMultiplier(
-            headCoachLevel, trainingGroundLevel) *
+          headCoachLevel,
+          trainingGroundLevel,
+        ) *
         careerGrowthBonus;
     final fatigueRecoveryBonus =
         ClubInfrastructure.fatigueRecoveryBonus(trainingGroundLevel) +
@@ -121,7 +124,7 @@ class TrainingEngine {
         for (final k in [
           AttributeKeys.passing,
           AttributeKeys.firstTouch,
-          AttributeKeys.technique
+          AttributeKeys.technique,
         ]) {
           _grow(p, k, 0.25 * effectiveGrowth);
         }
@@ -146,7 +149,7 @@ class TrainingEngine {
           for (final k in [
             AttributeKeys.passing,
             AttributeKeys.firstTouch,
-            AttributeKeys.technique
+            AttributeKeys.technique,
           ]) {
             _grow(p, k, 0.2 * effectiveGrowth);
           }
@@ -169,8 +172,10 @@ class TrainingEngine {
         if (targetName != null) {
           // 明示的に指定した目標ポジションへ集中的にコンバートする。
           // 慣れ度が上限に達したら正式に副ポジションへ加え、目標は解除する。
-          final target = Position.values.firstWhere((v) => v.name == targetName,
-              orElse: () => p.position);
+          final target = Position.values.firstWhere(
+            (v) => v.name == targetName,
+            orElse: () => p.position,
+          );
           if (target != p.position &&
               _rng.nextDouble() < (0.6 * effectiveGrowth).clamp(0, 1)) {
             p.growFamiliarity(target, amount: 3);
@@ -204,9 +209,9 @@ class TrainingEngine {
       _grow(p, p.drillAttributeKey2!, 0.2 * growthMultiplier * intensityFactor);
     }
 
-    // 特性トレーニング: 未保有の選手のみ、低確率で選手特性を獲得する。
-    if (p.trait == null && p.traitTrainingEnabled) {
-      _rollTraitAcquisition(p, effectiveGrowth);
+    // 特性トレーニング: 未保有の選手のみ、狙った特性を低確率で獲得する。
+    if (p.trait == null && p.traitTrainingTarget != null) {
+      _rollTraitAcquisition(p, p.traitTrainingTarget!, effectiveGrowth);
     }
 
     p.fatigue = (p.fatigue - 5 - fatigueRecoveryBonus ~/ 2).clamp(0, 100);
@@ -225,10 +230,15 @@ class TrainingEngine {
   /// 高強度の練習メニューによる軽度の負傷判定。基礎体力(naturalFitness)が
   /// 高い選手ほど負傷しにくい。試合中の負傷より短期で済む(1〜2週)。
   static void _rollTrainingInjury(
-      Player p, double intensityFactor, double injuryFactor) {
+    Player p,
+    double intensityFactor,
+    double injuryFactor,
+  ) {
     final naturalFitnessFactor =
-        (1 - (p.attributeValue(AttributeKeys.naturalFitness) - 50) / 200)
-            .clamp(0.5, 1.5);
+        (1 - (p.attributeValue(AttributeKeys.naturalFitness) - 50) / 200).clamp(
+      0.5,
+      1.5,
+    );
     final chance = (0.01 + p.fatigue / 100 * 0.015) *
         intensityFactor *
         naturalFitnessFactor *
@@ -253,8 +263,9 @@ class TrainingEngine {
   ];
 
   static void growFromMatchExperience(Player p) {
-    final key = matchExperienceGrowthKeys[
-        _rng.nextInt(matchExperienceGrowthKeys.length)];
+    final key = matchExperienceGrowthKeys[_rng.nextInt(
+      matchExperienceGrowthKeys.length,
+    )];
     _grow(p, key, 0.06);
   }
 
@@ -370,7 +381,9 @@ class TrainingEngine {
   /// [Player.individualFocus]を設定した選手は、その方針に沿った属性群が
   /// 優先的に伸びる(第一チームのトレーニング方針と同じ仕組みを流用)。
   static void applyYouthAcademyGrowth(
-      List<Player> prospects, int facilityLevel) {
+    List<Player> prospects,
+    int facilityLevel,
+  ) {
     final factor = youthAcademyGrowthFactor(facilityLevel);
     for (final p in prospects) {
       for (final k in _youthGrowthKeysFor(p)) {
@@ -494,7 +507,10 @@ class TrainingEngine {
   /// とは独立して判定される特別なボーナスで、[Player.hadBreakthroughThisWeek]
   /// に反映してUI側で「才能開花」として強調表示できるようにする。
   static void _rollBreakthrough(
-      Player p, TrainingFocus focus, double effectiveGrowth) {
+    Player p,
+    TrainingFocus focus,
+    double effectiveGrowth,
+  ) {
     var chance = _breakthroughBaseChance *
         _breakthroughAgeFactor(p) *
         effectiveGrowth.clamp(0.4, 2.5);
@@ -513,21 +529,83 @@ class TrainingEngine {
     p.hadBreakthroughThisWeek = true;
   }
 
-  /// 特性未保有の選手が、専用の特訓によって選手特性(格上キラー/横綱相撲/
-  /// 波がある)を獲得するかどうかの判定。闘志が高く成長に前向きな性格の
-  /// 選手ほど獲得しやすい。獲得すると[Player.acquiredTraitThisWeek]に
-  /// 反映してUI側で通知できるようにする。
+  /// 特性未保有の選手が、狙った選手特性([target])を専用の特訓によって
+  /// 獲得するかどうかの判定。闘志が高く成長に前向きな性格の選手ほど、また
+  /// [traitSuitability]が高い(=その特性に元々向いている)選手ほど獲得しやすい。
+  /// 獲得すると[Player.acquiredTraitThisWeek]に反映してUI側で通知できるようにする。
   static const double _traitAcquisitionBaseChance = 0.02;
 
-  static void _rollTraitAcquisition(Player p, double effectiveGrowth) {
+  static void _rollTraitAcquisition(
+    Player p,
+    PlayerTrait target,
+    double effectiveGrowth,
+  ) {
     final chance = (_traitAcquisitionBaseChance * effectiveGrowth) *
         (0.7 + p.attributeValue(AttributeKeys.determination) / 165) *
-        p.personality.growthFactor;
+        p.personality.growthFactor *
+        traitSuitability(p, target);
     if (_rng.nextDouble() >= chance.clamp(0, 1)) return;
-    const options = PlayerTrait.values;
-    final acquired = options[_rng.nextInt(options.length)];
-    p.trait = acquired;
-    p.acquiredTraitThisWeek = acquired;
+    p.trait = target;
+    p.acquiredTraitThisWeek = target;
+  }
+
+  /// 選手特性ごとに対応する属性キー(能力値ベースで適性を判定する特性のみ)。
+  static const Map<PlayerTrait, String> _traitAttributeKeys = {
+    PlayerTrait.warriorSpirit: AttributeKeys.determination,
+    PlayerTrait.calmHead: AttributeKeys.composure,
+    PlayerTrait.leaderOnPitch: AttributeKeys.leadership,
+    PlayerTrait.visionary: AttributeKeys.vision,
+    PlayerTrait.paceMerchant: AttributeKeys.pace,
+    PlayerTrait.powerhouse: AttributeKeys.strength,
+    PlayerTrait.enginesRunning: AttributeKeys.stamina,
+    PlayerTrait.silkyDribbler: AttributeKeys.dribbling,
+    PlayerTrait.playmakerTrait: AttributeKeys.passing,
+    PlayerTrait.ballWinner: AttributeKeys.tackling,
+    PlayerTrait.shadowMarker: AttributeKeys.marking,
+    PlayerTrait.clinicalFinisher: AttributeKeys.finishing,
+    PlayerTrait.distanceShooter: AttributeKeys.longShots,
+    PlayerTrait.aerialThreat: AttributeKeys.jumpingReach,
+    PlayerTrait.showman: AttributeKeys.flair,
+    PlayerTrait.sureTouch: AttributeKeys.firstTouch,
+    PlayerTrait.crossSpecialist: AttributeKeys.crossing,
+    PlayerTrait.setPieceMaestro: AttributeKeys.freeKick,
+    PlayerTrait.clockwork: AttributeKeys.anticipation,
+    PlayerTrait.decisiveMind: AttributeKeys.decisions,
+    PlayerTrait.teamPlayer: AttributeKeys.teamwork,
+    PlayerTrait.tirelessRunner: AttributeKeys.workRate,
+    PlayerTrait.explosiveStart: AttributeKeys.acceleration,
+    PlayerTrait.fearlessDefender: AttributeKeys.bravery,
+  };
+
+  /// 選手が[trait]の特訓にどれだけ向いているかを表す倍率(特訓成功率に乗算)。
+  /// 対応する能力値・年齢が特性の発動条件に近い選手ほど高くなる
+  /// (概ね0.3〜1.6の範囲)。対戦相手や天候・試合当日のコンディションに
+  /// 依存する特性(判官びいき・天候系・波がある、等)は個人の資質だけでは
+  /// 適性を判断できないため中立(1.0)を返す。
+  static double traitSuitability(Player p, PlayerTrait trait) {
+    final attrKey = _traitAttributeKeys[trait];
+    if (attrKey != null) {
+      final value = p.attributeValue(attrKey);
+      return (0.5 + value / 100).clamp(0.3, 1.6);
+    }
+    switch (trait) {
+      case PlayerTrait.wonderkid:
+        return p.age <= 21
+            ? 1.5
+            : p.age <= 24
+                ? 1.0
+                : 0.3;
+      case PlayerTrait.oldHead:
+        return p.age >= 32
+            ? 1.5
+            : p.age >= 28
+                ? 1.0
+                : 0.3;
+      case PlayerTrait.primeTime:
+        return (p.age >= 26 && p.age <= 29) ? 1.5 : 0.7;
+      default:
+        return 1.0;
+    }
   }
 
   static void _grow(Player p, String key, double chance) {

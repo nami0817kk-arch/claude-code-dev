@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import '../models/league.dart';
 
 /// あるチームのシーズン最終順位に関する見込み。実際の試合結果には一切
@@ -46,7 +47,7 @@ class SeasonProjectionEngine {
 
     final rankSum = {for (final t in teams) t.id: 0};
     final rankCounts = {
-      for (final t in teams) t.id: List<int>.filled(teams.length, 0)
+      for (final t in teams) t.id: List<int>.filled(teams.length, 0),
     };
     final pointsSum = {for (final t in teams) t.id: 0};
 
@@ -56,7 +57,10 @@ class SeasonProjectionEngine {
 
       for (final f in remaining) {
         final outcome = _sampleOutcome(
-            ratingOf[f.homeTeamId]!, ratingOf[f.awayTeamId]!, rng);
+          ratingOf[f.homeTeamId]!,
+          ratingOf[f.awayTeamId]!,
+          rng,
+        );
         final margin = _sampleGoalMargin(outcome, rng);
         goalDiff[f.homeTeamId] = goalDiff[f.homeTeamId]! + margin;
         goalDiff[f.awayTeamId] = goalDiff[f.awayTeamId]! - margin;
@@ -111,8 +115,10 @@ class SeasonProjectionEngine {
   static _Outcome _sampleOutcome(int homeRating, int awayRating, Random rng) {
     final diff = (homeRating - awayRating + _homeAdvantage) / 100.0;
     final homeWinProb = (0.45 + diff).clamp(0.12, 0.72);
-    final awayWinProbRaw =
-        (1 - homeWinProb - _drawProbability).clamp(0.08, 0.72);
+    final awayWinProbRaw = (1 - homeWinProb - _drawProbability).clamp(
+      0.08,
+      0.72,
+    );
     final total = homeWinProb + _drawProbability + awayWinProbRaw;
     final normalizedHome = homeWinProb / total;
     final normalizedDraw = _drawProbability / total;

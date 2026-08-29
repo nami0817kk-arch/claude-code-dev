@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+
 import '../state/settings_controller.dart';
 
 /// サウンド・触覚フィードバックをアプリ全体から呼び出すための小さなサービス。

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../game/pitch_game.dart';
 import '../models/formation.dart';
 import '../models/match_result.dart';
@@ -80,8 +81,10 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
     final awayId = fixture?.awayTeamId ?? _finalResult?.awayTeamId;
     if (homeId == null || awayId == null) {
       return Scaffold(
-        appBar:
-            AppBar(title: const Text('試合'), automaticallyImplyLeading: false),
+        appBar: AppBar(
+          title: const Text('試合'),
+          automaticallyImplyLeading: false,
+        ),
         body: const Center(child: Text('試合情報がありません')),
       );
     }
@@ -97,8 +100,10 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
     final weather = fixture?.weather ?? _finalResult?.weather ?? Weather.clear;
 
     return Scaffold(
-      appBar:
-          AppBar(title: Text('第$matchday節'), automaticallyImplyLeading: false),
+      appBar: AppBar(
+        title: Text('第$matchday節'),
+        automaticallyImplyLeading: false,
+      ),
       body: _phase == _Phase.halfTime
           ? _HalfTimePanel(
               home: home,
@@ -111,8 +116,14 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
     );
   }
 
-  Widget _buildMatchView(BuildContext context, Team home, Team away,
-      int homeGoals, int awayGoals, Weather weather) {
+  Widget _buildMatchView(
+    BuildContext context,
+    Team home,
+    Team away,
+    int homeGoals,
+    int awayGoals,
+    Weather weather,
+  ) {
     final finished = _phase == _Phase.finished;
     return Stack(
       children: [
@@ -142,8 +153,10 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('$homeGoals - $awayGoals',
-                            style: Theme.of(context).textTheme.headlineMedium),
+                        child: Text(
+                          '$homeGoals - $awayGoals',
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
                       ),
                     ],
                   ),
@@ -155,14 +168,16 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
               FullTimeBanner(userTeamId: _userTeamId, result: _finalResult),
             if (finished)
               ManOfTheMatchBanner(
-                  result: _finalResult,
-                  teams: [home, away],
-                  userTeamId: _userTeamId),
+                result: _finalResult,
+                teams: [home, away],
+                userTeamId: _userTeamId,
+              ),
             if (finished && _finalResult != null)
               MatchStatsBar(
-                  result: _finalResult!,
-                  homeTeamName: home.name,
-                  awayTeamName: away.name),
+                result: _finalResult!,
+                homeTeamName: home.name,
+                awayTeamName: away.name,
+              ),
             AspectRatio(
               aspectRatio: 3 / 2,
               child: Container(
@@ -175,10 +190,13 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: _revealed
-                    .map((e) => CommentaryTile(
+                    .map(
+                      (e) => CommentaryTile(
                         event: e,
                         teamName: e.teamId == home.id ? home.name : away.name,
-                        userTeam: home.id == _userTeamId ? home : away))
+                        userTeam: home.id == _userTeamId ? home : away,
+                      ),
+                    )
                     .toList(),
               ),
             ),
@@ -245,7 +263,9 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
     final userGoals = userIsHome ? result.homeGoals : result.awayGoals;
     final oppGoals = userIsHome ? result.awayGoals : result.homeGoals;
     FeedbackService.matchResult(
-        won: userGoals > oppGoals, drew: userGoals == oppGoals);
+      won: userGoals > oppGoals,
+      drew: userGoals == oppGoals,
+    );
   }
 }
 
@@ -283,7 +303,10 @@ class _GoalFlashBanner extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               boxShadow: const [
                 BoxShadow(
-                    color: Colors.black38, blurRadius: 12, offset: Offset(0, 4))
+                  color: Colors.black38,
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
               ],
             ),
             child: Column(
@@ -301,8 +324,9 @@ class _GoalFlashBanner extends StatelessWidget {
                   scorerName != null
                       ? '$scoringTeamName / $scorerName'
                       : scoringTeamName,
-                  style:
-                      TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimary,
+                  ),
                 ),
                 if (event.assistName != null)
                   Text(
@@ -355,18 +379,24 @@ class _HalfTimePanel extends StatelessWidget {
               children: [
                 Text('ハーフタイム', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 4),
-                Text('$homeGoals - $awayGoals',
-                    style: Theme.of(context).textTheme.headlineMedium),
-                Text('${home.name} vs ${away.name}',
-                    style: const TextStyle(color: Colors.grey)),
+                Text(
+                  '$homeGoals - $awayGoals',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                Text(
+                  '${home.name} vs ${away.name}',
+                  style: const TextStyle(color: Colors.grey),
+                ),
               ],
             ),
           ),
           const Divider(height: 32),
           Text('檄を飛ばす', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
-          const Text('先発イレブンの士気を変動させる。選手の性格によって効果は変わる。',
-              style: TextStyle(color: Colors.grey, fontSize: 12)),
+          const Text(
+            '先発イレブンの士気を変動させる。選手の性格によって効果は変わる。',
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -392,8 +422,10 @@ class _HalfTimePanel extends StatelessWidget {
           const Divider(height: 32),
           Text('戦術指示', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
-          const Text('前半の展開を見て、後半だけフォーメーションを変更できる。',
-              style: TextStyle(color: Colors.grey, fontSize: 12)),
+          const Text(
+            '前半の展開を見て、後半だけフォーメーションを変更できる。',
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -403,10 +435,9 @@ class _HalfTimePanel extends StatelessWidget {
                   isExpanded: true,
                   value: team.formation,
                   items: Formation.values
-                      .map((f) => DropdownMenuItem(
-                            value: f,
-                            child: Text(f.label),
-                          ))
+                      .map(
+                        (f) => DropdownMenuItem(value: f, child: Text(f.label)),
+                      )
                       .toList(),
                   onChanged: (f) {
                     if (f != null) {
@@ -465,8 +496,10 @@ class _HalfTimePanel extends StatelessWidget {
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
-            child:
-                FilledButton(onPressed: onContinue, child: const Text('後半開始')),
+            child: FilledButton(
+              onPressed: onContinue,
+              child: const Text('後半開始'),
+            ),
           ),
         ],
       ),
@@ -490,7 +523,10 @@ class _StartingPlayerTile extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 3),
       child: ListTile(
         leading: PlayerFaceAvatar(
-            playerId: p.id, position: p.position, highlighted: true),
+          playerId: p.id,
+          position: p.position,
+          highlighted: true,
+        ),
         title: Text(p.name),
         subtitle: Text(
           '${p.position.label} / 総合 ${p.overall}${p.fatigue > 70 ? ' / 疲労大' : ''}',
@@ -508,14 +544,18 @@ class _StartingPlayerTile extends StatelessWidget {
     final gameState = context.read<GameState>();
     final out = team.players.firstWhere((pl) => pl.id == playerId);
     final candidates = team.players
-        .where((p) =>
-            !p.isInjured &&
-            !p.isOnInternationalDuty &&
-            !p.isSuspended &&
-            !team.startingXI.contains(p.id))
-        .where((p) =>
-            p.position == out.position ||
-            p.position.group == out.position.group)
+        .where(
+          (p) =>
+              !p.isInjured &&
+              !p.isOnInternationalDuty &&
+              !p.isSuspended &&
+              !team.startingXI.contains(p.id),
+        )
+        .where(
+          (p) =>
+              p.position == out.position ||
+              p.position.group == out.position.group,
+        )
         .toList()
       ..sort((a, b) => b.overall.compareTo(a.overall));
 
@@ -527,8 +567,10 @@ class _StartingPlayerTile extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('${out.name} を交代',
-                  style: Theme.of(ctx).textTheme.titleMedium),
+              child: Text(
+                '${out.name} を交代',
+                style: Theme.of(ctx).textTheme.titleMedium,
+              ),
             ),
             for (final p in candidates)
               ListTile(
@@ -538,12 +580,16 @@ class _StartingPlayerTile extends StatelessWidget {
                 onTap: () {
                   Navigator.pop(ctx);
                   gameState.makeHalfTimeSubstitution(
-                      outPlayerId: out.id, inPlayerId: p.id);
+                    outPlayerId: out.id,
+                    inPlayerId: p.id,
+                  );
                 },
               ),
             if (candidates.isEmpty)
               const Padding(
-                  padding: EdgeInsets.all(16), child: Text('交代できる選手がいません')),
+                padding: EdgeInsets.all(16),
+                child: Text('交代できる選手がいません'),
+              ),
           ],
         ),
       ),

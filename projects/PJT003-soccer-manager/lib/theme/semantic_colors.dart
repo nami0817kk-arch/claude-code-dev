@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../state/settings_controller.dart';
 
 /// 「良い/悪い」を色だけで伝える箇所向けの配色ヘルパー。

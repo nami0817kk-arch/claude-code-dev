@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../data/glossary_entries.dart';
 import '../widgets/quick_access_drawer.dart';
 
@@ -23,9 +24,11 @@ class GlossaryScreen extends StatefulWidget {
     if (query.isNotEmpty) {
       final q = query.toLowerCase();
       entries = entries
-          .where((e) =>
-              e.term.toLowerCase().contains(q) ||
-              e.description.toLowerCase().contains(q))
+          .where(
+            (e) =>
+                e.term.toLowerCase().contains(q) ||
+                e.description.toLowerCase().contains(q),
+          )
           .toList();
     }
     return entries;
@@ -127,9 +130,10 @@ class _GlossaryScreenState extends State<GlossaryScreen> {
                     itemBuilder: (context, i) {
                       final e = filtered[i];
                       return ListTile(
-                        title: Text(e.term,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.bold)),
+                        title: Text(
+                          e.term,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         subtitle: Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(e.description),

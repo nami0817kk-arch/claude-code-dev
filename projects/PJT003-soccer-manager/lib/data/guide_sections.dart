@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/player.dart';
 
 /// ガイド内の1トピック(見出し + 説明文)。
@@ -279,14 +280,8 @@ final List<GuideSection> guideSections = [
     overview: 'クラブの設備とスタッフを強化する画面。ここへの投資は選手の成長・怪我のしにくさ・'
         '収入に長期的な効果をもたらす。',
     topics: [
-      GuideTopic(
-        title: 'トレーニング施設',
-        description: 'レベルが高いほど選手の成長速度にボーナスが付く。',
-      ),
-      GuideTopic(
-        title: 'スタジアム',
-        description: 'レベルが高いほど収容人数が増え、観客動員による収入が伸びる。',
-      ),
+      GuideTopic(title: 'トレーニング施設', description: 'レベルが高いほど選手の成長速度にボーナスが付く。'),
+      GuideTopic(title: 'スタジアム', description: 'レベルが高いほど収容人数が増え、観客動員による収入が伸びる。'),
       GuideTopic(
         title: 'ユース施設',
         description: 'レベルが高いほどユースインテークで入ってくる選手の質(潜在能力)が上がりやすくなる。',

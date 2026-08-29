@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../logic/scout_report_engine.dart';
 import '../models/player.dart';
 import '../models/team.dart';
@@ -14,14 +15,19 @@ class ScoutReportScreen extends StatelessWidget {
   final Team opponent;
   final Team userTeam;
 
-  const ScoutReportScreen(
-      {super.key, required this.opponent, required this.userTeam});
+  const ScoutReportScreen({
+    super.key,
+    required this.opponent,
+    required this.userTeam,
+  });
 
   @override
   Widget build(BuildContext context) {
     final gameState = context.watch<GameState>();
-    final report =
-        ScoutReportEngine.generateFor(opponent: opponent, userTeam: userTeam);
+    final report = ScoutReportEngine.generateFor(
+      opponent: opponent,
+      userTeam: userTeam,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('スカウティングレポート')),
@@ -35,16 +41,23 @@ class ScoutReportScreen extends StatelessWidget {
                 child: Row(
                   children: [
                     ClubEmblem(
-                        teamId: opponent.id, teamName: opponent.name, size: 48),
+                      teamId: opponent.id,
+                      teamName: opponent.name,
+                      size: 48,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(report.opponentName,
-                              style: Theme.of(context).textTheme.titleLarge),
-                          Text('平均総合力: ${report.opponentOverall}',
-                              style: const TextStyle(color: Colors.grey)),
+                          Text(
+                            report.opponentName,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          Text(
+                            '平均総合力: ${report.opponentOverall}',
+                            style: const TextStyle(color: Colors.grey),
+                          ),
                         ],
                       ),
                     ),
@@ -113,7 +126,9 @@ class ScoutReportScreen extends StatelessWidget {
                                   ? 'マンマーク: 指名なし'
                                   : 'マンマーク: ${_playerName(userTeam, userTeam.manMarkerId!)}',
                               style: const TextStyle(
-                                  fontSize: 12, color: Colors.grey),
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
                             ),
                           ),
                           TextButton(
@@ -129,8 +144,10 @@ class ScoutReportScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
             ],
-            Text('アシスタントコーチからの提言',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'アシスタントコーチからの提言',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             Card(
               color: Theme.of(context).colorScheme.secondaryContainer,
@@ -159,11 +176,16 @@ class ScoutReportScreen extends StatelessWidget {
   }
 
   void _showMarkerPicker(
-      BuildContext context, GameState gameState, ScoutReport report) {
+    BuildContext context,
+    GameState gameState,
+    ScoutReport report,
+  ) {
     final candidates = userTeam.players
-        .where((p) =>
-            p.position.group == PositionGroup.def ||
-            p.position.group == PositionGroup.mid)
+        .where(
+          (p) =>
+              p.position.group == PositionGroup.def ||
+              p.position.group == PositionGroup.mid,
+        )
         .toList()
       ..sort((a, b) => b.overall.compareTo(a.overall));
     showModalBottomSheet<void>(
@@ -174,8 +196,10 @@ class ScoutReportScreen extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('${report.keyPlayerName}へのマンマーク役を選択',
-                  style: Theme.of(ctx).textTheme.titleMedium),
+              child: Text(
+                '${report.keyPlayerName}へのマンマーク役を選択',
+                style: Theme.of(ctx).textTheme.titleMedium,
+              ),
             ),
             ListTile(
               title: const Text('指名を解除する'),

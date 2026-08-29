@@ -28,8 +28,10 @@ class CupTie {
 
   bool get isComplete => legs.length >= totalLegs;
 
-  int goalsFor(String teamId) => legs.fold<int>(0,
-      (sum, m) => sum + (m.homeTeamId == teamId ? m.homeGoals : m.awayGoals));
+  int goalsFor(String teamId) => legs.fold<int>(
+        0,
+        (sum, m) => sum + (m.homeTeamId == teamId ? m.homeGoals : m.awayGoals),
+      );
 
   String? get winnerId {
     if (!isComplete) return null;
@@ -114,8 +116,9 @@ class ContinentalCup {
       }
     }
     if (isGroupStageComplete && knockoutRounds.isNotEmpty) {
-      final advanced = knockoutRounds.first
-          .any((t) => t.teamAId == teamId || t.teamBId == teamId);
+      final advanced = knockoutRounds.first.any(
+        (t) => t.teamAId == teamId || t.teamBId == teamId,
+      );
       if (!advanced) return true;
     }
     return false;
@@ -141,9 +144,11 @@ class ContinentalCup {
             .map((e) => CupMatch.fromJson(e as Map<String, dynamic>))
             .toList(),
         knockoutRounds: (json['knockoutRounds'] as List)
-            .map((round) => (round as List)
-                .map((e) => CupTie.fromJson(e as Map<String, dynamic>))
-                .toList())
+            .map(
+              (round) => (round as List)
+                  .map((e) => CupTie.fromJson(e as Map<String, dynamic>))
+                  .toList(),
+            )
             .toList(),
         rewardClaimed: json['rewardClaimed'] as bool? ?? false,
         lastPlayedAtMatchday: json['lastPlayedAtMatchday'] as int?,

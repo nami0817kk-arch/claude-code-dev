@@ -20,7 +20,8 @@ class FixtureGenerator {
         final away = arr[n - 1 - i];
         if (home != '__BYE__' && away != '__BYE__') {
           roundFixtures.add(
-              Fixture(matchday: r + 1, homeTeamId: home, awayTeamId: away));
+            Fixture(matchday: r + 1, homeTeamId: home, awayTeamId: away),
+          );
         }
       }
       firstLeg.add(roundFixtures);
@@ -34,11 +35,13 @@ class FixtureGenerator {
     }
     for (final round in firstLeg) {
       for (final f in round) {
-        all.add(Fixture(
-          matchday: f.matchday + rounds,
-          homeTeamId: f.awayTeamId,
-          awayTeamId: f.homeTeamId,
-        ));
+        all.add(
+          Fixture(
+            matchday: f.matchday + rounds,
+            homeTeamId: f.awayTeamId,
+            awayTeamId: f.homeTeamId,
+          ),
+        );
       }
     }
     return all;

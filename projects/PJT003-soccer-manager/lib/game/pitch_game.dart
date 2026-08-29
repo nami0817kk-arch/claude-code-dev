@@ -1,7 +1,9 @@
 import 'dart:math';
+
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+
 import '../models/match_result.dart';
 
 /// ピッチ上でのミニアニメーションと、[events]の分単位での実況出しを行う。
@@ -35,22 +37,30 @@ class PitchGame extends FlameGame {
   @override
   Future<void> onLoad() async {
     _lastMinute = startMinute - 1;
-    add(RectangleComponent(
-        size: size, paint: Paint()..color = const Color(0xFF2E7D32)));
-    add(RectangleComponent(
-      position: Vector2(size.x / 2 - 1, 0),
-      size: Vector2(2, size.y),
-      paint: Paint()..color = Colors.white.withValues(alpha: 0.6),
-    ));
-    add(CircleComponent(
-      radius: min(size.x, size.y) * 0.28,
-      paint: Paint()
-        ..color = Colors.white.withValues(alpha: 0.5)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
-      position: size / 2,
-      anchor: Anchor.center,
-    ));
+    add(
+      RectangleComponent(
+        size: size,
+        paint: Paint()..color = const Color(0xFF2E7D32),
+      ),
+    );
+    add(
+      RectangleComponent(
+        position: Vector2(size.x / 2 - 1, 0),
+        size: Vector2(2, size.y),
+        paint: Paint()..color = Colors.white.withValues(alpha: 0.6),
+      ),
+    );
+    add(
+      CircleComponent(
+        radius: min(size.x, size.y) * 0.28,
+        paint: Paint()
+          ..color = Colors.white.withValues(alpha: 0.5)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+        position: size / 2,
+        anchor: Anchor.center,
+      ),
+    );
     _ball = CircleComponent(
       radius: 6,
       paint: Paint()..color = Colors.white,

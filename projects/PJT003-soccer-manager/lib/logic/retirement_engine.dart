@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import '../models/player.dart';
 import '../models/team.dart';
 import 'player_generator.dart';
@@ -38,11 +39,13 @@ class RetirementEngine {
   static List<Player> resolveAndReplaceForCpu(Team team) {
     final retirees = resolveRetirements(team);
     for (final p in retirees) {
-      team.players.add(PlayerGenerator.generate(
-        position: p.position,
-        strengthTier: team.overallRating,
-        ageOverride: 18 + _rng.nextInt(4),
-      ));
+      team.players.add(
+        PlayerGenerator.generate(
+          position: p.position,
+          strengthTier: team.overallRating,
+          ageOverride: 18 + _rng.nextInt(4),
+        ),
+      );
     }
     return retirees;
   }

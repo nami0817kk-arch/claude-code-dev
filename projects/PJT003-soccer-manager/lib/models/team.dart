@@ -173,10 +173,16 @@ class Team {
         startingXI:
             (json['startingXI'] as List?)?.map((e) => e as String).toList() ??
                 [],
-        defaultTrainingFocus: enumFromName(TrainingFocus.values,
-            json['defaultTrainingFocus'] as String?, TrainingFocus.rest),
-        trainingIntensity: enumFromName(TrainingIntensity.values,
-            json['trainingIntensity'] as String?, TrainingIntensity.normal),
+        defaultTrainingFocus: enumFromName(
+          TrainingFocus.values,
+          json['defaultTrainingFocus'] as String?,
+          TrainingFocus.rest,
+        ),
+        trainingIntensity: enumFromName(
+          TrainingIntensity.values,
+          json['trainingIntensity'] as String?,
+          TrainingIntensity.normal,
+        ),
         trainingDayOfWeek:
             json['trainingDayOfWeek'] as int? ?? DateTime.tuesday,
         autoTrainingEnabled: json['autoTrainingEnabled'] as bool? ?? false,
@@ -198,7 +204,9 @@ class Team {
             [],
         depthChartOrder: (json['depthChartOrder'] as Map?)?.map(
               (k, v) => MapEntry(
-                  k as String, (v as List).map((e) => e as String).toList()),
+                k as String,
+                (v as List).map((e) => e as String).toList(),
+              ),
             ) ??
             {},
         tacticalMeetingCooldownWeeks:

@@ -10,7 +10,7 @@ enum Formation {
   f4411,
   f4321,
   f541,
-  f424
+  f424,
 }
 
 extension FormationInfo on Formation {

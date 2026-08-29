@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/player.dart';
 import '../state/game_state.dart';
 import '../theme/semantic_colors.dart';
@@ -10,8 +11,11 @@ class PlayerCompareScreen extends StatelessWidget {
   final String playerAId;
   final String playerBId;
 
-  const PlayerCompareScreen(
-      {super.key, required this.playerAId, required this.playerBId});
+  const PlayerCompareScreen({
+    super.key,
+    required this.playerAId,
+    required this.playerBId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -40,17 +44,23 @@ class PlayerCompareScreen extends StatelessWidget {
           _CompareRow(label: 'スタミナ', left: a.stamina, right: b.stamina),
           _CompareRow(label: 'ポテンシャル', left: a.potential, right: b.potential),
           _CompareRow(
-              label: '年齢', left: a.age, right: b.age, lowerIsBetter: true),
+            label: '年齢',
+            left: a.age,
+            right: b.age,
+            lowerIsBetter: true,
+          ),
           _CompareRow(
-              label: '週俸(万円)',
-              left: a.wage,
-              right: b.wage,
-              lowerIsBetter: true),
+            label: '週俸(万円)',
+            left: a.wage,
+            right: b.wage,
+            lowerIsBetter: true,
+          ),
           _CompareRow(
-              label: '市場価値(万円)',
-              left: a.marketValue,
-              right: b.marketValue,
-              max: 20000),
+            label: '市場価値(万円)',
+            left: a.marketValue,
+            right: b.marketValue,
+            max: 20000,
+          ),
         ],
       ),
     );
@@ -67,16 +77,21 @@ class _PlayerHeader extends StatelessWidget {
     return Column(
       children: [
         PlayerFaceAvatar(
-            playerId: player.id,
-            position: player.position,
-            size: 56,
-            highlighted: true),
+          playerId: player.id,
+          position: player.position,
+          size: 56,
+          highlighted: true,
+        ),
         const SizedBox(height: 8),
-        Text(player.name,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleSmall),
-        Text(player.position.label,
-            style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        Text(
+          player.name,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        Text(
+          player.position.label,
+          style: const TextStyle(color: Colors.grey, fontSize: 12),
+        ),
       ],
     );
   }
@@ -135,16 +150,16 @@ class _CompareRow extends StatelessWidget {
                         Expanded(
                           flex: (leftRatio * 100).round().clamp(1, 99),
                           child: Container(
-                              color: leftWins
-                                  ? winColor
-                                  : Colors.blueGrey.shade300),
+                            color:
+                                leftWins ? winColor : Colors.blueGrey.shade300,
+                          ),
                         ),
                         Expanded(
                           flex: 100 - (leftRatio * 100).round().clamp(1, 99),
                           child: Container(
-                              color: rightWins
-                                  ? winColor
-                                  : Colors.orange.shade300),
+                            color:
+                                rightWins ? winColor : Colors.orange.shade300,
+                          ),
                         ),
                       ],
                     ),

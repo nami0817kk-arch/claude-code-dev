@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../data/guide_sections.dart';
 import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
@@ -39,10 +40,14 @@ class _GuideSectionCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: ExpansionTile(
-        leading:
-            Icon(section.icon, color: Theme.of(context).colorScheme.primary),
-        title: Text(section.title,
-            style: const TextStyle(fontWeight: FontWeight.bold)),
+        leading: Icon(
+          section.icon,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        title: Text(
+          section.title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         subtitle: Text(section.overview),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         children: [
@@ -52,11 +57,15 @@ class _GuideSectionCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(topic.title,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text(
+                    topic.title,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 2),
-                  Text(topic.description,
-                      style: Theme.of(context).textTheme.bodyMedium),
+                  Text(
+                    topic.description,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                 ],
               ),
             ),

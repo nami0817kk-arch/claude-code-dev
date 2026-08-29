@@ -55,7 +55,7 @@ enum FacilityType {
   stadium,
   youthFacility,
   commercialFacility,
-  medicalCenter
+  medicalCenter,
 }
 
 extension FacilityTypeInfo on FacilityType {
@@ -103,7 +103,9 @@ class ClubInfrastructure {
 
   /// ヘッドコーチ・トレーニング施設のレベルに応じたトレーニング成長効率の倍率。
   static double trainingGrowthMultiplier(
-          int headCoachLevel, int trainingGroundLevel) =>
+    int headCoachLevel,
+    int trainingGroundLevel,
+  ) =>
       1 + (headCoachLevel - 1) * 0.15 + (trainingGroundLevel - 1) * 0.08;
 
   /// トレーニング施設のレベルに応じた、週次の追加疲労回復量。

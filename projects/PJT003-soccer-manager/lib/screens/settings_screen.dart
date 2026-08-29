@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../state/game_state.dart';
 import '../state/settings_controller.dart';
 import '../widgets/quick_access_drawer.dart';
@@ -136,7 +137,8 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => OnboardingScreen(
-                      onDone: () => Navigator.of(context).pop()),
+                    onDone: () => Navigator.of(context).pop(),
+                  ),
                 ),
               ),
             ),
@@ -160,10 +162,14 @@ class SettingsScreen extends StatelessWidget {
                   onTap: () => _importSave(context),
                 ),
                 ListTile(
-                  leading:
-                      const Icon(Icons.delete_forever, color: Colors.redAccent),
-                  title: const Text('セーブデータを削除',
-                      style: TextStyle(color: Colors.redAccent)),
+                  leading: const Icon(
+                    Icons.delete_forever,
+                    color: Colors.redAccent,
+                  ),
+                  title: const Text(
+                    'セーブデータを削除',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
                   subtitle: const Text('最初からやり直します。この操作は取り消せません'),
                   onTap: () => _confirmDelete(context),
                 ),
@@ -202,8 +208,10 @@ class SettingsScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('サッカー経営マネージャー',
-                            style: Theme.of(context).textTheme.titleSmall),
+                        Text(
+                          'サッカー経営マネージャー',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
                         const SizedBox(height: 2),
                         FutureBuilder<PackageInfo>(
                           future: PackageInfo.fromPlatform(),
@@ -212,9 +220,13 @@ class SettingsScreen extends StatelessWidget {
                             final label = info == null
                                 ? '読み込み中…'
                                 : 'バージョン ${info.version}+${info.buildNumber}';
-                            return Text(label,
-                                style: const TextStyle(
-                                    fontSize: 12, color: Colors.grey));
+                            return Text(
+                              label,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            );
                           },
                         ),
                         const SizedBox(height: 6),
@@ -258,9 +270,8 @@ class SettingsScreen extends StatelessWidget {
     final uri = Uri.parse(url);
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('リンクを開けませんでした')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('リンクを開けませんでした')));
     }
   }
 
@@ -268,16 +279,16 @@ class SettingsScreen extends StatelessWidget {
     final gameState = context.read<GameState>();
     final json = gameState.exportSaveJson();
     if (json == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('セーブデータがないためコピーできませんでした')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('セーブデータがないためコピーできませんでした')));
       return;
     }
     await Clipboard.setData(ClipboardData(text: json));
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('セーブデータをクリップボードにコピーしました')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('セーブデータをクリップボードにコピーしました')));
     }
   }
 
@@ -291,11 +302,15 @@ class SettingsScreen extends StatelessWidget {
           controller: controller,
           maxLines: 6,
           decoration: const InputDecoration(
-              hintText: 'コピーしたJSONを貼り付けてください', border: OutlineInputBorder()),
+            hintText: 'コピーしたJSONを貼り付けてください',
+            border: OutlineInputBorder(),
+          ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル'),
+          ),
           FilledButton(
             onPressed: () async {
               final gameState = ctx.read<GameState>();
@@ -304,7 +319,8 @@ class SettingsScreen extends StatelessWidget {
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                      content: Text(ok ? '復元しました' : '復元に失敗しました(形式を確認してください)')),
+                    content: Text(ok ? '復元しました' : '復元に失敗しました(形式を確認してください)'),
+                  ),
                 );
               }
             },
@@ -332,21 +348,23 @@ class SettingsScreen extends StatelessWidget {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル'),
+          ),
           FilledButton(
             onPressed: () {
               final amount = int.tryParse(controller.text.trim());
               Navigator.pop(ctx);
               if (amount == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('数値を入力してください')),
-                );
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('数値を入力してください')));
                 return;
               }
               context.read<GameState>().addDebugFunds(amount);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                    content: Text('資金を${amount >= 0 ? '+' : ''}$amount万円しました')),
+                  content: Text('資金を${amount >= 0 ? '+' : ''}$amount万円しました'),
+                ),
               );
             },
             child: const Text('反映する'),
@@ -364,7 +382,9 @@ class SettingsScreen extends StatelessWidget {
         content: const Text('この操作は取り消せません。'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル'),
+          ),
           TextButton(
             onPressed: () async {
               final gameState = ctx.read<GameState>();

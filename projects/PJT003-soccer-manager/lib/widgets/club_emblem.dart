@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 /// チームIDから決定論的に生成する、実際のロゴ画像を持たない代替のクラブエンブレム。
@@ -8,11 +9,12 @@ class ClubEmblem extends StatelessWidget {
   final String teamName;
   final double size;
 
-  const ClubEmblem(
-      {super.key,
-      required this.teamId,
-      required this.teamName,
-      this.size = 40});
+  const ClubEmblem({
+    super.key,
+    required this.teamId,
+    required this.teamName,
+    this.size = 40,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -38,10 +40,11 @@ class ClubEmblem extends StatelessWidget {
             CustomPaint(
               size: Size(size, size),
               painter: _EmblemPainter(
-                  base: base,
-                  accent: accent,
-                  shapeIndex: shapeIndex,
-                  motifIndex: motifIndex),
+                base: base,
+                accent: accent,
+                shapeIndex: shapeIndex,
+                motifIndex: motifIndex,
+              ),
             ),
             Text(
               initial,
@@ -118,21 +121,29 @@ class _EmblemPainter extends CustomPainter {
     switch (motifIndex) {
       case 0: // 斜めの帯(サッシュ)
         canvas.drawRect(
-          Rect.fromLTWH(-size.width * 0.2, size.height * 0.38, size.width * 1.4,
-              size.height * 0.22),
+          Rect.fromLTWH(
+            -size.width * 0.2,
+            size.height * 0.38,
+            size.width * 1.4,
+            size.height * 0.22,
+          ),
           motifPaint,
         );
         break;
       case 1: // 星
         canvas.drawPath(
-            _starPath(
-                Offset(size.width / 2, size.height * 0.32), size.width * 0.16),
-            motifPaint);
+          _starPath(
+            Offset(size.width / 2, size.height * 0.32),
+            size.width * 0.16,
+          ),
+          motifPaint,
+        );
         break;
       default: // 横二分割
         canvas.drawRect(
-            Rect.fromLTWH(0, size.height / 2, size.width, size.height / 2),
-            motifPaint);
+          Rect.fromLTWH(0, size.height / 2, size.width, size.height / 2),
+          motifPaint,
+        );
     }
     canvas.restore();
 

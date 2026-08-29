@@ -4,10 +4,11 @@ class PressOption {
   final int confidenceDelta;
   final int moraleDelta;
 
-  PressOption(
-      {required this.label,
-      required this.confidenceDelta,
-      required this.moraleDelta});
+  PressOption({
+    required this.label,
+    required this.confidenceDelta,
+    required this.moraleDelta,
+  });
 
   Map<String, dynamic> toJson() => {
         'label': label,

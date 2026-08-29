@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/player.dart';
 
 /// ポジション大分類ごとの識別色（GK=黄, DEF=青, MID=緑, ATT=赤）。

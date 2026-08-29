@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import '../models/match_result.dart';
 import '../models/press_question.dart';
 
@@ -8,8 +9,10 @@ enum _Outcome { win, draw, loss }
 class PressConferenceEngine {
   static final Random _rng = Random();
 
-  static PressQuestion generateFor(
-      {required MatchResult result, required String userTeamId}) {
+  static PressQuestion generateFor({
+    required MatchResult result,
+    required String userTeamId,
+  }) {
     final isHome = result.homeTeamId == userTeamId;
     final userGoals = isHome ? result.homeGoals : result.awayGoals;
     final oppGoals = isHome ? result.awayGoals : result.homeGoals;
@@ -37,23 +40,38 @@ class PressConferenceEngine {
       _Outcome.win => [
           PressOption(label: '選手たちを誇りに思う', confidenceDelta: 1, moraleDelta: 3),
           PressOption(
-              label: 'まだ満足していない、次も勝つ', confidenceDelta: 3, moraleDelta: 0),
+            label: 'まだ満足していない、次も勝つ',
+            confidenceDelta: 3,
+            moraleDelta: 0,
+          ),
           PressOption(
-              label: '相手も素晴らしいチームだった', confidenceDelta: 0, moraleDelta: 1),
+            label: '相手も素晴らしいチームだった',
+            confidenceDelta: 0,
+            moraleDelta: 1,
+          ),
         ],
       _Outcome.draw => [
           PressOption(
               label: '勝ち点1は前向きに捉えたい', confidenceDelta: 1, moraleDelta: 1),
           PressOption(
-              label: '勝てた試合だっただけに悔しい', confidenceDelta: 1, moraleDelta: -1),
+            label: '勝てた試合だっただけに悔しい',
+            confidenceDelta: 1,
+            moraleDelta: -1,
+          ),
           PressOption(
-              label: '選手たちはよくやってくれた', confidenceDelta: -1, moraleDelta: 2),
+            label: '選手たちはよくやってくれた',
+            confidenceDelta: -1,
+            moraleDelta: 2,
+          ),
         ],
       _Outcome.loss => [
           PressOption(
               label: '選手を全面的に擁護する', confidenceDelta: -1, moraleDelta: 3),
           PressOption(
-              label: '猛省を促し、次に切り替える', confidenceDelta: 2, moraleDelta: -2),
+            label: '猛省を促し、次に切り替える',
+            confidenceDelta: 2,
+            moraleDelta: -2,
+          ),
           PressOption(
               label: '審判の判定に疑問を呈する', confidenceDelta: -3, moraleDelta: 1),
         ],

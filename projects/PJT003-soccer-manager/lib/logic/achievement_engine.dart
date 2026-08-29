@@ -70,7 +70,9 @@ class AchievementEngine {
       description: '通算タイトル(リーグ優勝+カップ優勝)を5回獲得する',
       isUnlocked: (save, team) =>
           save.seasonHistory.fold<int>(
-              0, (s, r) => s + (r.wonLeague ? 1 : 0) + r.cupsWon.length) >=
+            0,
+            (s, r) => s + (r.wonLeague ? 1 : 0) + r.cupsWon.length,
+          ) >=
           5,
     ),
 
@@ -157,8 +159,9 @@ class AchievementEngine {
       category: AchievementCategory.management,
       name: '最強スタッフ陣',
       description: '全てのスタッフをレベルMAXまで強化する',
-      isUnlocked: (save, team) => save.infrastructure.staffLevels.values
-          .every((v) => v >= ClubInfrastructure.maxLevel),
+      isUnlocked: (save, team) => save.infrastructure.staffLevels.values.every(
+        (v) => v >= ClubInfrastructure.maxLevel,
+      ),
     ),
     Achievement(
       id: 'trusted_manager',
@@ -189,8 +192,9 @@ class AchievementEngine {
       category: AchievementCategory.squad,
       name: 'ベストイレブン選出',
       description: '自クラブの選手がシーズンベストイレブンに選ばれる',
-      isUnlocked: (save, team) => save.bestElevenHistory
-          .any((h) => h.entries.any((e) => e.teamId == save.userTeamId)),
+      isUnlocked: (save, team) => save.bestElevenHistory.any(
+        (h) => h.entries.any((e) => e.teamId == save.userTeamId),
+      ),
     ),
     Achievement(
       id: 'hall_of_fame',

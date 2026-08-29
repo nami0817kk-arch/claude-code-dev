@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import '../models/player.dart';
 import 'player_generator.dart';
 
@@ -27,8 +28,10 @@ class ScoutingEngine {
   /// ウォー)。これにより、更新を繰り返して確実に当たりを引くという
   /// プレイが成立しなくなり、スカウトのレベル(=推定精度)そのものに
   /// 投資する価値が生まれる。
-  static (int low, int high) estimatedPotentialRange(Player prospect,
-      {int scoutLevel = 1}) {
+  static (int low, int high) estimatedPotentialRange(
+    Player prospect, {
+    int scoutLevel = 1,
+  }) {
     final uncertainty = (18 - (scoutLevel - 1) * 1.5).clamp(6, 18).round();
     final low = (prospect.potential - uncertainty).clamp(1, 99);
     final high = (prospect.potential + uncertainty).clamp(1, 99);
@@ -43,13 +46,18 @@ class ScoutingEngine {
   static int scoutCandidateCountFor(int scoutLevel) =>
       baseScoutCandidates + (scoutLevel - 1);
 
-  static Player _generateProspect(
-      {required int tierMin, required int tierMax}) {
+  static Player _generateProspect({
+    required int tierMin,
+    required int tierMax,
+  }) {
     final position = Position.values[_rng.nextInt(Position.values.length)];
     final tier = tierMin + _rng.nextInt(tierMax - tierMin + 1);
     final age = 16 + _rng.nextInt(4);
     return PlayerGenerator.generate(
-        position: position, strengthTier: tier, ageOverride: age);
+      position: position,
+      strengthTier: tier,
+      ageOverride: age,
+    );
   }
 
   /// シーズン終了時にアカデミーから無償で昇格候補が生まれる。ユースコーチのレベルが質を高める。

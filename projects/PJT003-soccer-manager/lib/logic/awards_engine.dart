@@ -23,7 +23,8 @@ class AwardsEngine {
   /// シーズン中に移籍・退団した得点王でも、現在のロースター検索に頼らず
   /// 表彰記録の氏名を確定できるようにするため。
   static Map<String, ({String name, String teamId})> _scorerInfoByPlayer(
-      League league) {
+    League league,
+  ) {
     final info = <String, ({String name, String teamId})>{};
     for (final f in league.fixtures) {
       final result = f.result;
@@ -153,7 +154,10 @@ class AwardsEngine {
   /// 指定チームがその試合で実際に出場させていたGKを1人特定する
   /// (playerRatingsに記録があるGKポジションの選手)。
   static Player? _startingGoalkeeper(
-      League league, String teamId, MatchResult r) {
+    League league,
+    String teamId,
+    MatchResult r,
+  ) {
     for (final t in league.teams) {
       if (t.id != teamId) continue;
       for (final p in t.players) {

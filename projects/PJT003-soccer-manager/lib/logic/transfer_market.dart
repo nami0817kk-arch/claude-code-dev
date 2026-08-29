@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import '../data/name_pool.dart';
 import '../models/league_theme.dart';
 import '../models/player.dart';
@@ -14,8 +15,10 @@ class TransferMarket {
     for (int i = 0; i < count; i++) {
       final position = Position.values[_rng.nextInt(Position.values.length)];
       final tier = 40 + _rng.nextInt(45);
-      final player =
-          PlayerGenerator.generate(position: position, strengthTier: tier);
+      final player = PlayerGenerator.generate(
+        position: position,
+        strengthTier: tier,
+      );
       final theme = LeagueTheme.values[_rng.nextInt(LeagueTheme.values.length)];
       player.originClubName = NamePool.themedClubNames(theme, 1).first;
       players.add(player);

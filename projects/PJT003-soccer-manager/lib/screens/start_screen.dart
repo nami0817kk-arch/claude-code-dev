@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/league_theme.dart';
 import '../state/game_state.dart';
 import '../widgets/busy_overlay.dart';
@@ -48,11 +49,16 @@ class _StartScreenState extends State<StartScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.sports_soccer,
-                      size: 72, color: Theme.of(context).colorScheme.primary),
+                  Icon(
+                    Icons.sports_soccer,
+                    size: 72,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   const SizedBox(height: 16),
-                  Text('サッカー経営マネージャー',
-                      style: Theme.of(context).textTheme.headlineSmall),
+                  Text(
+                    'サッカー経営マネージャー',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'クラブを率いてリーグ優勝を目指そう',
@@ -100,9 +106,8 @@ class _StartScreenState extends State<StartScreen> {
       await gameState.loadSlot(slot.slot);
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('セーブデータの読み込みに失敗しました')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('セーブデータの読み込みに失敗しました')));
       }
       return;
     }
@@ -144,7 +149,9 @@ class _StartScreenState extends State<StartScreen> {
         content: Text('「${slot.clubName}」のセーブデータは完全に削除されます。'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル'),
+          ),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
@@ -185,10 +192,14 @@ class _SlotCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('スロット${slot.slot + 1}',
-                            style: Theme.of(context).textTheme.labelSmall),
-                        Text(slot.clubName!,
-                            style: Theme.of(context).textTheme.titleMedium),
+                        Text(
+                          'スロット${slot.slot + 1}',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                        Text(
+                          slot.clubName!,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                         Text(
                           '第${slot.season ?? 1}シーズン'
                           '${slot.divisionTier != null && slot.divisionTier != 1 ? ' ・ ${slot.divisionTier}部' : ''}',
@@ -211,13 +222,17 @@ class _SlotCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('スロット${slot.slot + 1}',
-                            style: Theme.of(context).textTheme.labelSmall),
-                        Text('空きスロット',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(color: Colors.grey)),
+                        Text(
+                          'スロット${slot.slot + 1}',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                        Text(
+                          '空きスロット',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(color: Colors.grey),
+                        ),
                       ],
                     ),
                   ),
@@ -295,8 +310,9 @@ class _NewClubDialogState extends State<_NewClubDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('キャンセル')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('キャンセル'),
+        ),
         FilledButton(
           onPressed: () {
             final name = _controller.text.trim();

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/player.dart';
 import '../models/save_game.dart';
 import '../services/feedback_service.dart';
@@ -132,20 +133,29 @@ class _TransferScreenState extends State<TransferScreen>
     );
   }
 
-  Widget _buildMarketTab(BuildContext context, GameState gameState,
-      SaveGame save, bool squadFull, List<Player> players) {
+  Widget _buildMarketTab(
+    BuildContext context,
+    GameState gameState,
+    SaveGame save,
+    bool squadFull,
+    List<Player> players,
+  ) {
     final windowOpen = gameState.isTransferWindowOpen;
     return Column(
       children: [
         _TransferWindowBanner(
-            open: windowOpen, label: gameState.transferWindowStatusLabel),
+          open: windowOpen,
+          label: gameState.transferWindowStatusLabel,
+        ),
         Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('資金: ${save.budget}万円',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                '資金: ${save.budget}万円',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               Text('スカッド: ${gameState.userTeam.players.length}/$maxSquadSize'),
             ],
           ),
@@ -153,8 +163,10 @@ class _TransferScreenState extends State<TransferScreen>
         if (squadFull)
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text('スカッドが上限のため、獲得するには誰かを放出してください。',
-                style: TextStyle(color: Colors.orange)),
+            child: Text(
+              'スカッドが上限のため、獲得するには誰かを放出してください。',
+              style: TextStyle(color: Colors.orange),
+            ),
           ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -198,18 +210,26 @@ class _TransferScreenState extends State<TransferScreen>
                       margin: const EdgeInsets.only(bottom: 8),
                       child: ListTile(
                         leading: PlayerFaceAvatar(
-                            playerId: p.id, position: p.position),
+                          playerId: p.id,
+                          position: p.position,
+                        ),
                         title: Row(
                           children: [
                             Flexible(
-                                child: Text(p.name,
-                                    overflow: TextOverflow.ellipsis)),
+                              child: Text(
+                                p.name,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                             if (!affordable) ...[
                               const SizedBox(width: 6),
                               Tooltip(
                                 message: '資金不足で獲得できません',
-                                child: Icon(Icons.lock_outline,
-                                    size: 14, color: Colors.grey.shade600),
+                                child: Icon(
+                                  Icons.lock_outline,
+                                  size: 14,
+                                  color: Colors.grey.shade600,
+                                ),
                               ),
                             ],
                           ],
@@ -234,7 +254,10 @@ class _TransferScreenState extends State<TransferScreen>
   }
 
   Widget _buildFreeAgentTab(
-      BuildContext context, GameState gameState, bool squadFull) {
+    BuildContext context,
+    GameState gameState,
+    bool squadFull,
+  ) {
     final freeAgents = [...gameState.freeAgents]
       ..sort((a, b) => b.overall.compareTo(a.overall));
     final windowOpen = gameState.isTransferWindowOpen;
@@ -242,7 +265,9 @@ class _TransferScreenState extends State<TransferScreen>
     return Column(
       children: [
         _TransferWindowBanner(
-            open: windowOpen, label: gameState.transferWindowStatusLabel),
+          open: windowOpen,
+          label: gameState.transferWindowStatusLabel,
+        ),
         const Padding(
           padding: EdgeInsets.all(16),
           child: Align(
@@ -256,8 +281,10 @@ class _TransferScreenState extends State<TransferScreen>
         if (squadFull)
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text('スカッドが上限のため、獲得するには誰かを放出してください。',
-                style: TextStyle(color: Colors.orange)),
+            child: Text(
+              'スカッドが上限のため、獲得するには誰かを放出してください。',
+              style: TextStyle(color: Colors.orange),
+            ),
           ),
         Expanded(
           child: freeAgents.isEmpty
@@ -271,7 +298,9 @@ class _TransferScreenState extends State<TransferScreen>
                       margin: const EdgeInsets.only(bottom: 8),
                       child: ListTile(
                         leading: PlayerFaceAvatar(
-                            playerId: p.id, position: p.position),
+                          playerId: p.id,
+                          position: p.position,
+                        ),
                         title: Text(p.name, overflow: TextOverflow.ellipsis),
                         subtitle: Text(
                           '${p.age}歳 / ${p.position.label} / 総合 ${p.overall} / 週俸 ${p.wage}万円',
@@ -319,8 +348,10 @@ class _TransferScreenState extends State<TransferScreen>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('${player.name}を獲得',
-                  style: Theme.of(ctx).textTheme.titleMedium),
+              Text(
+                '${player.name}を獲得',
+                style: Theme.of(ctx).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               ListTile(
                 leading: const Icon(Icons.payments),
@@ -329,8 +360,11 @@ class _TransferScreenState extends State<TransferScreen>
                 enabled: save.budget >= total,
                 onTap: () {
                   Navigator.pop(ctx);
-                  _acquire(context, () => gameState.buyPlayer(player.id),
-                      player.name);
+                  _acquire(
+                    context,
+                    () => gameState.buyPlayer(player.id),
+                    player.name,
+                  );
                 },
               ),
               ListTile(
@@ -341,36 +375,45 @@ class _TransferScreenState extends State<TransferScreen>
                 onTap: () {
                   Navigator.pop(ctx);
                   _acquire(
-                      context,
-                      () => gameState.buyPlayerOnInstallments(player.id),
-                      player.name);
+                    context,
+                    () => gameState.buyPlayerOnInstallments(player.id),
+                    player.name,
+                  );
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.swap_horiz),
                 title: const Text('ローンで獲得'),
                 subtitle: Text(
-                    '契約金$loanFee万円・週俸6割・${GameState.loanDurationWeeks}週で契約終了'),
+                  '契約金$loanFee万円・週俸6割・${GameState.loanDurationWeeks}週で契約終了',
+                ),
                 enabled: save.budget >= loanFee,
                 onTap: () {
                   Navigator.pop(ctx);
-                  _acquire(context, () => gameState.signLoanPlayer(player.id),
-                      player.name);
+                  _acquire(
+                    context,
+                    () => gameState.signLoanPlayer(player.id),
+                    player.name,
+                  );
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.request_quote),
                 title: const Text('買取オプション付きローンで獲得'),
                 subtitle: Text(
-                    '契約金$loanFee万円・週俸6割・ローン期間中いつでも$buyOptionFee万円で完全移籍化可能'),
+                  '契約金$loanFee万円・週俸6割・ローン期間中いつでも$buyOptionFee万円で完全移籍化可能',
+                ),
                 enabled: save.budget >= loanFee,
                 onTap: () {
                   Navigator.pop(ctx);
                   _acquire(
-                      context,
-                      () => gameState.signLoanPlayer(player.id,
-                          withBuyOption: true),
-                      player.name);
+                    context,
+                    () => gameState.signLoanPlayer(
+                      player.id,
+                      withBuyOption: true,
+                    ),
+                    player.name,
+                  );
                 },
               ),
             ],
@@ -381,7 +424,10 @@ class _TransferScreenState extends State<TransferScreen>
   }
 
   Future<void> _acquire(
-      BuildContext context, Future<bool> Function() action, String name) async {
+    BuildContext context,
+    Future<bool> Function() action,
+    String name,
+  ) async {
     final ok = await action();
     ok ? FeedbackService.success() : FeedbackService.error();
     if (context.mounted) {
@@ -410,8 +456,10 @@ class _TransferWindowBanner extends StatelessWidget {
           Icon(open ? Icons.lock_open : Icons.lock, size: 16, color: color),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(label,
-                style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+            child: Text(
+              label,
+              style: TextStyle(color: color, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),

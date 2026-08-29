@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import '../models/attributes.dart';
 import '../models/player.dart';
 import '../models/team.dart';
@@ -195,22 +196,22 @@ class PlayerGenerator {
     Position.amr: {
       AttributeKeys.tackling,
       AttributeKeys.marking,
-      AttributeKeys.strength
+      AttributeKeys.strength,
     },
     Position.aml: {
       AttributeKeys.tackling,
       AttributeKeys.marking,
-      AttributeKeys.strength
+      AttributeKeys.strength,
     },
     Position.amc: {
       AttributeKeys.tackling,
       AttributeKeys.marking,
-      AttributeKeys.strength
+      AttributeKeys.strength,
     },
     Position.st: {
       AttributeKeys.tackling,
       AttributeKeys.marking,
-      AttributeKeys.passing
+      AttributeKeys.passing,
     },
   };
 
@@ -338,9 +339,11 @@ class PlayerGenerator {
   /// 上回るロールがなければstandardのまま(無理に決め打ちしない)。
   static PlayerRole _pickRole(Player p) {
     final candidates = PlayerRole.values
-        .where((r) =>
-            r != PlayerRole.standard &&
-            r.allowedGroups.contains(p.position.group))
+        .where(
+          (r) =>
+              r != PlayerRole.standard &&
+              r.allowedGroups.contains(p.position.group),
+        )
         .toList();
     if (candidates.isEmpty) return PlayerRole.standard;
     PlayerRole? best;

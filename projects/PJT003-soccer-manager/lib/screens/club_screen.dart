@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../logic/scouting_engine.dart';
 import '../models/club_infrastructure.dart';
 import '../services/feedback_service.dart';
@@ -50,7 +51,10 @@ String _staffEffectLabel(StaffRole role, int level) {
 }
 
 String _facilityEffectLabel(
-    FacilityType type, int level, int expectedAttendance) {
+  FacilityType type,
+  int level,
+  int expectedAttendance,
+) {
   const maxLevel = ClubInfrastructure.maxLevel;
   switch (type) {
     case FacilityType.trainingGround:
@@ -104,7 +108,7 @@ class ClubScreen extends StatelessWidget {
     final infra = save.infrastructure;
     final totalLevels = [
       ...StaffRole.values.map(infra.staffLevel),
-      ...FacilityType.values.map(infra.facilityLevel)
+      ...FacilityType.values.map(infra.facilityLevel),
     ].fold<int>(0, (s, l) => s + l);
     final maxTotalLevels =
         (StaffRole.values.length + FacilityType.values.length) *
@@ -127,12 +131,15 @@ class ClubScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('資金: ${save.budget}万円',
-                        style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      '資金: ${save.budget}万円',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 4),
-                    Text('スタッフ週俸合計: ${infra.totalStaffWeeklyWage}万円',
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text(
+                      'スタッフ週俸合計: ${infra.totalStaffWeeklyWage}万円',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -146,8 +153,10 @@ class ClubScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text('充実度 $totalLevels/$maxTotalLevels',
-                            style: const TextStyle(fontSize: 12)),
+                        Text(
+                          '充実度 $totalLevels/$maxTotalLevels',
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ],
                     ),
                   ],
@@ -180,8 +189,11 @@ class ClubScreen extends StatelessWidget {
                 level: infra.facilityLevel(type),
                 cost: gameState.facilityUpgradeCostFor(type),
                 costLabel: '建設費',
-                extraLabel: _facilityEffectLabel(type,
-                    infra.facilityLevel(type), gameState.expectedAttendance),
+                extraLabel: _facilityEffectLabel(
+                  type,
+                  infra.facilityLevel(type),
+                  gameState.expectedAttendance,
+                ),
                 canAfford:
                     save.budget >= gameState.facilityUpgradeCostFor(type),
                 onUpgrade: () => gameState.upgradeFacility(type),
@@ -204,10 +216,7 @@ class _TicketPricingCard extends StatelessWidget {
   final TicketPricing current;
   final ValueChanged<TicketPricing> onSelect;
 
-  const _TicketPricingCard({
-    required this.current,
-    required this.onSelect,
-  });
+  const _TicketPricingCard({required this.current, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -218,9 +227,10 @@ class _TicketPricingCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-                '観客動員率と1人あたり収入はトレードオフです。値上げは収容人数に対する'
-                '実入場者数を減らし、値下げは満員に近づけます。',
-                style: TextStyle(fontSize: 12, color: Colors.grey)),
+              '観客動員率と1人あたり収入はトレードオフです。値上げは収容人数に対する'
+              '実入場者数を減らし、値下げは満員に近づけます。',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
             const SizedBox(height: 10),
             SegmentedButton<TicketPricing>(
               segments: TicketPricing.values
@@ -230,8 +240,10 @@ class _TicketPricingCard extends StatelessWidget {
               onSelectionChanged: (s) => onSelect(s.first),
             ),
             const SizedBox(height: 8),
-            Text(current.description,
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(
+              current.description,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ],
         ),
       ),
@@ -288,12 +300,16 @@ class _UpgradeCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            Text(description,
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(
+              description,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
             if (extraLabel != null) ...[
               const SizedBox(height: 2),
-              Text(extraLabel!,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text(
+                extraLabel!,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
             ],
             const SizedBox(height: 8),
             SizedBox(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../logic/manager_career_engine.dart';
 import '../state/game_state.dart';
 import '../theme/semantic_colors.dart';
@@ -36,29 +37,38 @@ class ManagerCareerScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('通算成績',
-                        style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      '通算成績',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 2),
-                    const Text('進行中のシーズンの成績もここに含まれます',
-                        style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    const Text(
+                      '進行中のシーズンの成績もここに含まれます',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         _StatColumn(
-                            label: '指揮シーズン数', value: '${save.careerSeasons}'),
+                          label: '指揮シーズン数',
+                          value: '${save.careerSeasons}',
+                        ),
                         _StatColumn(
-                            label: '勝',
-                            value: '${record.wins}',
-                            color: SemanticColors.positive(context)),
+                          label: '勝',
+                          value: '${record.wins}',
+                          color: SemanticColors.positive(context),
+                        ),
                         _StatColumn(
-                            label: '分',
-                            value: '${record.draws}',
-                            color: Colors.grey),
+                          label: '分',
+                          value: '${record.draws}',
+                          color: Colors.grey,
+                        ),
                         _StatColumn(
-                            label: '敗',
-                            value: '${record.losses}',
-                            color: SemanticColors.negative(context)),
+                          label: '敗',
+                          value: '${record.losses}',
+                          color: SemanticColors.negative(context),
+                        ),
                         _StatColumn(label: '勝率', value: '$winRate%'),
                       ],
                     ),
@@ -76,11 +86,15 @@ class ManagerCareerScreen extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('生涯成長',
-                            style: Theme.of(context).textTheme.titleMedium),
+                        Text(
+                          '生涯成長',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                         Chip(
-                          label: Text('Lv.${gameState.managerCareerLevel}'
-                              '${gameState.managerCareerLevel >= ManagerCareerEngine.maxLevel ? ' (MAX)' : ''}'),
+                          label: Text(
+                            'Lv.${gameState.managerCareerLevel}'
+                            '${gameState.managerCareerLevel >= ManagerCareerEngine.maxLevel ? ' (MAX)' : ''}',
+                          ),
                           visualDensity: VisualDensity.compact,
                         ),
                       ],
@@ -103,16 +117,20 @@ class ManagerCareerScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                          '次のレベルまであとXP ${gameState.managerCareerXpToNextLevel}',
-                          style: const TextStyle(
-                              fontSize: 11, color: Colors.grey)),
+                        '次のレベルまであとXP ${gameState.managerCareerXpToNextLevel}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ],
                     const SizedBox(height: 4),
                     Text(
                       '選手成長効率 x${gameState.managerCareerGrowthBonus.toStringAsFixed(2)}',
                       style: TextStyle(
-                          color: SemanticColors.positive(context),
-                          fontWeight: FontWeight.bold),
+                        color: SemanticColors.positive(context),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -124,16 +142,20 @@ class ManagerCareerScreen extends StatelessWidget {
             if (save.trophyHistory.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('まだタイトルを獲得していません',
-                    style: TextStyle(color: Colors.grey)),
+                child: Text(
+                  'まだタイトルを獲得していません',
+                  style: TextStyle(color: Colors.grey),
+                ),
               )
             else
               for (final trophy in save.trophyHistory.reversed)
                 Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
-                    leading:
-                        const Icon(Icons.emoji_events, color: Colors.amber),
+                    leading: const Icon(
+                      Icons.emoji_events,
+                      color: Colors.amber,
+                    ),
                     title: Text(trophy),
                   ),
                 ),
@@ -169,9 +191,14 @@ class _StatColumn extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value,
-            style: TextStyle(
-                fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
         Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
       ],
     );

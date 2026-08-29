@@ -75,7 +75,10 @@ class PromotionEngine {
       final home = teams.firstWhere((t) => t.id == f.homeTeamId);
       final away = teams.firstWhere((t) => t.id == f.awayTeamId);
       f.result = BackgroundMatchEngine.simulate(
-          home: home, away: away, matchday: f.matchday);
+        home: home,
+        away: away,
+        matchday: f.matchday,
+      );
     }
     final standings = League(teams: teams, fixtures: fixtures).sortedStandings;
     return standings
@@ -140,17 +143,27 @@ class PromotionEngine {
           .toList();
 
       final semiA = _playSingleMatch(
-          roundLabel: '昇格プレーオフ 準決勝', home: pool[0], away: pool[3]);
+        roundLabel: '昇格プレーオフ 準決勝',
+        home: pool[0],
+        away: pool[3],
+      );
       final semiB = _playSingleMatch(
-          roundLabel: '昇格プレーオフ 準決勝', home: pool[1], away: pool[2]);
+        roundLabel: '昇格プレーオフ 準決勝',
+        home: pool[1],
+        away: pool[2],
+      );
       final finalHome = pool.firstWhere((t) => t.id == semiA.winnerId);
       final finalAway = pool.firstWhere((t) => t.id == semiB.winnerId);
       final finalMatch = _playSingleMatch(
-          roundLabel: '昇格プレーオフ 決勝', home: finalHome, away: finalAway);
+        roundLabel: '昇格プレーオフ 決勝',
+        home: finalHome,
+        away: finalAway,
+      );
       playoffMatches = [semiA, semiB, finalMatch];
 
-      final playoffWinner =
-          orderedTier2.firstWhere((t) => t.id == finalMatch.winnerId);
+      final playoffWinner = orderedTier2.firstWhere(
+        (t) => t.id == finalMatch.winnerId,
+      );
       promoted = [...autoPromoted, playoffWinner];
       tier2Remainder = orderedTier2
           .where((t) => !promoted.any((p) => p.id == t.id))

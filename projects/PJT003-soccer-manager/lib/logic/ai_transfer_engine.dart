@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import '../models/team.dart';
 import 'lineup_utils.dart';
 
@@ -21,7 +22,10 @@ class AiTransferEngine {
   /// または上回る)クラブを優先的に選ぶ。該当クラブがなければ全候補から選ぶ
   /// (格下クラブへの放出も一定割合で起こり得るようにする)。
   static String? maybeGenerate(
-      List<Team> teams, String userTeamId, Random random) {
+    List<Team> teams,
+    String userTeamId,
+    Random random,
+  ) {
     if (random.nextDouble() > weeklyProbability) return null;
 
     final cpuTeams = teams.where((t) => t.id != userTeamId).toList()

@@ -4822,13 +4822,14 @@ void main() {
   });
 
   test(
-      'TrainingEngine._rollTraitAcquisition grants a trait only when '
-      'traitTrainingEnabled and the player has no trait yet', () {
+      'TrainingEngine._rollTraitAcquisition grants exactly the targeted '
+      'trait only when traitTrainingTarget is set and the player has no '
+      'trait yet', () {
     int countAcquisitions(bool enabled, {bool alreadyHasTrait = false}) {
       var count = 0;
       for (int i = 0; i < 1500; i++) {
         final p = makeFreshPlayer(determination: 99);
-        p.traitTrainingEnabled = enabled;
+        p.traitTrainingTarget = enabled ? PlayerTrait.clinicalFinisher : null;
         if (alreadyHasTrait) p.trait = PlayerTrait.giantKiller;
         final team = Team(
             id: 't',
@@ -4836,7 +4837,10 @@ void main() {
             players: [p],
             defaultTrainingFocus: TrainingFocus.rest);
         TrainingEngine.applyWeeklyTraining(team);
-        if (p.trait != null && !alreadyHasTrait) count++;
+        if (p.trait != null && !alreadyHasTrait) {
+          expect(p.trait, PlayerTrait.clinicalFinisher);
+          count++;
+        }
       }
       return count;
     }
@@ -4851,12 +4855,38 @@ void main() {
   });
 
   test(
+      'TrainingEngine.traitSuitability scales attribute-based trait chances '
+      'so a well-suited player acquires the targeted trait faster than a '
+      'poorly-suited one', () {
+    int countAcquisitions(int finishingValue) {
+      var count = 0;
+      for (int i = 0; i < 800; i++) {
+        final p = makeFreshPlayer(determination: 99);
+        p.setAttributeValue(AttributeKeys.finishing, finishingValue);
+        p.traitTrainingTarget = PlayerTrait.clinicalFinisher;
+        final team = Team(
+            id: 't',
+            name: 'T',
+            players: [p],
+            defaultTrainingFocus: TrainingFocus.rest);
+        TrainingEngine.applyWeeklyTraining(team);
+        if (p.trait != null) count++;
+      }
+      return count;
+    }
+
+    final wellSuited = countAcquisitions(95);
+    final poorlySuited = countAcquisitions(10);
+    expect(wellSuited, greaterThan(poorlySuited));
+  });
+
+  test(
       'a player who acquires a trait via training has acquiredTraitThisWeek '
-      'set to match, and it resets the following week', () {
+      'set to match the targeted trait, and it resets the following week', () {
     Player? acquirer;
     for (int i = 0; i < 1500; i++) {
       final p = makeFreshPlayer(determination: 99);
-      p.traitTrainingEnabled = true;
+      p.traitTrainingTarget = PlayerTrait.clinicalFinisher;
       final team = Team(
           id: 't',
           name: 'T',
@@ -4869,7 +4899,8 @@ void main() {
       }
     }
     expect(acquirer, isNotNull);
-    expect(acquirer!.acquiredTraitThisWeek, acquirer.trait);
+    expect(acquirer!.trait, PlayerTrait.clinicalFinisher);
+    expect(acquirer.acquiredTraitThisWeek, acquirer.trait);
 
     // 翌週は特性を既に保有しているため一時フラグはリセットされ、再度は付与されない。
     final team = Team(
@@ -4881,18 +4912,19 @@ void main() {
     expect(acquirer.acquiredTraitThisWeek, isNull);
   });
 
-  test('GameState.setTraitTraining toggles the flag on the target player',
-      () async {
+  test(
+      'GameState.setTraitTrainingTarget sets and clears the targeted trait '
+      'on the target player', () async {
     final gameState = GameState();
     await gameState.startNewGame('テストFC');
     final player = gameState.userTeam.players.first;
-    expect(player.traitTrainingEnabled, isFalse);
+    expect(player.traitTrainingTarget, isNull);
 
-    gameState.setTraitTraining(player.id, true);
-    expect(player.traitTrainingEnabled, isTrue);
+    gameState.setTraitTrainingTarget(player.id, PlayerTrait.clinicalFinisher);
+    expect(player.traitTrainingTarget, PlayerTrait.clinicalFinisher);
 
-    gameState.setTraitTraining(player.id, false);
-    expect(player.traitTrainingEnabled, isFalse);
+    gameState.setTraitTrainingTarget(player.id, null);
+    expect(player.traitTrainingTarget, isNull);
   });
 
   test(

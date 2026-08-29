@@ -32,15 +32,17 @@ class BestElevenEngine {
       for (final p in t.players) {
         final count = ratingCount[p.id] ?? 0;
         if (count < minAppearances) continue;
-        candidates.add(BestElevenEntry(
-          playerId: p.id,
-          playerName: p.name,
-          teamName: t.name,
-          teamId: t.id,
-          group: p.position.group,
-          avgRating: ratingSum[p.id]! / count,
-          appearances: count,
-        ));
+        candidates.add(
+          BestElevenEntry(
+            playerId: p.id,
+            playerName: p.name,
+            teamName: t.name,
+            teamId: t.id,
+            group: p.position.group,
+            avgRating: ratingSum[p.id]! / count,
+            appearances: count,
+          ),
+        );
       }
     }
 

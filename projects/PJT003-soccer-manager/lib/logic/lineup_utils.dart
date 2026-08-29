@@ -11,11 +11,13 @@ class LineupUtils {
   static void autoFill(Team team) {
     final formation = team.formation;
     final available = team.players
-        .where((p) =>
-            !p.isInjured &&
-            !p.isOnInternationalDuty &&
-            !p.isLoanedOut &&
-            !p.isSuspended)
+        .where(
+          (p) =>
+              !p.isInjured &&
+              !p.isOnInternationalDuty &&
+              !p.isLoanedOut &&
+              !p.isSuspended,
+        )
         .toList();
     final used = <Player>{};
 
@@ -26,7 +28,8 @@ class LineupUtils {
       if (exact.isNotEmpty) return exact;
       final secondary = available
           .where(
-              (p) => !used.contains(p) && p.secondaryPositions.contains(slot))
+            (p) => !used.contains(p) && p.secondaryPositions.contains(slot),
+          )
           .toList();
       if (secondary.isNotEmpty) return secondary;
       final sameGroup = available
@@ -134,13 +137,17 @@ class LineupUtils {
       return best.id;
     }
 
-    team.penaltyTakerId =
-        bestBy((p) => p.attributeValue(AttributeKeys.penalties));
-    team.freeKickTakerId =
-        bestBy((p) => p.attributeValue(AttributeKeys.freeKick));
+    team.penaltyTakerId = bestBy(
+      (p) => p.attributeValue(AttributeKeys.penalties),
+    );
+    team.freeKickTakerId = bestBy(
+      (p) => p.attributeValue(AttributeKeys.freeKick),
+    );
     team.cornerTakerId = bestBy((p) => p.attributeValue(AttributeKeys.corners));
-    team.setPieceDefenderId = bestBy((p) =>
-        p.attributeValue(AttributeKeys.heading) +
-        p.attributeValue(AttributeKeys.jumpingReach));
+    team.setPieceDefenderId = bestBy(
+      (p) =>
+          p.attributeValue(AttributeKeys.heading) +
+          p.attributeValue(AttributeKeys.jumpingReach),
+    );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../game/pitch_game.dart';
 import '../models/match_result.dart';
 import '../models/team.dart';
@@ -15,8 +16,12 @@ class MatchScreen extends StatefulWidget {
   /// 画面上部に表示する見出し(省略時は「第N節」)。カップ戦ではラウンド名を渡す。
   final String? title;
 
-  const MatchScreen(
-      {super.key, required this.result, required this.teams, this.title});
+  const MatchScreen({
+    super.key,
+    required this.result,
+    required this.teams,
+    this.title,
+  });
 
   @override
   State<MatchScreen> createState() => _MatchScreenState();
@@ -48,7 +53,9 @@ class _MatchScreenState extends State<MatchScreen> {
     final userGoals = userIsHome ? r.homeGoals : r.awayGoals;
     final oppGoals = userIsHome ? r.awayGoals : r.homeGoals;
     FeedbackService.matchResult(
-        won: userGoals > oppGoals, drew: userGoals == oppGoals);
+      won: userGoals > oppGoals,
+      drew: userGoals == oppGoals,
+    );
   }
 
   @override
@@ -106,12 +113,16 @@ class _MatchScreenState extends State<MatchScreen> {
             FullTimeBanner(userTeamId: _userTeamId, result: widget.result),
           if (_finished)
             ManOfTheMatchBanner(
-                result: widget.result, teams: teams, userTeamId: _userTeamId),
+              result: widget.result,
+              teams: teams,
+              userTeamId: _userTeamId,
+            ),
           if (_finished)
             MatchStatsBar(
-                result: widget.result,
-                homeTeamName: home.name,
-                awayTeamName: away.name),
+              result: widget.result,
+              homeTeamName: home.name,
+              awayTeamName: away.name,
+            ),
           const SizedBox(height: 8),
           AspectRatio(
             aspectRatio: 3 / 2,
@@ -146,17 +157,22 @@ class _MatchScreenState extends State<MatchScreen> {
   List<Widget> _buildCommentary(List<Team> teams) {
     final items = <Widget>[];
     var halfTimeShown = false;
-    final userTeam =
-        teams.firstWhere((t) => t.id == _userTeamId, orElse: () => teams.first);
+    final userTeam = teams.firstWhere(
+      (t) => t.id == _userTeamId,
+      orElse: () => teams.first,
+    );
     for (final e in _revealed) {
       if (!halfTimeShown && e.minute > 45) {
         items.add(const _HalfTimeDivider());
         halfTimeShown = true;
       }
-      items.add(CommentaryTile(
+      items.add(
+        CommentaryTile(
           event: e,
           teamName: teams.firstWhere((t) => t.id == e.teamId).name,
-          userTeam: userTeam));
+          userTeam: userTeam,
+        ),
+      );
     }
     if (!halfTimeShown && _currentMinute >= 45) {
       items.add(const _HalfTimeDivider());
@@ -177,8 +193,10 @@ class _HalfTimeDivider extends StatelessWidget {
           const Expanded(child: Divider()),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text('前半終了',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+            child: Text(
+              '前半終了',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+            ),
           ),
           const Expanded(child: Divider()),
         ],

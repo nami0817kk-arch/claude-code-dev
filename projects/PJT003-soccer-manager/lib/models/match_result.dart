@@ -45,8 +45,11 @@ class MatchEvent {
         teamId: json['teamId'] as String,
         scorerName: json['scorerName'] as String?,
         scorerId: json['scorerId'] as String?,
-        type: enumFromName(MatchEventType.values, json['type'] as String?,
-            MatchEventType.goal),
+        type: enumFromName(
+          MatchEventType.values,
+          json['type'] as String?,
+          MatchEventType.goal,
+        ),
         assistName: json['assistName'] as String?,
         assistId: json['assistId'] as String?,
       );
@@ -132,7 +135,10 @@ class MatchResult {
             ) ??
             {},
         weather: enumFromName(
-            Weather.values, json['weather'] as String?, Weather.clear),
+          Weather.values,
+          json['weather'] as String?,
+          Weather.clear,
+        ),
         homePossession: json['homePossession'] as int?,
         awayPossession: json['awayPossession'] as int?,
         homeShots: json['homeShots'] as int?,

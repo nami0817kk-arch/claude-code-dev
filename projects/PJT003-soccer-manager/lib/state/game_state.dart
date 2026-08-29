@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/achievement.dart';
 import '../models/bank_loan.dart';
 import '../models/investment.dart';
@@ -74,8 +76,12 @@ class SaveSlotSummary {
   final int? season;
   final int? divisionTier;
 
-  SaveSlotSummary(
-      {required this.slot, this.clubName, this.season, this.divisionTier});
+  SaveSlotSummary({
+    required this.slot,
+    this.clubName,
+    this.season,
+    this.divisionTier,
+  });
 
   bool get hasSave => clubName != null;
 }
@@ -156,8 +162,9 @@ class GameState extends ChangeNotifier {
   /// (シーズン終了を待たずに逐次反映されるようにするため)。
   ({int wins, int draws, int losses}) get careerRecordSoFar {
     if (_save == null) return (wins: 0, draws: 0, losses: 0);
-    final rows = _save!.league.sortedStandings
-        .where((r) => r.teamId == _save!.userTeamId);
+    final rows = _save!.league.sortedStandings.where(
+      (r) => r.teamId == _save!.userTeamId,
+    );
     final row = rows.isEmpty ? null : rows.first;
     return (
       wins: _save!.careerWins + (row?.won ?? 0),
@@ -267,15 +274,19 @@ class GameState extends ChangeNotifier {
         teams = existing.teams;
       } else {
         // 5部制導入前は存在しなかったティア。新規にチームを生成する。
-        final names =
-            NamePool.themedClubNames(currentLeagueTheme, teamsPerLeague);
+        final names = NamePool.themedClubNames(
+          currentLeagueTheme,
+          teamsPerLeague,
+        );
         teams = [
           for (int i = 0; i < teamsPerLeague; i++)
             PlayerGenerator.generateSquad(
               id: 'migrated_t${tier}_$i',
               name: names[i],
-              strengthTier:
-                  (55 - (tier - 1) * 10 + rng.nextInt(20)).clamp(15, 90),
+              strengthTier: (55 - (tier - 1) * 10 + rng.nextInt(20)).clamp(
+                15,
+                90,
+              ),
             ),
         ];
         for (final t in teams) {
@@ -289,10 +300,16 @@ class GameState extends ChangeNotifier {
         final home = teams.firstWhere((t) => t.id == f.homeTeamId);
         final away = teams.firstWhere((t) => t.id == f.awayTeamId);
         f.result = BackgroundMatchEngine.simulate(
-            home: home, away: away, matchday: f.matchday);
+          home: home,
+          away: away,
+          matchday: f.matchday,
+        );
       }
       _save!.otherDivisionLeagues[idx] = League(
-          teams: teams, fixtures: fixtures, season: _save!.league.season);
+        teams: teams,
+        fixtures: fixtures,
+        season: _save!.league.season,
+      );
     }
   }
 
@@ -310,7 +327,9 @@ class GameState extends ChangeNotifier {
         await prefs.remove(_slotKey(currentSlot));
       } else {
         await prefs.setString(
-            _slotKey(currentSlot), jsonEncode(_save!.toJson()));
+          _slotKey(currentSlot),
+          jsonEncode(_save!.toJson()),
+        );
       }
       lastSaveError = null;
     } catch (e) {
@@ -332,12 +351,14 @@ class GameState extends ChangeNotifier {
       try {
         final json = jsonDecode(raw) as Map<String, dynamic>;
         final league = json['league'] as Map<String, dynamic>?;
-        result.add(SaveSlotSummary(
-          slot: i,
-          clubName: json['clubName'] as String?,
-          season: league?['season'] as int?,
-          divisionTier: json['currentDivisionTier'] as int?,
-        ));
+        result.add(
+          SaveSlotSummary(
+            slot: i,
+            clubName: json['clubName'] as String?,
+            season: league?['season'] as int?,
+            divisionTier: json['currentDivisionTier'] as int?,
+          ),
+        );
       } catch (_) {
         result.add(SaveSlotSummary(slot: i));
       }
@@ -387,8 +408,10 @@ class GameState extends ChangeNotifier {
     }
   }
 
-  Future<void> startNewGame(String clubName,
-      {LeagueTheme theme = LeagueTheme.england}) async {
+  Future<void> startNewGame(
+    String clubName, {
+    LeagueTheme theme = LeagueTheme.england,
+  }) async {
     isBusy = true;
     notifyListeners();
     // ローディング表示を1フレーム描画させてから、重いクラブ生成処理に入る。
@@ -402,7 +425,9 @@ class GameState extends ChangeNotifier {
     // 5部制ピラミッドの最下層(5部)からスタートする。
     const userStartTier = totalDivisionTiers;
     final allNames = NamePool.themedClubNames(
-        theme, teamsPerLeague * totalDivisionTiers - 1);
+      theme,
+      teamsPerLeague * totalDivisionTiers - 1,
+    );
     var nameIndex = 0;
     String nextName() => allNames[nameIndex++];
 
@@ -418,10 +443,13 @@ class GameState extends ChangeNotifier {
     const cpuCount = teamsPerLeague - 1;
     final cpuTeams = <Team>[];
     for (int i = 0; i < cpuCount; i++) {
-      cpuTeams.add(PlayerGenerator.generateSquad(
+      cpuTeams.add(
+        PlayerGenerator.generateSquad(
           id: 'cpu$i',
           name: nextName(),
-          strengthTier: strengthForTier(userStartTier)));
+          strengthTier: strengthForTier(userStartTier),
+        ),
+      );
     }
     final teams = [userTeam, ...cpuTeams];
     for (final t in teams) {
@@ -464,8 +492,9 @@ class GameState extends ChangeNotifier {
           teamIds: teams.map((t) => t.id).toList(),
         ),
       ],
-      pendingSponsorOffers:
-          SponsorEngine.generateOffers(userTeam.overallRating),
+      pendingSponsorOffers: SponsorEngine.generateOffers(
+        userTeam.overallRating,
+      ),
       friendlies: _generateFriendlies(teams, 'user'),
       otherDivisionLeagues: otherDivisionLeagues,
       currentDivisionTier: userStartTier,
@@ -491,7 +520,10 @@ class GameState extends ChangeNotifier {
     return List.generate(
       count,
       (i) => Fixture(
-          matchday: 0, homeTeamId: userTeamId, awayTeamId: opponents[i].id),
+        matchday: 0,
+        homeTeamId: userTeamId,
+        awayTeamId: opponents[i].id,
+      ),
     );
   }
 
@@ -666,12 +698,12 @@ class GameState extends ChangeNotifier {
     return true;
   }
 
-  /// 選手個別の特性トレーニングの有効・無効を切り替える。既に特性を
+  /// 選手個別の特性特訓の目標特性を設定する。nullで解除。既に特性を
   /// 保有している選手にも設定自体は可能(効果が発現しないだけ)。
-  void setTraitTraining(String playerId, bool enabled) {
+  void setTraitTrainingTarget(String playerId, PlayerTrait? target) {
     if (_save == null) return;
     final player = userTeam.players.firstWhere((p) => p.id == playerId);
-    player.traitTrainingEnabled = enabled;
+    player.traitTrainingTarget = target;
     notifyListeners();
     _persist();
   }
@@ -720,7 +752,7 @@ class GameState extends ChangeNotifier {
     final overallBefore = {for (final p in userTeam.players) p.id: p.overall};
     final attrsBefore = {
       for (final p in userTeam.players)
-        p.id: Map<String, int>.from(p.attributes)
+        p.id: Map<String, int>.from(p.attributes),
     };
     TrainingEngine.applyWeeklyTraining(
       userTeam,
@@ -738,8 +770,10 @@ class GameState extends ChangeNotifier {
   }
 
   /// トレーニング前後の総合力・属性を比較し、実際に変化があった選手のみを返す。
-  List<PlayerGrowthSummary> _diffTrainingResults(Map<String, int> overallBefore,
-      Map<String, Map<String, int>> attrsBefore) {
+  List<PlayerGrowthSummary> _diffTrainingResults(
+    Map<String, int> overallBefore,
+    Map<String, Map<String, int>> attrsBefore,
+  ) {
     final changes = <PlayerGrowthSummary>[];
     for (final p in userTeam.players) {
       final prevOverall = overallBefore[p.id];
@@ -753,15 +787,17 @@ class GameState extends ChangeNotifier {
       if (deltas.isNotEmpty ||
           p.overall != prevOverall ||
           p.acquiredTraitThisWeek != null) {
-        changes.add(PlayerGrowthSummary(
-          playerId: p.id,
-          playerName: p.name,
-          overallBefore: prevOverall,
-          overallAfter: p.overall,
-          attributeDeltas: deltas,
-          isBreakthrough: p.hadBreakthroughThisWeek,
-          acquiredTrait: p.acquiredTraitThisWeek,
-        ));
+        changes.add(
+          PlayerGrowthSummary(
+            playerId: p.id,
+            playerName: p.name,
+            overallBefore: prevOverall,
+            overallAfter: p.overall,
+            attributeDeltas: deltas,
+            isBreakthrough: p.hadBreakthroughThisWeek,
+            acquiredTrait: p.acquiredTraitThisWeek,
+          ),
+        );
       }
     }
     changes.sort((a, b) => b.overallDelta.compareTo(a.overallDelta));
@@ -940,8 +976,9 @@ class GameState extends ChangeNotifier {
   /// 変動幅が大きい。
   void giveTeamTalk(TeamTalkTone tone) {
     if (_save == null) return;
-    for (final p
-        in userTeam.players.where((p) => userTeam.startingXI.contains(p.id))) {
+    for (final p in userTeam.players.where(
+      (p) => userTeam.startingXI.contains(p.id),
+    )) {
       final base = tone.baseMoraleDeltaFor(p.personality);
       final delta = (base * p.personality.resultSensitivity).round();
       p.morale = (p.morale + delta).clamp(0, 100);
@@ -993,8 +1030,10 @@ class GameState extends ChangeNotifier {
     if (_save == null) return;
     final team = userTeam;
     if (team.tacticPresets.isEmpty) return;
-    final preset = team.tacticPresets.firstWhere((p) => p.name == name,
-        orElse: () => team.tacticPresets.first);
+    final preset = team.tacticPresets.firstWhere(
+      (p) => p.name == name,
+      orElse: () => team.tacticPresets.first,
+    );
     team.formation = preset.formation;
     team.pressing = preset.pressing;
     team.lineHeight = preset.lineHeight;
@@ -1354,12 +1393,14 @@ class GameState extends ChangeNotifier {
     _save!.budget -= downPayment;
     const weeks = 4;
     final remaining = total - downPayment;
-    _save!.pendingInstallments.add(Installment(
-      description: '${player.name} 分割払い残金',
-      weeklyAmount: (remaining / weeks).ceil(),
-      weeksRemaining: weeks,
-      playerId: player.id,
-    ));
+    _save!.pendingInstallments.add(
+      Installment(
+        description: '${player.name} 分割払い残金',
+        weeklyAmount: (remaining / weeks).ceil(),
+        weeksRemaining: weeks,
+        playerId: player.id,
+      ),
+    );
     userTeam.players.add(player);
     transferMarket.removeAt(idx);
     notifyListeners();
@@ -1375,8 +1416,10 @@ class GameState extends ChangeNotifier {
   /// 買取オプション付きローンの場合の買取金額(移籍金に対する割合)。
   static const double loanBuyOptionRatio = 0.6;
 
-  Future<bool> signLoanPlayer(String playerId,
-      {bool withBuyOption = false}) async {
+  Future<bool> signLoanPlayer(
+    String playerId, {
+    bool withBuyOption = false,
+  }) async {
     if (_save == null) return false;
     if (!isTransferWindowOpen) return false;
     final idx = transferMarket.indexWhere((p) => p.id == playerId);
@@ -1444,25 +1487,29 @@ class GameState extends ChangeNotifier {
   int get scoutCost => _save == null
       ? 0
       : ScoutingEngine.scoutCostFor(
-          _save!.infrastructure.staffLevel(StaffRole.scout));
+          _save!.infrastructure.staffLevel(StaffRole.scout),
+        );
 
   int get maxYouthProspects => _save == null
       ? 0
       : ScoutingEngine.maxProspectsFor(
-          _save!.infrastructure.facilityLevel(FacilityType.youthFacility));
+          _save!.infrastructure.facilityLevel(FacilityType.youthFacility),
+        );
 
   /// 昇格候補がユース施設で育つ速さの係数(表示用)。ユース施設のレベルが
   /// 高いほど、昇格を焦らずじっくり育てる価値が生まれる。
   double get youthAcademyGrowthFactor => _save == null
       ? 0
       : TrainingEngine.youthAcademyGrowthFactor(
-          _save!.infrastructure.facilityLevel(FacilityType.youthFacility));
+          _save!.infrastructure.facilityLevel(FacilityType.youthFacility),
+        );
 
   /// スカウト網が一度に見つけてくる候補選手の人数(スカウトのレベルが高いほど広がる)。
   int get scoutCandidateCount => _save == null
       ? 0
       : ScoutingEngine.scoutCandidateCountFor(
-          _save!.infrastructure.staffLevel(StaffRole.scout));
+          _save!.infrastructure.staffLevel(StaffRole.scout),
+        );
 
   /// 現在のスカウトのレベル。潜在能力の推定レンジの精度にも影響する。
   int get scoutLevel =>
@@ -1485,7 +1532,8 @@ class GameState extends ChangeNotifier {
   int get scoutRefreshCost => _save == null
       ? 0
       : ScoutingEngine.refreshCostFor(
-          _save!.infrastructure.staffLevel(StaffRole.scout));
+          _save!.infrastructure.staffLevel(StaffRole.scout),
+        );
 
   /// 費用を払ってスカウト網を更新し、候補選手の顔ぶれを一新する。
   /// 資金が足りない場合は何もせずfalseを返す。
@@ -1508,15 +1556,17 @@ class GameState extends ChangeNotifier {
     final infra = _save!.infrastructure;
     final cost = ScoutingEngine.scoutCostFor(infra.staffLevel(StaffRole.scout));
     final maxP = ScoutingEngine.maxProspectsFor(
-        infra.facilityLevel(FacilityType.youthFacility));
+      infra.facilityLevel(FacilityType.youthFacility),
+    );
     if (_save!.budget < cost) return false;
     if (_save!.youthProspects.length >= maxP) return false;
     _save!.budget -= cost;
     final signed = scoutCandidates.removeAt(idx);
     _save!.youthProspects.add(signed);
     final scoutLevel = infra.staffLevel(StaffRole.scout);
-    scoutCandidates
-        .add(ScoutingEngine.generateScoutedProspect(scoutLevel: scoutLevel));
+    scoutCandidates.add(
+      ScoutingEngine.generateScoutedProspect(scoutLevel: scoutLevel),
+    );
     notifyListeners();
     await _persist();
     return true;
@@ -1635,8 +1685,10 @@ class GameState extends ChangeNotifier {
     if (candidates.isEmpty) return false;
     final destination = candidates[Random().nextInt(candidates.length)];
 
-    player.loanedOutWeeksRemaining =
-        weeks.clamp(loanOutMinWeeks, loanOutMaxWeeks);
+    player.loanedOutWeeksRemaining = weeks.clamp(
+      loanOutMinWeeks,
+      loanOutMaxWeeks,
+    );
     player.loanedOutToClubName = destination.name;
     final wasStarter = team.startingXI.remove(player.id);
     if (wasStarter) {
@@ -1662,17 +1714,19 @@ class GameState extends ChangeNotifier {
     final weather = WeatherEngine.roll();
     f.weather = weather;
     final first = MatchEngine.simulateMinutes(
-        home: home,
-        away: away,
-        startMinute: 1,
-        endMinute: 45,
-        weather: weather);
+      home: home,
+      away: away,
+      startMinute: 1,
+      endMinute: 45,
+      weather: weather,
+    );
     final second = MatchEngine.simulateMinutes(
-        home: home,
-        away: away,
-        startMinute: 46,
-        endMinute: 90,
-        weather: weather);
+      home: home,
+      away: away,
+      startMinute: 46,
+      endMinute: 90,
+      weather: weather,
+    );
     final friendlyChanceCount = first.chanceCount + second.chanceCount;
     final friendlyHomePossession = friendlyChanceCount > 0
         ? ((first.possessionShareSum + second.possessionShareSum) /
@@ -1786,21 +1840,25 @@ class GameState extends ChangeNotifier {
         final target = team.players.firstWhere((p) => p.id == targetId);
         final existing = offersByPlayer[targetId]!.first;
         final rivalCandidates = _save!.league.teams
-            .where((t) =>
-                t.id != _save!.userTeamId && t.name != existing.buyerClubName)
+            .where(
+              (t) =>
+                  t.id != _save!.userTeamId && t.name != existing.buyerClubName,
+            )
             .toList();
         if (rivalCandidates.isNotEmpty) {
           final rival =
               rivalCandidates[_offerRng.nextInt(rivalCandidates.length)];
           final outbid =
               (existing.amount * (1.1 + _offerRng.nextDouble() * 0.2)).round();
-          _save!.incomingOffers.add(IncomingOffer(
-            id: 'offer${_incomingOfferSeq++}',
-            playerId: target.id,
-            playerName: target.name,
-            buyerClubName: rival.name,
-            amount: outbid,
-          ));
+          _save!.incomingOffers.add(
+            IncomingOffer(
+              id: 'offer${_incomingOfferSeq++}',
+              playerId: target.id,
+              playerName: target.name,
+              buyerClubName: rival.name,
+              amount: outbid,
+            ),
+          );
           return autoSold;
         }
       }
@@ -1809,18 +1867,22 @@ class GameState extends ChangeNotifier {
         team.players.length > minSquadSize + 2 &&
         _save!.incomingOffers.length < 3) {
       final eligible = team.players
-          .where((p) =>
-              !p.isLoan &&
-              !p.isLoanedOut &&
-              !_save!.incomingOffers.any((o) => o.playerId == p.id))
+          .where(
+            (p) =>
+                !p.isLoan &&
+                !p.isLoanedOut &&
+                !_save!.incomingOffers.any((o) => o.playerId == p.id),
+          )
           .toList();
       // 移籍リストに登録している選手がいるとオファーが来やすくなる。
       final hasListed = eligible.any((p) => p.isTransferListed);
       final triggerChance = hasListed ? 0.30 : 0.12;
       if (eligible.isNotEmpty && _offerRng.nextDouble() < triggerChance) {
         final weights = eligible
-            .map((p) =>
-                (p.overall - 30).clamp(1, 99) * (p.isTransferListed ? 3 : 1))
+            .map(
+              (p) =>
+                  (p.overall - 30).clamp(1, 99) * (p.isTransferListed ? 3 : 1),
+            )
             .toList();
         final totalWeight = weights.fold<int>(0, (s, w) => s + w);
         var r = _offerRng.nextInt(totalWeight);
@@ -1856,13 +1918,15 @@ class GameState extends ChangeNotifier {
           final amount =
               (chosen.marketValue * (0.9 + _offerRng.nextDouble() * 0.4))
                   .round();
-          _save!.incomingOffers.add(IncomingOffer(
-            id: 'offer${_incomingOfferSeq++}',
-            playerId: chosen.id,
-            playerName: chosen.name,
-            buyerClubName: buyer.name,
-            amount: amount,
-          ));
+          _save!.incomingOffers.add(
+            IncomingOffer(
+              id: 'offer${_incomingOfferSeq++}',
+              playerId: chosen.id,
+              playerName: chosen.name,
+              buyerClubName: buyer.name,
+              amount: amount,
+            ),
+          );
         }
       }
     }
@@ -1944,9 +2008,10 @@ class GameState extends ChangeNotifier {
 
   /// 保存されているリーグ名から国風テーマを逆引きする(テーマ自体は
   /// SaveGameに保持していないため、開幕時に確定した表示名から復元する)。
-  LeagueTheme get currentLeagueTheme =>
-      LeagueTheme.values.firstWhere((t) => t.label == _save?.leagueName,
-          orElse: () => LeagueTheme.england);
+  LeagueTheme get currentLeagueTheme => LeagueTheme.values.firstWhere(
+        (t) => t.label == _save?.leagueName,
+        orElse: () => LeagueTheme.england,
+      );
 
   /// シーズンごとに確定した個人タイトル(得点王・年間MVP)の履歴。新しい順。
   List<SeasonAward> get seasonAwards =>
@@ -1984,8 +2049,10 @@ class GameState extends ChangeNotifier {
       return;
     }
     final option = question.options[optionIndex];
-    _save!.confidence =
-        (_save!.confidence + option.confidenceDelta).clamp(0, 100);
+    _save!.confidence = (_save!.confidence + option.confidenceDelta).clamp(
+      0,
+      100,
+    );
     for (final p in userTeam.players) {
       p.morale = (p.morale + option.moraleDelta).clamp(0, 100);
     }
@@ -2009,8 +2076,10 @@ class GameState extends ChangeNotifier {
     _save!.userTeamId = newTeamId;
     _save!.pendingJobOfferTeamId = null;
     _save!.confidence = 60;
-    _save!.boardTargetRank =
-        BoardEngine.estimateTargetRank(_save!.league, newTeamId);
+    _save!.boardTargetRank = BoardEngine.estimateTargetRank(
+      _save!.league,
+      newTeamId,
+    );
     _save!.clubHistory.add(newTeamName);
     notifyListeners();
     await _persist();
@@ -2068,7 +2137,8 @@ class GameState extends ChangeNotifier {
   int get stadiumCapacity => _save == null
       ? 0
       : ClubInfrastructure.stadiumCapacity(
-          _save!.infrastructure.facilityLevel(FacilityType.stadium));
+          _save!.infrastructure.facilityLevel(FacilityType.stadium),
+        );
 
   /// 通常開催時に見込まれる観客動員数(収容人数 x 動員率)。
   int get expectedAttendance =>
@@ -2087,10 +2157,12 @@ class GameState extends ChangeNotifier {
     final base = 150 + rankBonus;
     if (teamId != _save!.userTeamId) return base;
 
-    final stadiumLevel =
-        _save!.infrastructure.facilityLevel(FacilityType.stadium);
+    final stadiumLevel = _save!.infrastructure.facilityLevel(
+      FacilityType.stadium,
+    );
     final commercialMultiplier = ClubInfrastructure.commercialRevenueMultiplier(
-        _save!.infrastructure.facilityLevel(FacilityType.commercialFacility));
+      _save!.infrastructure.facilityLevel(FacilityType.commercialFacility),
+    );
     var matchdayIncome = ((base + (stadiumLevel - 1) * 80) *
             userAttendanceFactor *
             _save!.ticketPricing.revenueMultiplier *
@@ -2124,8 +2196,9 @@ class GameState extends ChangeNotifier {
   int get maxLoanAmount => _save == null
       ? 0
       : LoanEngine.maxBorrowable(
-          stadiumLevel:
-              _save!.infrastructure.facilityLevel(FacilityType.stadium),
+          stadiumLevel: _save!.infrastructure.facilityLevel(
+            FacilityType.stadium,
+          ),
           reputation: _save!.managerReputation,
           outstandingDebt: outstandingLoanDebt,
         );
@@ -2138,13 +2211,15 @@ class GameState extends ChangeNotifier {
     if (_save == null || amount <= 0) return false;
     if (amount > maxLoanAmount) return false;
     final weekly = LoanEngine.weeklyRepaymentFor(amount, term);
-    _save!.bankLoans.add(BankLoan(
-      id: 'loan${_loanSeq++}',
-      principal: amount,
-      weeklyRepayment: weekly,
-      termWeeks: term.weeks,
-      weeksRemaining: term.weeks,
-    ));
+    _save!.bankLoans.add(
+      BankLoan(
+        id: 'loan${_loanSeq++}',
+        principal: amount,
+        weeklyRepayment: weekly,
+        termWeeks: term.weeks,
+        weeksRemaining: term.weeks,
+      ),
+    );
     _save!.budget += amount;
     notifyListeners();
     await _persist();
@@ -2166,13 +2241,15 @@ class GameState extends ChangeNotifier {
     if (_save == null || amount <= 0) return false;
     if (amount > _save!.budget) return false;
     _save!.budget -= amount;
-    _save!.fixedDeposits.add(FixedDeposit(
-      id: 'deposit${_depositSeq++}',
-      principal: amount,
-      maturityValue: InvestmentEngine.maturityValueFor(amount, term),
-      termWeeks: term.weeks,
-      weeksRemaining: term.weeks,
-    ));
+    _save!.fixedDeposits.add(
+      FixedDeposit(
+        id: 'deposit${_depositSeq++}',
+        principal: amount,
+        maturityValue: InvestmentEngine.maturityValueFor(amount, term),
+        termWeeks: term.weeks,
+        weeksRemaining: term.weeks,
+      ),
+    );
     notifyListeners();
     await _persist();
     return true;
@@ -2182,9 +2259,11 @@ class GameState extends ChangeNotifier {
   /// 軽減係数(1.0で軽減なし)。両方に投資するほど軽減幅が大きくなる。
   double get _userInjuryFactor =>
       ClubInfrastructure.injuryFactor(
-          _save!.infrastructure.staffLevel(StaffRole.physio)) *
+        _save!.infrastructure.staffLevel(StaffRole.physio),
+      ) *
       ClubInfrastructure.medicalCenterInjuryFactor(
-          _save!.infrastructure.facilityLevel(FacilityType.medicalCenter));
+        _save!.infrastructure.facilityLevel(FacilityType.medicalCenter),
+      );
 
   double _injuryFactorFor(String teamId) =>
       teamId == _save!.userTeamId ? _userInjuryFactor : 1.0;
@@ -2217,8 +2296,10 @@ class GameState extends ChangeNotifier {
       _liveSubstitutionsUsed < maxSubstitutionsPerMatch;
 
   /// ハーフタイムの交代操作。通常のswapStartingPlayerに交代枠の消費を加える。
-  bool makeHalfTimeSubstitution(
-      {required String outPlayerId, required String inPlayerId}) {
+  bool makeHalfTimeSubstitution({
+    required String outPlayerId,
+    required String inPlayerId,
+  }) {
     if (!canMakeSubstitution) return false;
     swapStartingPlayer(outPlayerId: outPlayerId, inPlayerId: inPlayerId);
     _liveSubstitutionsUsed++;
@@ -2295,11 +2376,15 @@ class GameState extends ChangeNotifier {
     }
 
     // 選手の不満度を更新する。
-    final preMatchRank = league.sortedStandings
-            .indexWhere((r) => r.teamId == _save!.userTeamId) +
+    final preMatchRank = league.sortedStandings.indexWhere(
+          (r) => r.teamId == _save!.userTeamId,
+        ) +
         1;
-    HappinessEngine.applyWeekly(userTeam,
-        leagueRank: preMatchRank, boardTargetRank: _save!.boardTargetRank);
+    HappinessEngine.applyWeekly(
+      userTeam,
+      leagueRank: preMatchRank,
+      boardTargetRank: _save!.boardTargetRank,
+    );
     // 個別声かけ(モチベーショントーク)のクールダウンも週次で減らす。
     for (final p in userTeam.players) {
       if (p.talkCooldownWeeks > 0) p.talkCooldownWeeks -= 1;
@@ -2322,10 +2407,14 @@ class GameState extends ChangeNotifier {
       final midMatchday = total ~/ 2;
       if (total > 0 && next.matchday == midMatchday) {
         final delta = BoardEngine.midSeasonReviewDelta(
-            currentRank: preMatchRank, targetRank: _save!.boardTargetRank);
+          currentRank: preMatchRank,
+          targetRank: _save!.boardTargetRank,
+        );
         _save!.confidence = (_save!.confidence + delta).clamp(0, 100);
         _save!.pendingBoardReviewMessage = BoardEngine.midSeasonReviewMessage(
-            currentRank: preMatchRank, targetRank: _save!.boardTargetRank);
+          currentRank: preMatchRank,
+          targetRank: _save!.boardTargetRank,
+        );
         _save!.boardReviewDoneThisSeason = true;
       }
     }
@@ -2333,8 +2422,9 @@ class GameState extends ChangeNotifier {
     // スポンサー契約(年単位)の消化はシーズン開始時にまとめて処理する
     // (startNextSeason参照)。分割払いの引き落としは引き続き週次で行う。
     if (_save!.sponsorDeal == null && _save!.pendingSponsorOffers.isEmpty) {
-      _save!.pendingSponsorOffers =
-          SponsorEngine.generateOffers(userTeam.overallRating);
+      _save!.pendingSponsorOffers = SponsorEngine.generateOffers(
+        userTeam.overallRating,
+      );
     }
     for (final inst in List<Installment>.from(_save!.pendingInstallments)) {
       _save!.budget -= inst.weeklyAmount;
@@ -2372,7 +2462,10 @@ class GameState extends ChangeNotifier {
 
     // CPUクラブ同士の移籍市場の週次処理(ユーザーは関与しない)。
     lastAiTransferNews = AiTransferEngine.maybeGenerate(
-        league.teams, _save!.userTeamId, _aiTransferRng);
+      league.teams,
+      _save!.userTeamId,
+      _aiTransferRng,
+    );
 
     // CPUクラブの簡易的な週次成長(ユーザーのように個別指導はできないが、
     // 何もしないとユーザーだけがドリル等で伸び続けリーグ全体が停滞するため)。
@@ -2429,21 +2522,26 @@ class GameState extends ChangeNotifier {
       if (isUserFixture) {
         userFixture = f;
         userFirstHalf = MatchEngine.simulateMinutes(
-            home: home,
-            away: away,
-            startMinute: 1,
-            endMinute: 45,
-            weather: weather,
-            homeAdvantageFactor: _homeAdvantageFor(home.id));
+          home: home,
+          away: away,
+          startMinute: 1,
+          endMinute: 45,
+          weather: weather,
+          homeAdvantageFactor: _homeAdvantageFor(home.id),
+        );
         MatchEngine.applyHalfTimeFatigue(
-            home: home, away: away, weather: weather);
+          home: home,
+          away: away,
+          weather: weather,
+        );
       } else {
         f.result = MatchEngine.simulate(
-            home: home,
-            away: away,
-            matchday: md,
-            weather: weather,
-            homeAdvantageFactor: _homeAdvantageFor(home.id));
+          home: home,
+          away: away,
+          matchday: md,
+          weather: weather,
+          homeAdvantageFactor: _homeAdvantageFor(home.id),
+        );
       }
     }
 
@@ -2458,7 +2556,10 @@ class GameState extends ChangeNotifier {
         final away = _findTeam(otherLeague.teams, f.awayTeamId);
         if (home == null || away == null) continue;
         f.result = BackgroundMatchEngine.simulate(
-            home: home, away: away, matchday: md);
+          home: home,
+          away: away,
+          matchday: md,
+        );
       }
     }
 
@@ -2489,10 +2590,13 @@ class GameState extends ChangeNotifier {
       _save!.consecutiveNegativeBudgetWeeks = 0;
     }
     final budgetConfidenceDelta = BoardEngine.negativeBudgetConfidenceDelta(
-        _save!.consecutiveNegativeBudgetWeeks);
+      _save!.consecutiveNegativeBudgetWeeks,
+    );
     if (budgetConfidenceDelta != 0) {
-      _save!.confidence =
-          (_save!.confidence + budgetConfidenceDelta).clamp(0, 100);
+      _save!.confidence = (_save!.confidence + budgetConfidenceDelta).clamp(
+        0,
+        100,
+      );
       lastBudgetCrisisWarning =
           '資金マイナスが${_save!.consecutiveNegativeBudgetWeeks}週続いています。理事会の信頼度が低下しました。';
     }
@@ -2526,12 +2630,13 @@ class GameState extends ChangeNotifier {
 
     final weather = f.weather ?? Weather.clear;
     final second = MatchEngine.simulateMinutes(
-        home: home,
-        away: away,
-        startMinute: 46,
-        endMinute: 90,
-        weather: weather,
-        homeAdvantageFactor: _homeAdvantageFor(home.id));
+      home: home,
+      away: away,
+      startMinute: 46,
+      endMinute: 90,
+      weather: weather,
+      homeAdvantageFactor: _homeAdvantageFor(home.id),
+    );
     final allEvents = [..._liveFirstHalf!.events, ...second.events];
     final homeGoals = _liveFirstHalf!.homeGoals + second.homeGoals;
     final awayGoals = _liveFirstHalf!.awayGoals + second.awayGoals;
@@ -2561,7 +2666,7 @@ class GameState extends ChangeNotifier {
     );
     final statsBefore = {
       for (final p in userTeam.players)
-        p.id: (goals: p.careerGoals, apps: p.careerAppearances)
+        p.id: (goals: p.careerGoals, apps: p.careerAppearances),
     };
     MatchEngine.applyPostMatchEffects(
       home: home,
@@ -2598,8 +2703,11 @@ class GameState extends ChangeNotifier {
     // 4節ごとに月間最優秀監督賞を判定する(ユーザーが受賞した場合のみ通知・記録する)。
     if (f.matchday - _save!.lastManagerOfMonthCheckpoint >= 4) {
       final fromMatchday = _save!.lastManagerOfMonthCheckpoint + 1;
-      final winnerName = AwardsEngine.computeManagerOfPeriod(league,
-          fromMatchday: fromMatchday, toMatchday: f.matchday);
+      final winnerName = AwardsEngine.computeManagerOfPeriod(
+        league,
+        fromMatchday: fromMatchday,
+        toMatchday: f.matchday,
+      );
       if (winnerName == userTeam.name) {
         final label = '第$fromMatchday-${f.matchday}節';
         _save!.trophyHistory.add('シーズン${league.season} 月間最優秀監督賞($label)');
@@ -2614,7 +2722,9 @@ class GameState extends ChangeNotifier {
     }
     _save!.confidence = (_save!.confidence + delta).clamp(0, 100);
     _save!.pendingPressConference = PressConferenceEngine.generateFor(
-        result: merged, userTeamId: _save!.userTeamId);
+      result: merged,
+      userTeamId: _save!.userTeamId,
+    );
 
     _liveFixture = null;
     _liveFirstHalf = null;
@@ -2727,8 +2837,10 @@ class GameState extends ChangeNotifier {
         continentalQualifyCount: _save!.currentDivisionTier == 1 ? 2 : 0,
       );
 
-  List<Team> get allTeamsForCups =>
-      [..._save!.league.teams, ..._save!.continentalTeams];
+  List<Team> get allTeamsForCups => [
+        ..._save!.league.teams,
+        ..._save!.continentalTeams,
+      ];
 
   Cup? _cupOfType(CupType type) {
     for (final c in _save!.cups) {
@@ -2745,8 +2857,10 @@ class GameState extends ChangeNotifier {
     if (next != null) {
       return CalendarEngine.dateForMatchday(league.season, next.matchday);
     }
-    final maxMatchday =
-        league.fixtures.fold<int>(0, (m, f) => f.matchday > m ? f.matchday : m);
+    final maxMatchday = league.fixtures.fold<int>(
+      0,
+      (m, f) => f.matchday > m ? f.matchday : m,
+    );
     return CalendarEngine.dateForMatchday(league.season, maxMatchday + 1);
   }
 
@@ -2843,8 +2957,10 @@ class GameState extends ChangeNotifier {
     if (!_continentalHasNextMatch(cup)) return null;
     if (!_canAdvanceCup(cup.lastPlayedAtMatchday)) return null;
     final userId = _save!.userTeamId;
-    final result =
-        ContinentalCupEngine.playNextGroupMatch(cup, allTeamsForCups);
+    final result = ContinentalCupEngine.playNextGroupMatch(
+      cup,
+      allTeamsForCups,
+    );
     cup.lastPlayedAtMatchday = _currentLeagueMatchdayMarker;
     if (result != null &&
         (result.homeTeamId == userId || result.awayTeamId == userId) &&
@@ -2863,8 +2979,10 @@ class GameState extends ChangeNotifier {
     if (!_continentalHasNextMatch(cup)) return null;
     if (!_canAdvanceCup(cup.lastPlayedAtMatchday)) return null;
     final userId = _save!.userTeamId;
-    final result =
-        ContinentalCupEngine.playNextKnockoutLeg(cup, allTeamsForCups);
+    final result = ContinentalCupEngine.playNextKnockoutLeg(
+      cup,
+      allTeamsForCups,
+    );
     cup.lastPlayedAtMatchday = _currentLeagueMatchdayMarker;
     if (result != null &&
         (result.homeTeamId == userId || result.awayTeamId == userId) &&
@@ -2897,7 +3015,11 @@ class GameState extends ChangeNotifier {
     final home = teams.firstWhere((t) => t.id == match.homeTeamId);
     final away = teams.firstWhere((t) => t.id == match.awayTeamId);
     final result = MatchEngine.simulate(
-        home: home, away: away, matchday: 0, weather: WeatherEngine.roll());
+      home: home,
+      away: away,
+      matchday: 0,
+      weather: WeatherEngine.roll(),
+    );
     match.result = result;
     if (result.homeGoals == result.awayGoals) {
       match.penaltyWinnerId = CupEngine.decidePenaltyWinner(home, away);
@@ -2981,8 +3103,9 @@ class GameState extends ChangeNotifier {
     ];
 
     _save!.seasonAwards.add(AwardsEngine.computeAwards(league, league.season));
-    _save!.bestElevenHistory
-        .add(BestElevenEngine.compute(league, league.season));
+    _save!.bestElevenHistory.add(
+      BestElevenEngine.compute(league, league.season),
+    );
 
     // 監督としての通算成績を更新する。
     final userRow = standings.firstWhere((r) => r.teamId == _save!.userTeamId);
@@ -3006,7 +3129,9 @@ class GameState extends ChangeNotifier {
 
     // 下位ディビジョンほど観客動員・賞金が少ない(ティアごとに段階的に低下する)。
     var prizeMoney = BoardEngine.seasonPrizeMoney(
-        finalRank: finalRank, teamCount: league.teams.length);
+      finalRank: finalRank,
+      teamCount: league.teams.length,
+    );
     prizeMoney = (prizeMoney * pow(0.6, playedTier - 1)).round();
     _save!.budget += prizeMoney;
     final confidenceDelta = BoardEngine.confidenceDeltaForSeasonEnd(
@@ -3032,7 +3157,8 @@ class GameState extends ChangeNotifier {
     _save!.pendingYouthIntake = List.generate(
       intakeCount,
       (_) => ScoutingEngine.generateAcademyGraduate(
-          youthCoachLevel: infra.staffLevel(StaffRole.youthCoach)),
+        youthCoachLevel: infra.staffLevel(StaffRole.youthCoach),
+      ),
     );
 
     // 監督としての世間の評価を更新する(目標達成なら上昇、大きく未達なら下降)。
@@ -3047,9 +3173,11 @@ class GameState extends ChangeNotifier {
         _save!.managerReputation >= 55 &&
         finalRank <= (league.teams.length / 2).ceil()) {
       final candidates = league.teams
-          .where((t) =>
-              t.id != _save!.userTeamId &&
-              t.overallRating > userTeam.overallRating)
+          .where(
+            (t) =>
+                t.id != _save!.userTeamId &&
+                t.overallRating > userTeam.overallRating,
+          )
           .toList()
         ..sort((a, b) => b.overallRating.compareTo(a.overallRating));
       if (candidates.isNotEmpty && Random().nextDouble() < 0.25) {
@@ -3130,11 +3258,14 @@ class GameState extends ChangeNotifier {
     final newActiveTeams = newTeamsByTier[newTier]!;
 
     final userInPromotionPlayoff = relevantPlayoffMatches.any(
-        (m) => m.homeId == _save!.userTeamId || m.awayId == _save!.userTeamId);
+      (m) => m.homeId == _save!.userTeamId || m.awayId == _save!.userTeamId,
+    );
     lastPromotionPlayoffResults = relevantPlayoffMatches
-        .map((m) => '${m.roundLabel}: ${m.homeName} ${m.homeGoals}-'
-            '${m.awayGoals} ${m.awayName}'
-            '${m.decidedByPenalties ? '(PK: ${m.winnerName}が勝利)' : ''}')
+        .map(
+          (m) => '${m.roundLabel}: ${m.homeName} ${m.homeGoals}-'
+              '${m.awayGoals} ${m.awayName}'
+              '${m.decidedByPenalties ? '(PK: ${m.winnerName}が勝利)' : ''}',
+        )
         .toList();
     userInvolvedInLastPromotionPlayoff = userInPromotionPlayoff;
     if (newTier > playedTier) {
@@ -3162,14 +3293,18 @@ class GameState extends ChangeNotifier {
       );
     }
 
-    final newFixtures =
-        FixtureGenerator.generateDoubleRoundRobin(newActiveTeams);
+    final newFixtures = FixtureGenerator.generateDoubleRoundRobin(
+      newActiveTeams,
+    );
     _save!.league = League(
-        teams: newActiveTeams,
-        fixtures: newFixtures,
-        season: league.season + 1);
-    _save!.boardTargetRank =
-        BoardEngine.estimateTargetRank(_save!.league, _save!.userTeamId);
+      teams: newActiveTeams,
+      fixtures: newFixtures,
+      season: league.season + 1,
+    );
+    _save!.boardTargetRank = BoardEngine.estimateTargetRank(
+      _save!.league,
+      _save!.userTeamId,
+    );
     transferMarket = TransferMarket.generate();
     _refreshScoutCandidates();
     FreeAgentEngine.topUp(_save!.freeAgents);
@@ -3182,8 +3317,9 @@ class GameState extends ChangeNotifier {
       }
     }
     if (_save!.sponsorDeal == null && _save!.pendingSponsorOffers.isEmpty) {
-      _save!.pendingSponsorOffers =
-          SponsorEngine.generateOffers(userTeam.overallRating);
+      _save!.pendingSponsorOffers = SponsorEngine.generateOffers(
+        userTeam.overallRating,
+      );
     }
 
     // 高齢選手の引退判定(ユースプロスペクトは対象外)。
@@ -3227,24 +3363,26 @@ class GameState extends ChangeNotifier {
       if (_save!.continentalCup?.championId == _save!.userTeamId)
         _save!.continentalCup!.name,
     ];
-    _save!.seasonHistory.add(SeasonRecord(
-      season: league.season,
-      clubName: _save!.clubName,
-      leagueName: _save!.leagueName,
-      divisionTier: playedTier,
-      finalRank: finalRank,
-      teamCount: league.teams.length,
-      played: userRow.played,
-      won: userRow.won,
-      draw: userRow.draw,
-      lost: userRow.lost,
-      goalsFor: userRow.goalsFor,
-      goalsAgainst: userRow.goalsAgainst,
-      wonLeague: finalRank == 1,
-      promoted: newTier < playedTier,
-      relegated: newTier > playedTier,
-      cupsWon: cupsWonThisSeason,
-    ));
+    _save!.seasonHistory.add(
+      SeasonRecord(
+        season: league.season,
+        clubName: _save!.clubName,
+        leagueName: _save!.leagueName,
+        divisionTier: playedTier,
+        finalRank: finalRank,
+        teamCount: league.teams.length,
+        played: userRow.played,
+        won: userRow.won,
+        draw: userRow.draw,
+        lost: userRow.lost,
+        goalsFor: userRow.goalsFor,
+        goalsAgainst: userRow.goalsAgainst,
+        wonLeague: finalRank == 1,
+        promoted: newTier < playedTier,
+        relegated: newTier > playedTier,
+        cupsWon: cupsWonThisSeason,
+      ),
+    );
     _evaluateAchievements(season: league.season);
 
     // スーパーカップ: 前シーズンのリーグ王者と国内カップ王者(同一クラブが両方
@@ -3275,20 +3413,26 @@ class GameState extends ChangeNotifier {
       final opponent = pairing == null ? null : findTeam(pairing.$2);
       if (champion != null && opponent != null && champion.id != opponent.id) {
         final superCup = CupMatch(
-            round: 1, homeTeamId: champion.id, awayTeamId: opponent.id);
+          round: 1,
+          homeTeamId: champion.id,
+          awayTeamId: opponent.id,
+        );
         if (champion.id == _save!.userTeamId ||
             opponent.id == _save!.userTeamId) {
           _save!.pendingSuperCup = superCup;
         } else {
           final result = MatchEngine.simulate(
-              home: champion,
-              away: opponent,
-              matchday: 0,
-              weather: WeatherEngine.roll());
+            home: champion,
+            away: opponent,
+            matchday: 0,
+            weather: WeatherEngine.roll(),
+          );
           superCup.result = result;
           if (result.homeGoals == result.awayGoals) {
-            superCup.penaltyWinnerId =
-                CupEngine.decidePenaltyWinner(champion, opponent);
+            superCup.penaltyWinnerId = CupEngine.decidePenaltyWinner(
+              champion,
+              opponent,
+            );
           }
           final winnerName =
               superCup.winnerId == champion.id ? champion.name : opponent.name;
@@ -3326,7 +3470,7 @@ class GameState extends ChangeNotifier {
 
     // 次シーズン終了時の成長算出のため、開始時点の総合力を記録しておく。
     _save!.seasonStartOverallByPlayerId = {
-      for (final p in userTeam.players) p.id: p.overall
+      for (final p in userTeam.players) p.id: p.overall,
     };
 
     isBusy = false;

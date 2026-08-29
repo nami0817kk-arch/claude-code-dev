@@ -41,7 +41,10 @@ class Fixture {
         weather: json['weather'] == null
             ? null
             : enumFromName(
-                Weather.values, json['weather'] as String?, Weather.clear),
+                Weather.values,
+                json['weather'] as String?,
+                Weather.clear,
+              ),
       );
 }
 
@@ -80,9 +83,11 @@ class League {
   /// 消化していない場合はnull。
   Fixture? lastPlayedFixtureFor(String teamId) {
     final played = fixtures
-        .where((f) =>
-            f.result != null &&
-            (f.homeTeamId == teamId || f.awayTeamId == teamId))
+        .where(
+          (f) =>
+              f.result != null &&
+              (f.homeTeamId == teamId || f.awayTeamId == teamId),
+        )
         .toList();
     if (played.isEmpty) return null;
     played.sort((a, b) => b.matchday.compareTo(a.matchday));
@@ -93,9 +98,11 @@ class League {
   /// (順位表のフォームガイド表示用)。
   List<String> recentFormFor(String teamId, {int count = 5}) {
     final played = fixtures
-        .where((f) =>
-            f.result != null &&
-            (f.homeTeamId == teamId || f.awayTeamId == teamId))
+        .where(
+          (f) =>
+              f.result != null &&
+              (f.homeTeamId == teamId || f.awayTeamId == teamId),
+        )
         .toList()
       ..sort((a, b) => a.matchday.compareTo(b.matchday));
     final recent =
@@ -115,7 +122,9 @@ class League {
       fixtures.where((f) => f.matchday == md).toList();
 
   Map<String, StandingRow> _accumulate(
-      List<String> teamIds, Iterable<Fixture> matches) {
+    List<String> teamIds,
+    Iterable<Fixture> matches,
+  ) {
     final map = {for (final id in teamIds) id: StandingRow(teamId: id)};
     for (final f in matches) {
       final r = f.result;

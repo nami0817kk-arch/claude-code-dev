@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import '../models/continental_cup.dart';
 import '../models/cup.dart';
 import '../models/league.dart';
@@ -18,8 +19,10 @@ class ContinentalCupEngine {
 
   /// [teamIds]を[groupSize]チームずつのグループに振り分け、各組の総当たり
   /// (1回戦制)の対戦表を生成する。
-  static ContinentalCup create(
-      {required String name, required List<String> teamIds}) {
+  static ContinentalCup create({
+    required String name,
+    required List<String> teamIds,
+  }) {
     final shuffled = [...teamIds]..shuffle(_rng);
     final groups = <List<String>>[];
     for (var i = 0; i < shuffled.length; i += groupSize) {
@@ -67,16 +70,22 @@ class ContinentalCupEngine {
 
   /// 指定した組の順位表(勝点順。並んだ場合は直接対決優先)。
   static List<StandingRow> groupStandings(
-      ContinentalCup cup, int groupIndex, List<Team> allTeams) {
+    ContinentalCup cup,
+    int groupIndex,
+    List<Team> allTeams,
+  ) {
     final ids = cup.groups[groupIndex].toSet();
     final groupTeams = allTeams.where((t) => ids.contains(t.id)).toList();
     final fixtures = cup.groupMatches
         .where((m) => ids.contains(m.homeTeamId) && ids.contains(m.awayTeamId))
-        .map((m) => Fixture(
+        .map(
+          (m) => Fixture(
             matchday: m.round,
             homeTeamId: m.homeTeamId,
             awayTeamId: m.awayTeamId,
-            result: m.result))
+            result: m.result,
+          ),
+        )
         .toList();
     return League(teams: groupTeams, fixtures: fixtures).sortedStandings;
   }
@@ -92,16 +101,19 @@ class ContinentalCupEngine {
   /// グループステージの次の1試合を消化する。全試合が終わると自動的に
   /// 決勝トーナメントの組み合わせが決定される。
   static MatchResult? playNextGroupMatch(
-      ContinentalCup cup, List<Team> allTeams) {
+    ContinentalCup cup,
+    List<Team> allTeams,
+  ) {
     final match = nextGroupMatch(cup);
     if (match == null) return null;
     final home = allTeams.firstWhere((t) => t.id == match.homeTeamId);
     final away = allTeams.firstWhere((t) => t.id == match.awayTeamId);
     final result = MatchEngine.simulate(
-        home: home,
-        away: away,
-        matchday: match.round,
-        weather: WeatherEngine.roll());
+      home: home,
+      away: away,
+      matchday: match.round,
+      weather: WeatherEngine.roll(),
+    );
     match.result = result;
     if (cup.isGroupStageComplete) {
       _startKnockout(cup, allTeams);
@@ -136,7 +148,9 @@ class ContinentalCupEngine {
   /// 決勝トーナメントの次の未消化レグを1試合消化する(2ndレグはホーム/
   /// アウェイを入れ替える)。合計スコアが同点の場合はPK戦で決着する。
   static MatchResult? playNextKnockoutLeg(
-      ContinentalCup cup, List<Team> allTeams) {
+    ContinentalCup cup,
+    List<Team> allTeams,
+  ) {
     if (cup.knockoutRounds.isEmpty) return null;
     final round = cup.knockoutRounds.last;
     for (final tie in round) {
@@ -147,7 +161,11 @@ class ContinentalCupEngine {
       final home = allTeams.firstWhere((t) => t.id == homeId);
       final away = allTeams.firstWhere((t) => t.id == awayId);
       final result = MatchEngine.simulate(
-          home: home, away: away, matchday: 0, weather: WeatherEngine.roll());
+        home: home,
+        away: away,
+        matchday: 0,
+        weather: WeatherEngine.roll(),
+      );
       tie.legs.add(result);
       if (tie.isComplete &&
           tie.goalsFor(tie.teamAId) == tie.goalsFor(tie.teamBId)) {
@@ -167,12 +185,14 @@ class ContinentalCupEngine {
     final nextRound = <CupTie>[];
     final isFinalNext = winners.length == 2;
     for (int i = 0; i < winners.length; i += 2) {
-      nextRound.add(CupTie(
-        round: round.first.round + 1,
-        teamAId: winners[i],
-        teamBId: winners[i + 1],
-        singleLeg: isFinalNext,
-      ));
+      nextRound.add(
+        CupTie(
+          round: round.first.round + 1,
+          teamAId: winners[i],
+          teamBId: winners[i + 1],
+          singleLeg: isFinalNext,
+        ),
+      );
     }
     cup.knockoutRounds.add(nextRound);
   }

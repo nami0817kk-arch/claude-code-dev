@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/achievement.dart';
 import '../state/game_state.dart';
 import '../widgets/quick_access_drawer.dart';
@@ -35,18 +36,25 @@ class AchievementsScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      Icon(Icons.emoji_events,
-                          color: Colors.amber.shade700, size: 32),
+                      Icon(
+                        Icons.emoji_events,
+                        color: Colors.amber.shade700,
+                        size: 32,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('達成状況',
-                                style: Theme.of(context).textTheme.titleMedium),
+                            Text(
+                              '達成状況',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
                             const SizedBox(height: 4),
-                            Text('${all.length}件中 $unlockedCount件達成',
-                                style: const TextStyle(color: Colors.grey)),
+                            Text(
+                              '${all.length}件中 $unlockedCount件達成',
+                              style: const TextStyle(color: Colors.grey),
+                            ),
                           ],
                         ),
                       ),
@@ -116,11 +124,13 @@ class _CategorySection extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
-          child: Text(category.label,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
-                  ?.copyWith(fontWeight: FontWeight.bold)),
+          child: Text(
+            category.label,
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.bold),
+          ),
         ),
         for (final a in achievements)
           _AchievementTile(achievement: a, gameState: gameState),
@@ -146,21 +156,26 @@ class _AchievementTile extends StatelessWidget {
         leading: CircleAvatar(
           backgroundColor:
               unlocked ? Colors.amber.shade700 : Colors.grey.shade400,
-          child: Icon(unlocked ? Icons.emoji_events : Icons.lock,
-              color: Colors.white, size: 20),
+          child: Icon(
+            unlocked ? Icons.emoji_events : Icons.lock,
+            color: Colors.white,
+            size: 20,
+          ),
         ),
         title: Text(
           achievement.name,
           style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: unlocked ? null : Colors.grey.shade600),
+            fontWeight: FontWeight.bold,
+            color: unlocked ? null : Colors.grey.shade600,
+          ),
         ),
         subtitle: Text(
           unlocked && season != null
               ? '${achievement.description}(シーズン$season達成)'
               : achievement.description,
-          style:
-              TextStyle(color: unlocked ? Colors.grey.shade700 : Colors.grey),
+          style: TextStyle(
+            color: unlocked ? Colors.grey.shade700 : Colors.grey,
+          ),
         ),
       ),
     );

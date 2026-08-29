@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import '../models/league_theme.dart';
 
 class NamePool {
@@ -92,56 +93,11 @@ class NamePool {
 
   /// リーグの国風テーマごとのクラブ名素材(単語・接尾辞)。
   static const Map<LeagueTheme, List<String>> _themedWords = {
-    LeagueTheme.england: [
-      '紅獅子',
-      '王冠',
-      '霧の丘',
-      '河畔',
-      '古城',
-      '聖森',
-      '鉄橋',
-      '北風',
-    ],
-    LeagueTheme.spain: [
-      '太陽',
-      '黄金',
-      '南風',
-      '闘牛',
-      '橄欖',
-      '紺碧',
-      '城塞',
-      '薔薇',
-    ],
-    LeagueTheme.germany: [
-      '鉄鋼',
-      '黒森',
-      '北方',
-      '工業',
-      '鷲峰',
-      '灰色',
-      '大河',
-      '鋼鉄',
-    ],
-    LeagueTheme.italy: [
-      '古都',
-      '水都',
-      '紫紺',
-      '山脈',
-      '太陽海岸',
-      '大理石',
-      '鷹',
-      '黒獅子',
-    ],
-    LeagueTheme.france: [
-      '青薔薇',
-      '灯台',
-      '南仏',
-      '栄光',
-      '鳶色',
-      '鐘楼',
-      '葡萄畑',
-      '風車',
-    ],
+    LeagueTheme.england: ['紅獅子', '王冠', '霧の丘', '河畔', '古城', '聖森', '鉄橋', '北風'],
+    LeagueTheme.spain: ['太陽', '黄金', '南風', '闘牛', '橄欖', '紺碧', '城塞', '薔薇'],
+    LeagueTheme.germany: ['鉄鋼', '黒森', '北方', '工業', '鷲峰', '灰色', '大河', '鋼鉄'],
+    LeagueTheme.italy: ['古都', '水都', '紫紺', '山脈', '太陽海岸', '大理石', '鷹', '黒獅子'],
+    LeagueTheme.france: ['青薔薇', '灯台', '南仏', '栄光', '鳶色', '鐘楼', '葡萄畑', '風車'],
   };
 
   static const Map<LeagueTheme, List<String>> _themedSuffixes = {
@@ -151,7 +107,7 @@ class NamePool {
       'アスレチック',
       'ローヴァーズ',
       'ウォンダラーズ',
-      'タウン'
+      'タウン',
     ],
     LeagueTheme.spain: ['レアル', 'アトレティコ', 'デポルティボ', 'CF', 'ウニオン'],
     LeagueTheme.germany: ['SV', 'FC', 'ボルシア', 'ウニオン', 'アドラー'],

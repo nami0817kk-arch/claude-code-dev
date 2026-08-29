@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/match_result.dart';
 import '../models/player.dart';
 import '../models/team.dart';
@@ -29,9 +30,14 @@ class WeatherBadge extends StatelessWidget {
         children: [
           Text(weather.emoji, style: const TextStyle(fontSize: 12)),
           const SizedBox(width: 4),
-          Text(weather.label,
-              style: TextStyle(
-                  fontSize: 11, color: color, fontWeight: FontWeight.bold)),
+          Text(
+            weather.label,
+            style: TextStyle(
+              fontSize: 11,
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
@@ -51,10 +57,12 @@ class TeamHeader extends StatelessWidget {
       children: [
         ClubEmblem(teamId: team.id, teamName: team.name, size: 36),
         const SizedBox(height: 4),
-        Text(team.name,
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1),
+        Text(
+          team.name,
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+        ),
       ],
     );
   }
@@ -123,15 +131,19 @@ class CommentaryTile extends StatelessWidget {
   final String teamName;
   final Team? userTeam;
 
-  const CommentaryTile(
-      {super.key, required this.event, required this.teamName, this.userTeam});
+  const CommentaryTile({
+    super.key,
+    required this.event,
+    required this.teamName,
+    this.userTeam,
+  });
 
   @override
   Widget build(BuildContext context) {
     final (icon, color) = switch (event.type) {
       MatchEventType.goal => (
           Icons.sports_soccer,
-          SemanticColors.positive(context)
+          SemanticColors.positive(context),
         ),
       MatchEventType.chance => (Icons.flash_on, Colors.orange),
       MatchEventType.yellowCard => (Icons.warning_amber, Colors.amber),
@@ -163,8 +175,11 @@ class CommentaryTile extends StatelessWidget {
       title: Text(text),
       onTap: playerId == null
           ? null
-          : () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => PlayerDetailScreen(playerId: playerId!))),
+          : () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => PlayerDetailScreen(playerId: playerId!),
+                ),
+              ),
     );
   }
 }
@@ -203,46 +218,65 @@ class MatchStatsBar extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                      flex: barHp,
-                      child:
-                          Container(color: SemanticColors.positive(context))),
+                    flex: barHp,
+                    child: Container(color: SemanticColors.positive(context)),
+                  ),
                   Expanded(
-                      flex: 100 - barHp,
-                      child: Container(color: Colors.grey.shade400)),
+                    flex: 100 - barHp,
+                    child: Container(color: Colors.grey.shade400),
+                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 10),
-          _statRow(context, '${result.homeShots ?? 0}', 'シュート',
-              '${result.awayShots ?? 0}'),
+          _statRow(
+            context,
+            '${result.homeShots ?? 0}',
+            'シュート',
+            '${result.awayShots ?? 0}',
+          ),
           const SizedBox(height: 4),
-          _statRow(context, '${result.homeShotsOnTarget ?? 0}', '枠内シュート',
-              '${result.awayShotsOnTarget ?? 0}'),
+          _statRow(
+            context,
+            '${result.homeShotsOnTarget ?? 0}',
+            '枠内シュート',
+            '${result.awayShotsOnTarget ?? 0}',
+          ),
         ],
       ),
     );
   }
 
   Widget _statRow(
-      BuildContext context, String homeValue, String label, String awayValue) {
+    BuildContext context,
+    String homeValue,
+    String label,
+    String awayValue,
+  ) {
     return Row(
       children: [
         Expanded(
-          child: Text(homeValue,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.bold)),
+          child: Text(
+            homeValue,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
         SizedBox(
           width: 90,
-          child: Text(label,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          ),
         ),
         Expanded(
-          child: Text(awayValue,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.bold)),
+          child: Text(
+            awayValue,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
       ],
     );
@@ -254,8 +288,11 @@ class FullTimeBanner extends StatelessWidget {
   final String userTeamId;
   final MatchResult? result;
 
-  const FullTimeBanner(
-      {super.key, required this.userTeamId, required this.result});
+  const FullTimeBanner({
+    super.key,
+    required this.userTeamId,
+    required this.result,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -288,15 +325,21 @@ class FullTimeBanner extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-            color: color, borderRadius: BorderRadius.circular(10)),
+          color: color,
+          borderRadius: BorderRadius.circular(10),
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: Colors.white, size: 18),
             const SizedBox(width: 8),
-            Text(label,
-                style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold)),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
       ),
@@ -311,8 +354,12 @@ class ManOfTheMatchBanner extends StatelessWidget {
   final List<Team> teams;
   final String? userTeamId;
 
-  const ManOfTheMatchBanner(
-      {super.key, required this.result, required this.teams, this.userTeamId});
+  const ManOfTheMatchBanner({
+    super.key,
+    required this.result,
+    required this.teams,
+    this.userTeamId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -343,8 +390,11 @@ class ManOfTheMatchBanner extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           onTap: !isOwnClub
               ? null
-              : () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => PlayerDetailScreen(playerId: motmId))),
+              : () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PlayerDetailScreen(playerId: motmId),
+                    ),
+                  ),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -358,12 +408,16 @@ class ManOfTheMatchBanner extends StatelessWidget {
                 const Icon(Icons.military_tech, color: Colors.amber, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('マン・オブ・ザ・マッチ: ${motm.name}',
-                      overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    'マン・オブ・ザ・マッチ: ${motm.name}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 if (rating != null)
-                  Text(rating.toStringAsFixed(1),
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    rating.toStringAsFixed(1),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
               ],
             ),
           ),

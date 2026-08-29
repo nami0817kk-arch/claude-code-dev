@@ -272,11 +272,11 @@ extension PlayerRoleInfo on PlayerRole {
           ],
         PlayerRole.wingBack => const [
             AttributeKeys.pace,
-            AttributeKeys.dribbling,
+            AttributeKeys.dribbling
           ],
         PlayerRole.playmaker => const [
             AttributeKeys.vision,
-            AttributeKeys.passing,
+            AttributeKeys.passing
           ],
         PlayerRole.boxToBox => const [
             AttributeKeys.stamina,
@@ -872,10 +872,11 @@ class Player {
   /// 抑えめだが、同時に2項目を重点的に伸ばせる。
   String? drillAttributeKey2;
 
-  /// 特性未保有の選手に対し、週次トレーニングで低確率に選手特性
-  /// ([PlayerTrait])を獲得させる特訓を有効にするかどうか。既に特性を
+  /// 特性未保有の選手に対し、週次トレーニングで狙って習得させたい選手特性
+  /// ([PlayerTrait])。設定すると毎週低確率でこの特性を獲得する判定が行われ、
+  /// 選手の能力値・年齢がその特性に適性が高いほど成功率が上がる。既に特性を
   /// 持つ選手には効果がない。
-  bool traitTrainingEnabled;
+  PlayerTrait? traitTrainingTarget;
 
   /// 複数のトレーニング方針を登録し、週次トレーニングのたびに順番に
   /// 切り替える個別ローテーション。設定されている間は[individualFocus]
@@ -967,7 +968,7 @@ class Player {
     this.mentorId,
     this.drillAttributeKey,
     this.drillAttributeKey2,
-    this.traitTrainingEnabled = false,
+    this.traitTrainingTarget,
     this.focusRotation,
     this.rotationWeekIndex = 0,
     this.trainingConvertTargetPosition,
@@ -1176,7 +1177,7 @@ class Player {
         'mentorId': mentorId,
         'drillAttributeKey': drillAttributeKey,
         'drillAttributeKey2': drillAttributeKey2,
-        'traitTrainingEnabled': traitTrainingEnabled,
+        'traitTrainingTarget': traitTrainingTarget?.name,
         'focusRotation': focusRotation?.map((f) => f.name).toList(),
         'rotationWeekIndex': rotationWeekIndex,
         'trainingConvertTargetPosition': trainingConvertTargetPosition,
@@ -1192,12 +1193,13 @@ class Player {
       attributes = {
         for (int i = 0; i < AttributeKeys.all.length; i++)
           AttributeKeys.all[i]:
-              (i < rawAttributes.length ? rawAttributes[i] as int? : null) ?? 50
+              (i < rawAttributes.length ? rawAttributes[i] as int? : null) ??
+                  50,
       };
     } else if (rawAttributes is Map) {
       // 旧形式: キー名付きのMap(過去のセーブとの互換性のため引き続き読める)。
       attributes = {
-        for (final k in AttributeKeys.all) k: (rawAttributes[k] as int?) ?? 50
+        for (final k in AttributeKeys.all) k: (rawAttributes[k] as int?) ?? 50,
       };
     } else {
       attributes = _migrateLegacyAttributes(json);
@@ -1219,8 +1221,11 @@ class Player {
       injuryWeeks: json['injuryWeeks'] as int? ?? 0,
       injuryType: json['injuryType'] == null
           ? null
-          : enumFromName(InjuryType.values, json['injuryType'] as String?,
-              InjuryType.bruise),
+          : enumFromName(
+              InjuryType.values,
+              json['injuryType'] as String?,
+              InjuryType.bruise,
+            ),
       injuryHistoryCounts: (json['injuryHistoryCounts'] as Map?)?.map(
             (k, v) => MapEntry(k as String, v as int),
           ) ??
@@ -1231,12 +1236,18 @@ class Player {
       careerGoals: json['careerGoals'] as int? ?? 0,
       individualFocus: json['individualFocus'] == null
           ? null
-          : enumFromName(TrainingFocus.values,
-              json['individualFocus'] as String?, TrainingFocus.rest),
+          : enumFromName(
+              TrainingFocus.values,
+              json['individualFocus'] as String?,
+              TrainingFocus.rest,
+            ),
       wage: json['wage'] as int? ?? 20,
       contractYearsRemaining: _migrateContractYears(json),
-      personality: enumFromName(PlayerPersonality.values,
-          json['personality'] as String?, PlayerPersonality.balanced),
+      personality: enumFromName(
+        PlayerPersonality.values,
+        json['personality'] as String?,
+        PlayerPersonality.balanced,
+      ),
       happiness: json['happiness'] as int? ?? 70,
       reassureCooldownWeeks: json['reassureCooldownWeeks'] as int? ?? 0,
       talkCooldownWeeks: json['talkCooldownWeeks'] as int? ?? 0,
@@ -1247,14 +1258,20 @@ class Player {
       internationalDutyWeeksRemaining:
           json['internationalDutyWeeksRemaining'] as int? ?? 0,
       duty: enumFromName(
-          PlayerDuty.values, json['duty'] as String?, PlayerDuty.support),
+        PlayerDuty.values,
+        json['duty'] as String?,
+        PlayerDuty.support,
+      ),
       isTransferListed: json['isTransferListed'] as bool? ?? false,
       loanedOutWeeksRemaining: json['loanedOutWeeksRemaining'] as int? ?? 0,
       loanedOutToClubName: json['loanedOutToClubName'] as String?,
       originClubName: json['originClubName'] as String?,
       appearanceFee: json['appearanceFee'] as int? ?? 0,
       role: enumFromName(
-          PlayerRole.values, json['role'] as String?, PlayerRole.standard),
+        PlayerRole.values,
+        json['role'] as String?,
+        PlayerRole.standard,
+      ),
       positionFamiliarity: (json['positionFamiliarity'] as Map?)?.map(
             (k, v) => MapEntry(k as String, v as int),
           ) ??
@@ -1263,20 +1280,37 @@ class Player {
       mentorId: json['mentorId'] as String?,
       drillAttributeKey: json['drillAttributeKey'] as String?,
       drillAttributeKey2: json['drillAttributeKey2'] as String?,
-      traitTrainingEnabled: json['traitTrainingEnabled'] as bool? ?? false,
+      traitTrainingTarget: json['traitTrainingTarget'] == null
+          ? null
+          : enumFromName(
+              PlayerTrait.values,
+              json['traitTrainingTarget'] as String?,
+              PlayerTrait.streaky,
+            ),
       focusRotation: (json['focusRotation'] as List?)
-          ?.map((e) => enumFromName(
-              TrainingFocus.values, e as String?, TrainingFocus.rest))
+          ?.map(
+            (e) => enumFromName(
+              TrainingFocus.values,
+              e as String?,
+              TrainingFocus.rest,
+            ),
+          )
           .toList(),
       rotationWeekIndex: json['rotationWeekIndex'] as int? ?? 0,
       trainingConvertTargetPosition:
           json['trainingConvertTargetPosition'] as String?,
       trait: json['trait'] == null
           ? null
-          : enumFromName(PlayerTrait.values, json['trait'] as String?,
-              PlayerTrait.streaky),
-      growthType: enumFromName(PlayerGrowthType.values,
-          json['growthType'] as String?, PlayerGrowthType.balanced),
+          : enumFromName(
+              PlayerTrait.values,
+              json['trait'] as String?,
+              PlayerTrait.streaky,
+            ),
+      growthType: enumFromName(
+        PlayerGrowthType.values,
+        json['growthType'] as String?,
+        PlayerGrowthType.balanced,
+      ),
     );
   }
 

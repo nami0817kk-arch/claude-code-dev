@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../services/feedback_service.dart';
 import '../state/game_state.dart';
 import 'fixtures_screen.dart';
@@ -42,10 +43,7 @@ class _MainShellState extends State<MainShell> {
     Widget homeIcon(bool selected) {
       final icon = Icon(selected ? Icons.home : Icons.home_outlined);
       if (homeBadgeCount == 0) return icon;
-      return Badge(
-        label: Text('$homeBadgeCount'),
-        child: icon,
-      );
+      return Badge(label: Text('$homeBadgeCount'), child: icon);
     }
 
     return PopScope(
@@ -68,21 +66,25 @@ class _MainShellState extends State<MainShell> {
           },
           destinations: [
             NavigationDestination(
-                icon: homeIcon(false),
-                selectedIcon: homeIcon(true),
-                label: 'ホーム'),
+              icon: homeIcon(false),
+              selectedIcon: homeIcon(true),
+              label: 'ホーム',
+            ),
             const NavigationDestination(
-                icon: Icon(Icons.groups_outlined),
-                selectedIcon: Icon(Icons.groups),
-                label: 'スカッド'),
+              icon: Icon(Icons.groups_outlined),
+              selectedIcon: Icon(Icons.groups),
+              label: 'スカッド',
+            ),
             const NavigationDestination(
-                icon: Icon(Icons.checklist_outlined),
-                selectedIcon: Icon(Icons.checklist),
-                label: '戦術'),
+              icon: Icon(Icons.checklist_outlined),
+              selectedIcon: Icon(Icons.checklist),
+              label: '戦術',
+            ),
             const NavigationDestination(
-                icon: Icon(Icons.leaderboard_outlined),
-                selectedIcon: Icon(Icons.leaderboard),
-                label: '順位表'),
+              icon: Icon(Icons.leaderboard_outlined),
+              selectedIcon: Icon(Icons.leaderboard),
+              label: '順位表',
+            ),
           ],
         ),
       ),

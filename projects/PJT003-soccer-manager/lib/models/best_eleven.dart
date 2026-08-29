@@ -38,7 +38,10 @@ class BestElevenEntry {
         teamName: json['teamName'] as String,
         teamId: json['teamId'] as String?,
         group: enumFromName(
-            PositionGroup.values, json['group'] as String?, PositionGroup.mid),
+          PositionGroup.values,
+          json['group'] as String?,
+          PositionGroup.mid,
+        ),
         avgRating: (json['avgRating'] as num).toDouble(),
         appearances: json['appearances'] as int,
       );

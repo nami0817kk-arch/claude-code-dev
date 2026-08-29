@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import '../models/sponsor.dart';
 
 class SponsorEngine {
@@ -24,14 +25,16 @@ class SponsorEngine {
     final shuffled = ([..._names]..shuffle(_rng)).take(3).toList();
     return [
       SponsorDeal(
-          name: shuffled[0],
-          weeklyIncome: (base * 0.8).round(),
-          yearsRemaining: 3),
+        name: shuffled[0],
+        weeklyIncome: (base * 0.8).round(),
+        yearsRemaining: 3,
+      ),
       SponsorDeal(name: shuffled[1], weeklyIncome: base, yearsRemaining: 2),
       SponsorDeal(
-          name: shuffled[2],
-          weeklyIncome: (base * 1.3).round(),
-          yearsRemaining: 1),
+        name: shuffled[2],
+        weeklyIncome: (base * 1.3).round(),
+        yearsRemaining: 1,
+      ),
     ];
   }
 }

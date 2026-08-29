@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/attributes.dart';
 import '../models/formation.dart';
 import '../models/player.dart';
@@ -25,13 +26,16 @@ class LineupScreen extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('スタメン・戦術'),
-          bottom: const TabBar(tabs: [Tab(text: 'フォーメーション'), Tab(text: '戦術')]),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'フォーメーション'),
+              Tab(text: '戦術'),
+            ],
+          ),
         ),
         drawer: const QuickAccessDrawer(),
         body: const ResponsiveBody(
-          child: TabBarView(
-            children: [_FormationTab(), _TacticsTab()],
-          ),
+          child: TabBarView(children: [_FormationTab(), _TacticsTab()]),
         ),
       ),
     );
@@ -70,8 +74,10 @@ class _FormationTab extends StatelessWidget {
                   DropdownButton<Formation>(
                     value: formation,
                     items: Formation.values
-                        .map((f) =>
-                            DropdownMenuItem(value: f, child: Text(f.label)))
+                        .map(
+                          (f) =>
+                              DropdownMenuItem(value: f, child: Text(f.label)),
+                        )
                         .toList(),
                     onChanged: (f) {
                       if (f != null) {
@@ -81,13 +87,15 @@ class _FormationTab extends StatelessWidget {
                     },
                   ),
                   Chip(
-                    label:
-                        Text('攻撃 x${formation.attackBias.toStringAsFixed(2)}'),
+                    label: Text(
+                      '攻撃 x${formation.attackBias.toStringAsFixed(2)}',
+                    ),
                     visualDensity: VisualDensity.compact,
                   ),
                   Chip(
-                    label:
-                        Text('守備 x${formation.defenseBias.toStringAsFixed(2)}'),
+                    label: Text(
+                      '守備 x${formation.defenseBias.toStringAsFixed(2)}',
+                    ),
                     visualDensity: VisualDensity.compact,
                   ),
                   Chip(
@@ -115,7 +123,8 @@ class _FormationTab extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: _RotationSuggestionsCard(
-                suggestions: gameState.rotationSuggestions),
+              suggestions: gameState.rotationSuggestions,
+            ),
           ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -131,8 +140,10 @@ class _FormationTab extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               const Expanded(
-                child: Text('選手をタップして入れ替え',
-                    style: TextStyle(fontSize: 12, color: Colors.grey)),
+                child: Text(
+                  '選手をタップして入れ替え',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               ),
             ],
           ),
@@ -184,12 +195,18 @@ class _FormationTab extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
                       children: [
-                        Text('ベンチ',
-                            style: Theme.of(context).textTheme.titleSmall),
+                        Text(
+                          'ベンチ',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
                         const SizedBox(width: 6),
-                        Text('${bench.length}人',
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.grey)),
+                        Text(
+                          '${bench.length}人',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
                         const Spacer(),
                         Text(
                           isDragOver ? 'ここに離してベンチへ' : 'ドラッグで入れ替え可能',
@@ -206,10 +223,14 @@ class _FormationTab extends StatelessWidget {
                   const SizedBox(height: 4),
                   if (bench.isEmpty)
                     const Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Text('ベンチに選手がいません',
-                          style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Text(
+                        'ベンチに選手がいません',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
                     )
                   else
                     for (final p in bench) _BenchTile(playerId: p.id),
@@ -347,12 +368,16 @@ class _TacticalImpactSummary extends StatelessWidget {
     final avgWorkRate = lineup.isEmpty
         ? 50.0
         : lineup.fold<double>(
-                0, (s, p) => s + p.attributeValue(AttributeKeys.workRate)) /
+              0,
+              (s, p) => s + p.attributeValue(AttributeKeys.workRate),
+            ) /
             lineup.length;
     final avgStamina = lineup.isEmpty
         ? 50.0
         : lineup.fold<double>(
-                0, (s, p) => s + p.attributeValue(AttributeKeys.stamina)) /
+              0,
+              (s, p) => s + p.attributeValue(AttributeKeys.stamina),
+            ) /
             lineup.length;
     final pressingFit = MatchEngine.tacticalFitFactor(avgWorkRate);
     final tempoFit = MatchEngine.tacticalFitFactor(avgStamina);
@@ -379,24 +404,29 @@ class _TacticalImpactSummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('現在の戦術設定による影響(定量)',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            '現在の戦術設定による影響(定量)',
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium
+                ?.copyWith(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 6),
           _ImpactRow(
-              label: '攻撃力補正',
-              text: pct(impact.attackMultiplier),
-              color: colorFor(impact.attackMultiplier)),
+            label: '攻撃力補正',
+            text: pct(impact.attackMultiplier),
+            color: colorFor(impact.attackMultiplier),
+          ),
           _ImpactRow(
-              label: '守備力補正',
-              text: pct(impact.defenseMultiplier),
-              color: colorFor(impact.defenseMultiplier)),
+            label: '守備力補正',
+            text: pct(impact.defenseMultiplier),
+            color: colorFor(impact.defenseMultiplier),
+          ),
           _ImpactRow(
-              label: '疲労蓄積',
-              text: pct(impact.fatigueMultiplier),
-              color: colorFor(impact.fatigueMultiplier, higherIsWorse: true)),
+            label: '疲労蓄積',
+            text: pct(impact.fatigueMultiplier),
+            color: colorFor(impact.fatigueMultiplier, higherIsWorse: true),
+          ),
           const SizedBox(height: 4),
           Text(
             'スカッド適性: プレッシング x${pressingFit.toStringAsFixed(2)}'
@@ -414,8 +444,11 @@ class _ImpactRow extends StatelessWidget {
   final String label;
   final String text;
   final Color color;
-  const _ImpactRow(
-      {required this.label, required this.text, required this.color});
+  const _ImpactRow({
+    required this.label,
+    required this.text,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -424,11 +457,17 @@ class _ImpactRow extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(
-              width: 90,
-              child: Text(label, style: const TextStyle(fontSize: 12))),
-          Text(text,
-              style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+            width: 90,
+            child: Text(label, style: const TextStyle(fontSize: 12)),
+          ),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
@@ -452,14 +491,19 @@ class _RotationSuggestionsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.battery_alert,
-                    size: 18, color: Colors.orange.shade800),
+                Icon(
+                  Icons.battery_alert,
+                  size: 18,
+                  color: Colors.orange.shade800,
+                ),
                 const SizedBox(width: 6),
-                Text('疲労ローテーション提案',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(color: Colors.orange.shade900)),
+                Text(
+                  '疲労ローテーション提案',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(color: Colors.orange.shade900),
+                ),
               ],
             ),
             for (final s in suggestions)
@@ -478,8 +522,9 @@ class _RotationSuggestionsCard extends StatelessWidget {
                       onPressed: () {
                         FeedbackService.tap();
                         context.read<GameState>().swapStartingPlayer(
-                            outPlayerId: s.tiredPlayerId,
-                            inPlayerId: s.replacementId);
+                              outPlayerId: s.tiredPlayerId,
+                              inPlayerId: s.replacementId,
+                            );
                       },
                       child: const Text('入れ替える'),
                     ),
@@ -545,8 +590,10 @@ class _SetPieceTakersCard extends StatelessWidget {
             const Divider(height: 24),
             Text('守備セットプレー担当', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 4),
-            const Text('相手のCK・FKの得点確率を、ヘディング・ジャンプ力に応じて下げる。',
-                style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text(
+              '相手のCK・FKの得点確率を、ヘディング・ジャンプ力に応じて下げる。',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -558,13 +605,16 @@ class _SetPieceTakersCard extends StatelessWidget {
                     hint: const Text('未指名'),
                     items: [
                       const DropdownMenuItem<String?>(
-                          value: null, child: Text('未指名')),
+                        value: null,
+                        child: Text('未指名'),
+                      ),
                       for (final p in players)
                         DropdownMenuItem<String?>(
                           value: p.id,
                           child: Text(
-                              '${p.name}（空中戦 ${(p.attributeValue(AttributeKeys.heading) + p.attributeValue(AttributeKeys.jumpingReach)) ~/ 2}）',
-                              overflow: TextOverflow.ellipsis),
+                            '${p.name}（空中戦 ${(p.attributeValue(AttributeKeys.heading) + p.attributeValue(AttributeKeys.jumpingReach)) ~/ 2}）',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                     ],
                     onChanged: (id) {
@@ -613,8 +663,9 @@ class _TakerDropdown extends StatelessWidget {
                 DropdownMenuItem<String?>(
                   value: p.id,
                   child: Text(
-                      '${p.name}（$label ${p.attributeValue(attributeKey)}）',
-                      overflow: TextOverflow.ellipsis),
+                    '${p.name}（$label ${p.attributeValue(attributeKey)}）',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
             ],
             onChanged: onChanged,
@@ -653,8 +704,10 @@ class _TacticPresetsCard extends StatelessWidget {
             if (team.tacticPresets.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(top: 4),
-                child: Text('保存済みのプリセットはありません',
-                    style: TextStyle(fontSize: 12, color: Colors.grey)),
+                child: Text(
+                  '保存済みのプリセットはありません',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               )
             else
               Wrap(
@@ -666,15 +719,15 @@ class _TacticPresetsCard extends StatelessWidget {
                       label: Text('${preset.name}（${preset.formation.label}）'),
                       onPressed: () {
                         FeedbackService.tap();
-                        context
-                            .read<GameState>()
-                            .applyTacticPreset(preset.name);
+                        context.read<GameState>().applyTacticPreset(
+                              preset.name,
+                            );
                       },
                       onDeleted: () {
                         FeedbackService.tap();
-                        context
-                            .read<GameState>()
-                            .deleteTacticPreset(preset.name);
+                        context.read<GameState>().deleteTacticPreset(
+                              preset.name,
+                            );
                       },
                     ),
                 ],
@@ -714,9 +767,8 @@ class _TacticPresetsCard extends StatelessWidget {
     FeedbackService.tap();
     context.read<GameState>().saveTacticPreset(name);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('「$name」を保存しました')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('「$name」を保存しました')));
     }
   }
 }
@@ -738,10 +790,14 @@ class _DepthChartSection extends StatelessWidget {
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         tilePadding: EdgeInsets.zero,
-        title: Text('デプスチャート(ポジション別控え順)',
-            style: Theme.of(context).textTheme.titleSmall),
-        subtitle: const Text('ドラッグハンドルで控え順を入れ替えられます',
-            style: TextStyle(fontSize: 11, color: Colors.grey)),
+        title: Text(
+          'デプスチャート(ポジション別控え順)',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        subtitle: const Text(
+          'ドラッグハンドルで控え順を入れ替えられます',
+          style: TextStyle(fontSize: 11, color: Colors.grey),
+        ),
         children: [
           for (final pos in positions)
             Padding(
@@ -749,9 +805,13 @@ class _DepthChartSection extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(pos.fullLabel,
-                      style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text(
+                    pos.fullLabel,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   _DepthChartReorderableList(team: team, position: pos),
                 ],
               ),
@@ -765,8 +825,10 @@ class _DepthChartSection extends StatelessWidget {
 class _DepthChartReorderableList extends StatelessWidget {
   final Team team;
   final Position position;
-  const _DepthChartReorderableList(
-      {required this.team, required this.position});
+  const _DepthChartReorderableList({
+    required this.team,
+    required this.position,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -778,9 +840,11 @@ class _DepthChartReorderableList extends StatelessWidget {
       itemCount: players.length,
       onReorderItem: (oldIndex, newIndex) {
         FeedbackService.tap();
-        context
-            .read<GameState>()
-            .reorderDepthChart(position, oldIndex, newIndex);
+        context.read<GameState>().reorderDepthChart(
+              position,
+              oldIndex,
+              newIndex,
+            );
       },
       itemBuilder: (context, i) => _DepthChartPlayerRow(
         key: ValueKey(players[i].id),
@@ -819,18 +883,25 @@ class _DepthChartPlayerRow extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(
-              width: 18,
-              child: Text('$rank.', style: const TextStyle(fontSize: 12))),
+            width: 18,
+            child: Text('$rank.', style: const TextStyle(fontSize: 12)),
+          ),
           Expanded(
-            child: Text('${player.name}（総合${player.overall}）',
-                style: const TextStyle(fontSize: 12)),
+            child: Text(
+              '${player.name}（総合${player.overall}）',
+              style: const TextStyle(fontSize: 12),
+            ),
           ),
           if (unavailable != null)
             Padding(
               padding: const EdgeInsets.only(right: 4),
-              child: Text(unavailable,
-                  style: TextStyle(
-                      fontSize: 11, color: SemanticColors.negative(context))),
+              child: Text(
+                unavailable,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: SemanticColors.negative(context),
+                ),
+              ),
             ),
           ReorderableDragStartListener(
             index: index,
@@ -885,7 +956,10 @@ class _PitchView extends StatelessWidget {
   }
 
   void _showSlotSheet(
-      BuildContext context, Position slotPosition, Player? current) {
+    BuildContext context,
+    Position slotPosition,
+    Player? current,
+  ) {
     final gameState = context.read<GameState>();
     final candidates = team.players
         .where((p) => p.id != current?.id)
@@ -901,13 +975,17 @@ class _PitchView extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('${slotPosition.fullLabel}(${slotPosition.label})に配置',
-                  style: Theme.of(ctx).textTheme.titleMedium),
+              child: Text(
+                '${slotPosition.fullLabel}(${slotPosition.label})に配置',
+                style: Theme.of(ctx).textTheme.titleMedium,
+              ),
             ),
             if (current != null) ...[
               ListTile(
-                leading: const Icon(Icons.remove_circle_outline,
-                    color: Colors.redAccent),
+                leading: const Icon(
+                  Icons.remove_circle_outline,
+                  color: Colors.redAccent,
+                ),
                 title: const Text('この枠を空ける'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -935,8 +1013,10 @@ class _PitchView extends StatelessWidget {
               ),
               const Padding(
                 padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: Text('ロール',
-                    style: TextStyle(fontSize: 12, color: Colors.grey)),
+                child: Text(
+                  'ロール',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -944,9 +1024,11 @@ class _PitchView extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 4,
                   children: [
-                    for (final role in PlayerRole.values.where((r) =>
-                        r == PlayerRole.standard ||
-                        r.allowedGroups.contains(current.position.group)))
+                    for (final role in PlayerRole.values.where(
+                      (r) =>
+                          r == PlayerRole.standard ||
+                          r.allowedGroups.contains(current.position.group),
+                    ))
                       ChoiceChip(
                         label: Text(role.label),
                         selected: current.role == role,
@@ -982,7 +1064,9 @@ class _PitchView extends StatelessWidget {
                   Navigator.pop(ctx);
                   FeedbackService.tap();
                   gameState.swapStartingPlayer(
-                      outPlayerId: current?.id, inPlayerId: p.id);
+                    outPlayerId: current?.id,
+                    inPlayerId: p.id,
+                  );
                 },
               ),
             if (candidates.isEmpty)
@@ -1017,20 +1101,35 @@ class _PitchPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
     canvas.drawRect(Rect.fromLTWH(4, 4, size.width - 8, size.height - 8), line);
-    canvas.drawLine(Offset(4, size.height / 2),
-        Offset(size.width - 4, size.height / 2), line);
+    canvas.drawLine(
+      Offset(4, size.height / 2),
+      Offset(size.width - 4, size.height / 2),
+      line,
+    );
     canvas.drawCircle(
-        Offset(size.width / 2, size.height / 2), size.width * 0.16, line);
-    canvas.drawCircle(Offset(size.width / 2, size.height / 2), 2,
-        Paint()..color = line.color);
+      Offset(size.width / 2, size.height / 2),
+      size.width * 0.16,
+      line,
+    );
+    canvas.drawCircle(
+      Offset(size.width / 2, size.height / 2),
+      2,
+      Paint()..color = line.color,
+    );
 
     final boxW = size.width * 0.55;
     final boxH = size.height * 0.12;
     canvas.drawRect(
-        Rect.fromLTWH(size.width / 2 - boxW / 2, 4, boxW, boxH), line);
+      Rect.fromLTWH(size.width / 2 - boxW / 2, 4, boxW, boxH),
+      line,
+    );
     canvas.drawRect(
       Rect.fromLTWH(
-          size.width / 2 - boxW / 2, size.height - 4 - boxH, boxW, boxH),
+        size.width / 2 - boxW / 2,
+        size.height - 4 - boxH,
+        boxW,
+        boxH,
+      ),
       line,
     );
 
@@ -1112,15 +1211,20 @@ class _SlotChip extends StatelessWidget {
                       ? CircleAvatar(
                           radius: 18,
                           backgroundColor: Colors.white.withValues(alpha: 0.3),
-                          child: Text(slotPosition.label,
-                              style: const TextStyle(
-                                  fontSize: 10, color: Colors.white)),
+                          child: Text(
+                            slotPosition.label,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.white,
+                            ),
+                          ),
                         )
                       : PlayerFaceAvatar(
                           playerId: p.id,
                           position: p.position,
                           size: 36,
-                          highlighted: true),
+                          highlighted: true,
+                        ),
                   if (p != null)
                     Positioned(
                       right: -2,
@@ -1152,8 +1256,11 @@ class _SlotChip extends StatelessWidget {
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 1),
                           ),
-                          child: const Icon(Icons.priority_high,
-                              size: 8, color: Colors.white),
+                          child: const Icon(
+                            Icons.priority_high,
+                            size: 8,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
@@ -1200,9 +1307,10 @@ class _SlotChip extends StatelessWidget {
       },
       onAcceptWithDetails: (details) {
         FeedbackService.tap();
-        context
-            .read<GameState>()
-            .swapStartingPlayer(outPlayerId: p?.id, inPlayerId: details.data);
+        context.read<GameState>().swapStartingPlayer(
+              outPlayerId: p?.id,
+              inPlayerId: details.data,
+            );
       },
       builder: (context, candidateData, rejectedData) {
         final isDragOver = candidateData.isNotEmpty;
@@ -1211,7 +1319,9 @@ class _SlotChip extends StatelessWidget {
               ? BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                      color: SemanticColors.positive(context), width: 2),
+                    color: SemanticColors.positive(context),
+                    width: 2,
+                  ),
                 )
               : null,
           child: draggable,
@@ -1279,10 +1389,7 @@ class _BenchTile extends StatelessWidget {
       data: p.id,
       feedback: Material(
         color: Colors.transparent,
-        child: SizedBox(
-          width: 260,
-          child: Opacity(opacity: 0.85, child: card),
-        ),
+        child: SizedBox(width: 260, child: Opacity(opacity: 0.85, child: card)),
       ),
       childWhenDragging: Opacity(opacity: 0.3, child: card),
       child: card,

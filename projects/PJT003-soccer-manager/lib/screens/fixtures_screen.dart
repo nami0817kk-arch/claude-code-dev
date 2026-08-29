@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../logic/promotion_engine.dart';
 import '../models/league.dart';
 import '../models/match_result.dart';
@@ -67,15 +68,17 @@ class FixturesScreen extends StatelessWidget {
           child: TabBarView(
             children: [
               _StandingsTab(
-                  league: league,
-                  userTeamId: userTeamId,
-                  divisionTier: divisionTier),
+                league: league,
+                userTeamId: userTeamId,
+                divisionTier: divisionTier,
+              ),
               _ScheduleTab(league: league, userTeamId: userTeamId),
               for (final (tier, otherLeague) in otherDivisions)
                 _StandingsTab(
-                    league: otherLeague,
-                    userTeamId: userTeamId,
-                    divisionTier: tier),
+                  league: otherLeague,
+                  userTeamId: userTeamId,
+                  divisionTier: tier,
+                ),
             ],
           ),
         ),
@@ -163,8 +166,10 @@ class FixturesScreen extends StatelessWidget {
                     return ListTile(
                       dense: true,
                       title: Text('第${r.matchday}節 vs $opponentName'),
-                      trailing: Text('$userGoals - $oppGoals',
-                          style: Theme.of(context).textTheme.titleSmall),
+                      trailing: Text(
+                        '$userGoals - $oppGoals',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
                     );
                   },
                 ),
@@ -197,8 +202,10 @@ class FixturesScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('順位予測シミュレーション',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                '順位予測シミュレーション',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 4),
               const Text(
                 '現在の総合力をもとに残り試合を簡易シミュレーションした見込みです。実際の結果を保証するものではありません。',
@@ -211,8 +218,9 @@ class FixturesScreen extends StatelessWidget {
                   itemCount: projections.length,
                   itemBuilder: (context, i) {
                     final p = projections[i];
-                    final team =
-                        league.teams.firstWhere((t) => t.id == p.teamId);
+                    final team = league.teams.firstWhere(
+                      (t) => t.id == p.teamId,
+                    );
                     final isUser = p.teamId == userTeamId;
                     final tile = Container(
                       color: isUser
@@ -225,33 +233,41 @@ class FixturesScreen extends StatelessWidget {
                         dense: true,
                         leading: SizedBox(
                           width: 28,
-                          child: Text('${i + 1}',
-                              style: Theme.of(context).textTheme.titleSmall),
+                          child: Text(
+                            '${i + 1}',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
                         ),
                         title: Text(team.name),
-                        subtitle:
-                            Text('予測勝点 ${p.avgFinalPoints.toStringAsFixed(1)}'),
+                        subtitle: Text(
+                          '予測勝点 ${p.avgFinalPoints.toStringAsFixed(1)}',
+                        ),
                         trailing: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             if (p.titleProbability >= 0.01)
                               Text(
-                                  '優勝 ${(p.titleProbability * 100).toStringAsFixed(0)}%',
-                                  style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.amber,
-                                      fontWeight: FontWeight.bold)),
+                                '優勝 ${(p.titleProbability * 100).toStringAsFixed(0)}%',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.amber,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             if (p.continentalProbability >= 0.01)
                               Text(
-                                  'カップ圏 ${(p.continentalProbability * 100).toStringAsFixed(0)}%',
-                                  style: const TextStyle(fontSize: 11)),
+                                'カップ圏 ${(p.continentalProbability * 100).toStringAsFixed(0)}%',
+                                style: const TextStyle(fontSize: 11),
+                              ),
                             if (p.relegationProbability >= 0.01)
                               Text(
-                                  '降格 ${(p.relegationProbability * 100).toStringAsFixed(0)}%',
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: SemanticColors.negative(context))),
+                                '降格 ${(p.relegationProbability * 100).toStringAsFixed(0)}%',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: SemanticColors.negative(context),
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -278,10 +294,11 @@ class _StandingsTab extends StatelessWidget {
   final String userTeamId;
   final int divisionTier;
 
-  const _StandingsTab(
-      {required this.league,
-      required this.userTeamId,
-      required this.divisionTier});
+  const _StandingsTab({
+    required this.league,
+    required this.userTeamId,
+    required this.divisionTier,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -289,8 +306,10 @@ class _StandingsTab extends StatelessWidget {
     final showContinental = divisionTier == 1;
     final showPromotion = divisionTier > 1;
     final showRelegation = divisionTier < totalDivisionTiers;
-    final maxOverall = league.teams
-        .fold<int>(1, (m, t) => t.overallRating > m ? t.overallRating : m);
+    final maxOverall = league.teams.fold<int>(
+      1,
+      (m, t) => t.overallRating > m ? t.overallRating : m,
+    );
     final relegationStart = rows.length - PromotionEngine.swapCount;
     const autoPromotionEnd = PromotionEngine.automaticPromotionCount;
     const playoffEnd = autoPromotionEnd + PromotionEngine.playoffPoolSize;
@@ -306,13 +325,19 @@ class _StandingsTab extends StatelessWidget {
                 _ZoneLegend(color: Colors.amber.shade700, label: '大陸カップ出場圏'),
               if (showPromotion) ...[
                 _ZoneLegend(
-                    color: SemanticColors.positive(context), label: '自動昇格圏'),
+                  color: SemanticColors.positive(context),
+                  label: '自動昇格圏',
+                ),
                 _ZoneLegend(
-                    color: Colors.deepPurple.shade300, label: '昇格プレーオフ圏'),
+                  color: Colors.deepPurple.shade300,
+                  label: '昇格プレーオフ圏',
+                ),
               ],
               if (showRelegation)
                 _ZoneLegend(
-                    color: SemanticColors.negative(context), label: '降格圏'),
+                  color: SemanticColors.negative(context),
+                  label: '降格圏',
+                ),
             ],
           ),
         ),
@@ -354,7 +379,10 @@ class _StandingsTab extends StatelessWidget {
                         SizedBox(width: 20, child: Text('${i + 1}')),
                         const SizedBox(width: 6),
                         ClubEmblem(
-                            teamId: team.id, teamName: team.name, size: 24),
+                          teamId: team.id,
+                          teamName: team.name,
+                          size: 24,
+                        ),
                       ],
                     ),
                   ),
@@ -363,7 +391,8 @@ class _StandingsTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                          '${r.played}試合 勝${r.won} 分${r.draw} 敗${r.lost} 得失点差${r.goalDiff}'),
+                        '${r.played}試合 勝${r.won} 分${r.draw} 敗${r.lost} 得失点差${r.goalDiff}',
+                      ),
                       const SizedBox(height: 4),
                       _FormGuide(results: league.recentFormFor(r.teamId)),
                       const SizedBox(height: 4),
@@ -383,15 +412,21 @@ class _StandingsTab extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Text('戦力${team.overallRating}',
-                              style: const TextStyle(
-                                  fontSize: 11, color: Colors.grey)),
+                          Text(
+                            '戦力${team.overallRating}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey,
+                            ),
+                          ),
                         ],
                       ),
                     ],
                   ),
-                  trailing: Text('${r.points}pt',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  trailing: Text(
+                    '${r.points}pt',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
               );
               if (!isUser) return row;
@@ -435,15 +470,18 @@ class _FormGuide extends StatelessWidget {
                 width: 16,
                 height: 16,
                 alignment: Alignment.center,
-                decoration:
-                    BoxDecoration(color: colorFor(r), shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: colorFor(r),
+                  shape: BoxShape.circle,
+                ),
                 child: Text(
                   r,
                   style: const TextStyle(
-                      fontSize: 9,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      height: 1),
+                    fontSize: 9,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    height: 1,
+                  ),
                 ),
               ),
           ],
@@ -455,7 +493,11 @@ class _FormGuide extends StatelessWidget {
 
 /// 消化済みの試合をタップした際に表示する、得点者・MOTMを含む簡易結果ダイアログ。
 Future<void> _showFixtureResultDialog(
-    BuildContext context, MatchResult result, Team home, Team away) {
+  BuildContext context,
+  MatchResult result,
+  Team home,
+  Team away,
+) {
   String? nameOf(String? playerId) {
     if (playerId == null) return null;
     for (final t in [home, away]) {
@@ -476,7 +518,8 @@ Future<void> _showFixtureResultDialog(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text(
-          '${home.name} ${result.homeGoals} - ${result.awayGoals} ${away.name}'),
+        '${home.name} ${result.homeGoals} - ${result.awayGoals} ${away.name}',
+      ),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -507,9 +550,10 @@ Future<void> _showFixtureResultDialog(
               ),
             ],
             MatchStatsBar(
-                result: result,
-                homeTeamName: home.name,
-                awayTeamName: away.name),
+              result: result,
+              homeTeamName: home.name,
+              awayTeamName: away.name,
+            ),
             if (motmName != null) ...[
               const SizedBox(height: 12),
               Row(
@@ -579,8 +623,10 @@ class _ScheduleTabState extends State<_ScheduleTab> {
     _selectedMatchday = _nextMatchday ?? _totalMatchdays;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_chipScrollController.hasClients) return;
-      final offset = ((_selectedMatchday - 1) * 76.0)
-          .clamp(0.0, _chipScrollController.position.maxScrollExtent);
+      final offset = ((_selectedMatchday - 1) * 76.0).clamp(
+        0.0,
+        _chipScrollController.position.maxScrollExtent,
+      );
       _chipScrollController.jumpTo(offset);
     });
   }
@@ -648,13 +694,15 @@ class _ScheduleTabState extends State<_ScheduleTab> {
           const Divider(height: 1),
           Expanded(
             child: _MatchdayList(
-                league: league,
-                matchday: _selectedMatchday,
-                userTeamId: userTeamId),
+              league: league,
+              matchday: _selectedMatchday,
+              userTeamId: userTeamId,
+            ),
           ),
         ] else
           Expanded(
-              child: _UserFixtureList(league: league, userTeamId: userTeamId)),
+            child: _UserFixtureList(league: league, userTeamId: userTeamId),
+          ),
       ],
     );
   }
@@ -665,8 +713,11 @@ class _MatchdayList extends StatelessWidget {
   final int matchday;
   final String userTeamId;
 
-  const _MatchdayList(
-      {required this.league, required this.matchday, required this.userTeamId});
+  const _MatchdayList({
+    required this.league,
+    required this.matchday,
+    required this.userTeamId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -695,8 +746,10 @@ class _MatchdayList extends StatelessWidget {
                 ? null
                 : () => _showFixtureResultDialog(context, result, home, away),
             leading: isDerby
-                ? const Icon(Icons.local_fire_department,
-                    color: Colors.redAccent)
+                ? const Icon(
+                    Icons.local_fire_department,
+                    color: Colors.redAccent,
+                  )
                 : null,
             title: Row(
               children: [
@@ -705,12 +758,18 @@ class _MatchdayList extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Flexible(
-                          child: Text(home.name,
-                              textAlign: TextAlign.right,
-                              overflow: TextOverflow.ellipsis)),
+                        child: Text(
+                          home.name,
+                          textAlign: TextAlign.right,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       const SizedBox(width: 6),
                       ClubEmblem(
-                          teamId: home.id, teamName: home.name, size: 22),
+                        teamId: home.id,
+                        teamName: home.name,
+                        size: 22,
+                      ),
                     ],
                   ),
                 ),
@@ -727,11 +786,14 @@ class _MatchdayList extends StatelessWidget {
                   child: Row(
                     children: [
                       ClubEmblem(
-                          teamId: away.id, teamName: away.name, size: 22),
+                        teamId: away.id,
+                        teamName: away.name,
+                        size: 22,
+                      ),
                       const SizedBox(width: 6),
                       Flexible(
-                          child:
-                              Text(away.name, overflow: TextOverflow.ellipsis)),
+                        child: Text(away.name, overflow: TextOverflow.ellipsis),
+                      ),
                     ],
                   ),
                 ),
@@ -759,7 +821,9 @@ class _UserFixtureList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final userFixtures = league.fixtures
-        .where((f) => f.homeTeamId == userTeamId || f.awayTeamId == userTeamId)
+        .where(
+          (f) => f.homeTeamId == userTeamId || f.awayTeamId == userTeamId,
+        )
         .toList()
       ..sort((a, b) => a.matchday.compareTo(b.matchday));
     final nextMatchday = league.nextUnplayedFixture?.matchday;
@@ -786,17 +850,25 @@ class _UserFixtureList extends StatelessWidget {
           child: ListTile(
             onTap: () {
               if (result != null) {
-                final home =
-                    league.teams.firstWhere((t) => t.id == f.homeTeamId);
-                final away =
-                    league.teams.firstWhere((t) => t.id == f.awayTeamId);
+                final home = league.teams.firstWhere(
+                  (t) => t.id == f.homeTeamId,
+                );
+                final away = league.teams.firstWhere(
+                  (t) => t.id == f.awayTeamId,
+                );
                 _showFixtureResultDialog(context, result, home, away);
               } else {
-                final userTeam =
-                    league.teams.firstWhere((t) => t.id == userTeamId);
-                Navigator.of(context).push(MaterialPageRoute(
+                final userTeam = league.teams.firstWhere(
+                  (t) => t.id == userTeamId,
+                );
+                Navigator.of(context).push(
+                  MaterialPageRoute(
                     builder: (_) => ScoutReportScreen(
-                        opponent: opponent, userTeam: userTeam)));
+                      opponent: opponent,
+                      userTeam: userTeam,
+                    ),
+                  ),
+                );
               }
             },
             leading: SizedBox(
@@ -806,32 +878,47 @@ class _UserFixtureList extends StatelessWidget {
                 children: [
                   SizedBox(width: 44, child: Text('第${f.matchday}節')),
                   ClubEmblem(
-                      teamId: opponent.id, teamName: opponent.name, size: 24),
+                    teamId: opponent.id,
+                    teamName: opponent.name,
+                    size: 24,
+                  ),
                 ],
               ),
             ),
             title: Row(
               children: [
                 Flexible(
-                    child: Text('$home vs $away',
-                        overflow: TextOverflow.ellipsis)),
+                  child: Text(
+                    '$home vs $away',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 if (isDerby) ...[
                   const SizedBox(width: 6),
-                  const Icon(Icons.local_fire_department,
-                      size: 16, color: Colors.redAccent),
+                  const Icon(
+                    Icons.local_fire_department,
+                    size: 16,
+                    color: Colors.redAccent,
+                  ),
                 ],
               ],
             ),
             trailing: result == null
-                ? Text(isNext ? '次節' : '未消化',
+                ? Text(
+                    isNext ? '次節' : '未消化',
                     style: isNext
                         ? const TextStyle(fontWeight: FontWeight.bold)
-                        : null)
+                        : null,
+                  )
                 : Text(
                     '${result.homeGoals} - ${result.awayGoals}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: _resultColor(
-                              context, result, userTeamId, f.homeTeamId),
+                            context,
+                            result,
+                            userTeamId,
+                            f.homeTeamId,
+                          ),
                           fontWeight: FontWeight.bold,
                         ),
                   ),
@@ -841,8 +928,12 @@ class _UserFixtureList extends StatelessWidget {
     );
   }
 
-  Color? _resultColor(BuildContext context, MatchResult result,
-      String userTeamId, String homeTeamId) {
+  Color? _resultColor(
+    BuildContext context,
+    MatchResult result,
+    String userTeamId,
+    String homeTeamId,
+  ) {
     final userIsHome = homeTeamId == userTeamId;
     final userGoals = userIsHome ? result.homeGoals : result.awayGoals;
     final oppGoals = userIsHome ? result.awayGoals : result.homeGoals;

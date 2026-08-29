@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../logic/contract_engine.dart';
 import '../models/player.dart';
 import '../models/team.dart';
@@ -124,7 +125,8 @@ class _SquadScreenState extends State<SquadScreen> {
                 Text(p.name, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 4),
                 Text(
-                    '週俸: ${p.wage}万円 / ${ContractEngine.yearsLabel(p.contractYearsRemaining)}'),
+                  '週俸: ${p.wage}万円 / ${ContractEngine.yearsLabel(p.contractYearsRemaining)}',
+                ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
@@ -140,8 +142,10 @@ class _SquadScreenState extends State<SquadScreen> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                    content: Text(
-                                        ok ? '契約を更新しました' : '契約を更新できませんでした')),
+                                  content: Text(
+                                    ok ? '契約を更新しました' : '契約を更新できませんでした',
+                                  ),
+                                ),
                               );
                             }
                           },
@@ -160,7 +164,8 @@ class _SquadScreenState extends State<SquadScreen> {
                       Navigator.pop(sheetContext);
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                            builder: (_) => PlayerDetailScreen(playerId: p.id)),
+                          builder: (_) => PlayerDetailScreen(playerId: p.id),
+                        ),
                       );
                     },
                     child: const Text('週俸交渉・放出など詳しい操作を開く'),
@@ -183,40 +188,52 @@ class _SquadScreenState extends State<SquadScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _LegendRow(
-                icon: Icons.swap_horiz,
-                color: Colors.indigo,
-                label: 'ローンで加入中の選手'),
+              icon: Icons.swap_horiz,
+              color: Colors.indigo,
+              label: 'ローンで加入中の選手',
+            ),
             _LegendRow(
-                icon: Icons.sentiment_dissatisfied,
-                color: Colors.redAccent,
-                label: '移籍を希望している'),
+              icon: Icons.sentiment_dissatisfied,
+              color: Colors.redAccent,
+              label: '移籍を希望している',
+            ),
             _LegendRow(
-                icon: Icons.flag, color: Colors.blueAccent, label: '代表召集中'),
+              icon: Icons.flag,
+              color: Colors.blueAccent,
+              label: '代表召集中',
+            ),
             _LegendRow(
-                icon: Icons.shield,
-                color: Colors.amber,
-                label: '「C」=キャプテン / 「VC」=副キャプテン(選手詳細画面から指名)'),
+              icon: Icons.shield,
+              color: Colors.amber,
+              label: '「C」=キャプテン / 「VC」=副キャプテン(選手詳細画面から指名)',
+            ),
             _LegendRow(
-                icon: Icons.block,
-                color: Colors.redAccent,
-                label: '出場停止中(警告累積または退場)'),
+              icon: Icons.block,
+              color: Colors.redAccent,
+              label: '出場停止中(警告累積または退場)',
+            ),
             _LegendRow(
-                icon: Icons.flight_takeoff,
-                color: Colors.deepPurple,
-                label: '他クラブへローン放出中'),
+              icon: Icons.flight_takeoff,
+              color: Colors.deepPurple,
+              label: '他クラブへローン放出中',
+            ),
             _LegendRow(
-                icon: Icons.sell_outlined,
-                color: Colors.orange,
-                label: '移籍リストに登録中'),
+              icon: Icons.sell_outlined,
+              color: Colors.orange,
+              label: '移籍リストに登録中',
+            ),
             _LegendRow(
-                icon: Icons.battery_alert,
-                color: Colors.orange,
-                label: '疲労が大きい'),
+              icon: Icons.battery_alert,
+              color: Colors.orange,
+              label: '疲労が大きい',
+            ),
           ],
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('閉じる')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('閉じる'),
+          ),
         ],
       ),
     );
@@ -250,8 +267,9 @@ class _SquadScreenState extends State<SquadScreen> {
             IconButton(
               icon: const Icon(Icons.help_outline),
               tooltip: '用語集',
-              onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const GlossaryScreen())),
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const GlossaryScreen())),
             ),
             PopupMenuButton<SquadSortOption>(
               icon: const Icon(Icons.sort),
@@ -279,7 +297,9 @@ class _SquadScreenState extends State<SquadScreen> {
                     .push(
                       MaterialPageRoute(
                         builder: (_) => PlayerCompareScreen(
-                            playerAId: _selected[0], playerBId: _selected[1]),
+                          playerAId: _selected[0],
+                          playerBId: _selected[1],
+                        ),
                       ),
                     )
                     .then((_) => _toggleCompareMode());
@@ -333,7 +353,9 @@ class _SquadScreenState extends State<SquadScreen> {
                         final isSelected = _selected.contains(p.id);
                         return Card(
                           margin: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 4),
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
                           child: ListTile(
                             tileColor: isSelected
                                 ? Theme.of(context)
@@ -346,21 +368,27 @@ class _SquadScreenState extends State<SquadScreen> {
                                         .withValues(alpha: 0.3)
                                     : null,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16)),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                             leading: _compareMode
                                 ? Checkbox(
                                     value: isSelected,
-                                    onChanged: (_) => _toggleSelected(p.id))
+                                    onChanged: (_) => _toggleSelected(p.id),
+                                  )
                                 : PlayerFaceAvatar(
                                     playerId: p.id,
                                     position: p.position,
                                     size: 40,
-                                    highlighted: isStarting),
+                                    highlighted: isStarting,
+                                  ),
                             title: Row(
                               children: [
                                 Flexible(
-                                    child: Text(p.name,
-                                        overflow: TextOverflow.ellipsis)),
+                                  child: Text(
+                                    p.name,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                                 if (team.captainId == p.id) ...[
                                   const SizedBox(width: 6),
                                   Tooltip(
@@ -368,11 +396,14 @@ class _SquadScreenState extends State<SquadScreen> {
                                     child: CircleAvatar(
                                       radius: 8,
                                       backgroundColor: Colors.amber.shade700,
-                                      child: const Text('C',
-                                          style: TextStyle(
-                                              fontSize: 10,
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold)),
+                                      child: const Text(
+                                        'C',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -383,11 +414,14 @@ class _SquadScreenState extends State<SquadScreen> {
                                     child: CircleAvatar(
                                       radius: 8,
                                       backgroundColor: Colors.blueGrey,
-                                      child: Text('VC',
-                                          style: TextStyle(
-                                              fontSize: 8,
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold)),
+                                      child: Text(
+                                        'VC',
+                                        style: TextStyle(
+                                          fontSize: 8,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -395,48 +429,66 @@ class _SquadScreenState extends State<SquadScreen> {
                                   const SizedBox(width: 6),
                                   const Tooltip(
                                     message: 'ローン加入中',
-                                    child: Icon(Icons.swap_horiz,
-                                        size: 16, color: Colors.indigo),
+                                    child: Icon(
+                                      Icons.swap_horiz,
+                                      size: 16,
+                                      color: Colors.indigo,
+                                    ),
                                   ),
                                 ],
                                 if (p.wantsTransfer) ...[
                                   const SizedBox(width: 6),
                                   const Tooltip(
                                     message: '移籍を希望している',
-                                    child: Icon(Icons.sentiment_dissatisfied,
-                                        size: 16, color: Colors.redAccent),
+                                    child: Icon(
+                                      Icons.sentiment_dissatisfied,
+                                      size: 16,
+                                      color: Colors.redAccent,
+                                    ),
                                   ),
                                 ],
                                 if (p.isOnInternationalDuty) ...[
                                   const SizedBox(width: 6),
                                   const Tooltip(
                                     message: '代表召集中',
-                                    child: Icon(Icons.flag,
-                                        size: 16, color: Colors.blueAccent),
+                                    child: Icon(
+                                      Icons.flag,
+                                      size: 16,
+                                      color: Colors.blueAccent,
+                                    ),
                                   ),
                                 ],
                                 if (p.isSuspended) ...[
                                   const SizedBox(width: 6),
                                   const Tooltip(
                                     message: '出場停止中',
-                                    child: Icon(Icons.block,
-                                        size: 16, color: Colors.redAccent),
+                                    child: Icon(
+                                      Icons.block,
+                                      size: 16,
+                                      color: Colors.redAccent,
+                                    ),
                                   ),
                                 ],
                                 if (p.isLoanedOut) ...[
                                   const SizedBox(width: 6),
                                   const Tooltip(
                                     message: 'ローンで放出中',
-                                    child: Icon(Icons.flight_takeoff,
-                                        size: 16, color: Colors.deepPurple),
+                                    child: Icon(
+                                      Icons.flight_takeoff,
+                                      size: 16,
+                                      color: Colors.deepPurple,
+                                    ),
                                   ),
                                 ],
                                 if (p.isTransferListed) ...[
                                   const SizedBox(width: 6),
                                   const Tooltip(
                                     message: '移籍リストに登録済み',
-                                    child: Icon(Icons.sell_outlined,
-                                        size: 16, color: Colors.orange),
+                                    child: Icon(
+                                      Icons.sell_outlined,
+                                      size: 16,
+                                      color: Colors.orange,
+                                    ),
                                   ),
                                 ],
                               ],
@@ -461,25 +513,32 @@ class _SquadScreenState extends State<SquadScreen> {
                                   : null,
                             ),
                             trailing: _compareMode
-                                ? Text('${p.overall}',
+                                ? Text(
+                                    '${p.overall}',
                                     style:
-                                        Theme.of(context).textTheme.titleMedium)
+                                        Theme.of(context).textTheme.titleMedium,
+                                  )
                                 : Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       p.fatigue > 70
-                                          ? const Icon(Icons.battery_alert,
-                                              color: Colors.orange)
-                                          : Text('${p.overall}',
+                                          ? const Icon(
+                                              Icons.battery_alert,
+                                              color: Colors.orange,
+                                            )
+                                          : Text(
+                                              '${p.overall}',
                                               style: Theme.of(context)
                                                   .textTheme
-                                                  .titleMedium),
+                                                  .titleMedium,
+                                            ),
                                       if (!p.isLoan && !p.isLoanedOut) ...[
                                         const SizedBox(width: 4),
                                         IconButton(
                                           icon: const Icon(
-                                              Icons.description_outlined,
-                                              size: 20),
+                                            Icons.description_outlined,
+                                            size: 20,
+                                          ),
                                           tooltip: '契約を操作',
                                           onPressed: () =>
                                               _showContractSheet(context, p),
@@ -491,8 +550,9 @@ class _SquadScreenState extends State<SquadScreen> {
                                 ? () => _toggleSelected(p.id)
                                 : () => Navigator.of(context).push(
                                       MaterialPageRoute(
-                                          builder: (_) => PlayerDetailScreen(
-                                              playerId: p.id)),
+                                        builder: (_) =>
+                                            PlayerDetailScreen(playerId: p.id),
+                                      ),
                                     ),
                           ),
                         );
@@ -566,8 +626,11 @@ class _LegendRow extends StatelessWidget {
   final Color color;
   final String label;
 
-  const _LegendRow(
-      {required this.icon, required this.color, required this.label});
+  const _LegendRow({
+    required this.icon,
+    required this.color,
+    required this.label,
+  });
 
   @override
   Widget build(BuildContext context) {

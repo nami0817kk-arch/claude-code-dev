@@ -331,10 +331,14 @@ class SaveGame {
                 ?.map((e) => e as String)
                 .toList() ??
             [],
-        ticketPricing: enumFromName(TicketPricing.values,
-            json['ticketPricing'] as String?, TicketPricing.standard),
+        ticketPricing: enumFromName(
+          TicketPricing.values,
+          json['ticketPricing'] as String?,
+          TicketPricing.standard,
+        ),
         infrastructure: ClubInfrastructure.fromJson(
-            json['infrastructure'] as Map<String, dynamic>?),
+          json['infrastructure'] as Map<String, dynamic>?,
+        ),
         cups: (json['cups'] as List?)
                 ?.map((e) => Cup.fromJson(e as Map<String, dynamic>))
                 .toList() ??
@@ -342,7 +346,8 @@ class SaveGame {
         continentalCup: json['continentalCup'] == null
             ? null
             : ContinentalCup.fromJson(
-                json['continentalCup'] as Map<String, dynamic>),
+                json['continentalCup'] as Map<String, dynamic>,
+              ),
         lastSeasonRank: json['lastSeasonRank'] as int?,
         continentalTeams: (json['continentalTeams'] as List?)
                 ?.map((e) => Team.fromJson(e as Map<String, dynamic>))
@@ -384,12 +389,15 @@ class SaveGame {
         pendingPressConference: json['pendingPressConference'] == null
             ? null
             : PressQuestion.fromJson(
-                json['pendingPressConference'] as Map<String, dynamic>),
+                json['pendingPressConference'] as Map<String, dynamic>,
+              ),
         otherDivisionLeagues: json['otherDivisionLeagues'] != null
             ? (json['otherDivisionLeagues'] as List)
-                .map((e) => e == null
-                    ? null
-                    : League.fromJson(e as Map<String, dynamic>))
+                .map(
+                  (e) => e == null
+                      ? null
+                      : League.fromJson(e as Map<String, dynamic>),
+                )
                 .toList()
             : _legacyOtherDivisionLeagues(json),
         currentDivisionTier: json['currentDivisionTier'] as int? ?? 1,
@@ -430,19 +438,22 @@ class SaveGame {
         pendingContractNegotiation: json['pendingContractNegotiation'] == null
             ? null
             : ContractNegotiation.fromJson(
-                json['pendingContractNegotiation'] as Map<String, dynamic>),
+                json['pendingContractNegotiation'] as Map<String, dynamic>,
+              ),
         pendingSuperCup: json['pendingSuperCup'] == null
             ? null
             : CupMatch.fromJson(
                 json['pendingSuperCup'] as Map<String, dynamic>),
         consecutiveNegativeBudgetWeeks:
             json['consecutiveNegativeBudgetWeeks'] as int? ?? 0,
-        unlockedAchievements: (json['unlockedAchievements'] as Map?)
-                ?.map((k, v) => MapEntry(k as String, v as int)) ??
+        unlockedAchievements: (json['unlockedAchievements'] as Map?)?.map(
+              (k, v) => MapEntry(k as String, v as int),
+            ) ??
             {},
         seasonStartOverallByPlayerId:
-            (json['seasonStartOverallByPlayerId'] as Map?)
-                    ?.map((k, v) => MapEntry(k as String, v as int)) ??
+            (json['seasonStartOverallByPlayerId'] as Map?)?.map(
+                  (k, v) => MapEntry(k as String, v as int),
+                ) ??
                 {},
       );
 
@@ -459,8 +470,9 @@ class SaveGame {
     final otherTier = tier == 1 ? 2 : 1;
     if (otherTier < 1 || otherTier > totalDivisionTiers) return result;
     if (json['otherDivisionLeague'] != null) {
-      result[otherTier - 1] =
-          League.fromJson(json['otherDivisionLeague'] as Map<String, dynamic>);
+      result[otherTier - 1] = League.fromJson(
+        json['otherDivisionLeague'] as Map<String, dynamic>,
+      );
     } else if (json['secondDivisionTeams'] != null) {
       final teams = (json['secondDivisionTeams'] as List)
           .map((e) => Team.fromJson(e as Map<String, dynamic>))

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/best_eleven.dart';
 import '../models/player.dart';
 import '../state/game_state.dart';
@@ -37,8 +38,10 @@ class BestElevenScreen extends StatelessWidget {
                     children: [
                       Icon(Icons.groups, size: 64, color: Colors.grey.shade400),
                       const SizedBox(height: 12),
-                      const Text('まだ記録がありません(シーズン終了時に確定します)',
-                          textAlign: TextAlign.center),
+                      const Text(
+                        'まだ記録がありません(シーズン終了時に確定します)',
+                        textAlign: TextAlign.center,
+                      ),
                     ],
                   ),
                 ),
@@ -47,9 +50,10 @@ class BestElevenScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 itemCount: history.length,
                 itemBuilder: (context, i) => _BestElevenCard(
-                    seasonEleven: history[i],
-                    clubName: clubName,
-                    userTeamId: userTeamId),
+                  seasonEleven: history[i],
+                  clubName: clubName,
+                  userTeamId: userTeamId,
+                ),
               ),
       ),
     );
@@ -60,10 +64,11 @@ class _BestElevenCard extends StatelessWidget {
   final SeasonBestEleven seasonEleven;
   final String clubName;
   final String userTeamId;
-  const _BestElevenCard(
-      {required this.seasonEleven,
-      required this.clubName,
-      required this.userTeamId});
+  const _BestElevenCard({
+    required this.seasonEleven,
+    required this.clubName,
+    required this.userTeamId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -74,8 +79,11 @@ class _BestElevenCard extends StatelessWidget {
     final userPlayerIds =
         context.watch<GameState>().userTeam.players.map((p) => p.id).toSet();
     final userSelections = seasonEleven.entries
-        .where((e) =>
-            e.teamId != null ? e.teamId == userTeamId : e.teamName == clubName)
+        .where(
+          (e) => e.teamId != null
+              ? e.teamId == userTeamId
+              : e.teamName == clubName,
+        )
         .length;
 
     return Card(
@@ -88,14 +96,19 @@ class _BestElevenCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('シーズン${seasonEleven.season}',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'シーズン${seasonEleven.season}',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 if (userSelections > 0)
-                  Text('自クラブから$userSelections名選出',
-                      style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.blueAccent,
-                          fontWeight: FontWeight.bold)),
+                  Text(
+                    '自クラブから$userSelections名選出',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.blueAccent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
               ],
             ),
             const Divider(height: 20),
@@ -103,17 +116,24 @@ class _BestElevenCard extends StatelessWidget {
               if (byGroup[g]!.isNotEmpty) ...[
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(PositionFilterBar.labelFor(g),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: g.color, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    PositionFilterBar.labelFor(g),
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelSmall
+                        ?.copyWith(color: g.color, fontWeight: FontWeight.bold),
+                  ),
                 ),
                 for (final e in byGroup[g]!)
                   InkWell(
                     onTap: !userPlayerIds.contains(e.playerId)
                         ? null
-                        : () => Navigator.of(context).push(MaterialPageRoute(
-                            builder: (_) =>
-                                PlayerDetailScreen(playerId: e.playerId))),
+                        : () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    PlayerDetailScreen(playerId: e.playerId),
+                              ),
+                            ),
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Row(
@@ -133,11 +153,17 @@ class _BestElevenCard extends StatelessWidget {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text('平均${e.avgRating.toStringAsFixed(1)}',
-                                  style: Theme.of(context).textTheme.bodySmall),
-                              Text('${e.appearances}試合',
-                                  style: const TextStyle(
-                                      fontSize: 11, color: Colors.grey)),
+                              Text(
+                                '平均${e.avgRating.toStringAsFixed(1)}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              Text(
+                                '${e.appearances}試合',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                              ),
                             ],
                           ),
                         ],

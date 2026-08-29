@@ -40,8 +40,10 @@ class ScoutReportEngine {
     return (total / players.length).round();
   }
 
-  static ScoutReport generateFor(
-      {required Team opponent, required Team userTeam}) {
+  static ScoutReport generateFor({
+    required Team opponent,
+    required Team userTeam,
+  }) {
     final oppLineup = MatchEngine.lineupOf(opponent);
     final userLineup = MatchEngine.lineupOf(userTeam);
 

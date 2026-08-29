@@ -97,8 +97,10 @@ class Cup {
     return null;
   }
 
-  bool involvesTeam(String teamId) => rounds.any((round) =>
-      round.any((m) => m.homeTeamId == teamId || m.awayTeamId == teamId));
+  bool involvesTeam(String teamId) => rounds.any(
+        (round) =>
+            round.any((m) => m.homeTeamId == teamId || m.awayTeamId == teamId),
+      );
 
   /// このカップにおけるチームの最終成績(敗退ラウンド、または優勝)。まだ参加/敗退していなければnull。
   bool isEliminated(String teamId) {
@@ -124,12 +126,17 @@ class Cup {
 
   factory Cup.fromJson(Map<String, dynamic> json) => Cup(
         type: enumFromName(
-            CupType.values, json['type'] as String?, CupType.domestic),
+          CupType.values,
+          json['type'] as String?,
+          CupType.domestic,
+        ),
         name: json['name'] as String,
         rounds: (json['rounds'] as List)
-            .map((r) => (r as List)
-                .map((m) => CupMatch.fromJson(m as Map<String, dynamic>))
-                .toList())
+            .map(
+              (r) => (r as List)
+                  .map((m) => CupMatch.fromJson(m as Map<String, dynamic>))
+                  .toList(),
+            )
             .toList(),
         rewardClaimed: json['rewardClaimed'] as bool? ?? false,
         lastPlayedAtMatchday: json['lastPlayedAtMatchday'] as int?,

@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import '../models/attributes.dart';
 import '../models/formation.dart';
 import '../models/player.dart';
@@ -198,21 +199,34 @@ class MatchEngine {
   /// にも、この試合用の値を正しく算出できるようにするための下位関数。
   /// 既に算出済みの選手は前後半を通して同じ値を使い続ける(再算出しない)。
   static void _rollMatchFormForCurrentLineup(
-      Team home, Team away, Weather weather) {
+    Team home,
+    Team away,
+    Weather weather,
+  ) {
     final homeLineup = lineupOf(home);
     final awayLineup = lineupOf(away);
     final homeAvg = _avgOverall(homeLineup);
     final awayAvg = _avgOverall(awayLineup);
     for (final p in homeLineup) {
       if (p.matchFormRolledThisMatch) continue;
-      p.matchFormMultiplier = _traitFormMultiplier(p,
-          selfAvg: homeAvg, oppAvg: awayAvg, isHome: true, weather: weather);
+      p.matchFormMultiplier = _traitFormMultiplier(
+        p,
+        selfAvg: homeAvg,
+        oppAvg: awayAvg,
+        isHome: true,
+        weather: weather,
+      );
       p.matchFormRolledThisMatch = true;
     }
     for (final p in awayLineup) {
       if (p.matchFormRolledThisMatch) continue;
-      p.matchFormMultiplier = _traitFormMultiplier(p,
-          selfAvg: awayAvg, oppAvg: homeAvg, isHome: false, weather: weather);
+      p.matchFormMultiplier = _traitFormMultiplier(
+        p,
+        selfAvg: awayAvg,
+        oppAvg: homeAvg,
+        isHome: false,
+        weather: weather,
+      );
       p.matchFormRolledThisMatch = true;
     }
   }
@@ -224,20 +238,24 @@ class MatchEngine {
       final lineup = t.startingXI
           .map((id) => byId[id])
           .whereType<Player>()
-          .where((p) =>
-              !p.isInjured &&
-              !p.isOnInternationalDuty &&
-              !p.isLoanedOut &&
-              !p.isSuspended)
+          .where(
+            (p) =>
+                !p.isInjured &&
+                !p.isOnInternationalDuty &&
+                !p.isLoanedOut &&
+                !p.isSuspended,
+          )
           .toList();
       if (lineup.length >= 7) return lineup;
     }
     final available = t.players
-        .where((p) =>
-            !p.isInjured &&
-            !p.isOnInternationalDuty &&
-            !p.isLoanedOut &&
-            !p.isSuspended)
+        .where(
+          (p) =>
+              !p.isInjured &&
+              !p.isOnInternationalDuty &&
+              !p.isLoanedOut &&
+              !p.isSuspended,
+        )
         .toList()
       ..sort((a, b) => b.overall.compareTo(a.overall));
     return available.take(11).toList();
@@ -299,12 +317,17 @@ class MatchEngine {
   static double _emptyGroupPower(List<Player> lineup) =>
       lineup.isEmpty ? 8 : 15;
 
-  static double _attackPower(Team t, List<Player> lineup,
-      {String? suppressedId}) {
+  static double _attackPower(
+    Team t,
+    List<Player> lineup, {
+    String? suppressedId,
+  }) {
     final relevant = lineup
-        .where((p) =>
-            p.position.group == PositionGroup.att ||
-            p.position.group == PositionGroup.mid)
+        .where(
+          (p) =>
+              p.position.group == PositionGroup.att ||
+              p.position.group == PositionGroup.mid,
+        )
         .toList();
     if (relevant.isEmpty) return _emptyGroupPower(lineup);
     final slotById = LineupUtils.assignedSlotByPlayerId(t);
@@ -330,9 +353,11 @@ class MatchEngine {
 
   static double _defensePower(Team t, List<Player> lineup) {
     final relevant = lineup
-        .where((p) =>
-            p.position.group == PositionGroup.def ||
-            p.position.group == PositionGroup.gk)
+        .where(
+          (p) =>
+              p.position.group == PositionGroup.def ||
+              p.position.group == PositionGroup.gk,
+        )
         .toList();
     if (relevant.isEmpty) return _emptyGroupPower(lineup);
     final slotById = LineupUtils.assignedSlotByPlayerId(t);
@@ -358,7 +383,10 @@ class MatchEngine {
   /// [markingTeam]がマンマーク役を出場させている場合、[targetLineup]の
   /// キープレイヤーのIDを返す(攻撃力算出時にそのプレイヤーの貢献を抑える)。
   static String? markedTargetId(
-      Team markingTeam, List<Player> markingLineup, List<Player> targetLineup) {
+    Team markingTeam,
+    List<Player> markingLineup,
+    List<Player> targetLineup,
+  ) {
     final markerId = markingTeam.manMarkerId;
     if (markerId == null) return null;
     final markerActive = markingLineup.any((p) => p.id == markerId);
@@ -368,9 +396,11 @@ class MatchEngine {
 
   static Player? _pickScorer(List<Player> lineup) {
     final candidates = lineup
-        .where((p) =>
-            p.position.group == PositionGroup.att ||
-            p.position.group == PositionGroup.mid)
+        .where(
+          (p) =>
+              p.position.group == PositionGroup.att ||
+              p.position.group == PositionGroup.mid,
+        )
         .toList();
     if (candidates.isEmpty) return lineup.isNotEmpty ? lineup.first : null;
     final total = candidates.fold<int>(0, (s, p) => s + p.attack);
@@ -392,7 +422,9 @@ class MatchEngine {
         lineup.where((p) => scorer == null || p.id != scorer.id).toList();
     if (candidates.isEmpty) return null;
     final total = candidates.fold<int>(
-        0, (s, p) => s + p.attributeValue(AttributeKeys.passing));
+      0,
+      (s, p) => s + p.attributeValue(AttributeKeys.passing),
+    );
     if (total <= 0) return candidates[_rng.nextInt(candidates.length)];
     int r = _rng.nextInt(total);
     for (final p in candidates) {
@@ -420,7 +452,8 @@ class MatchEngine {
   static Player? _pickWideAttacker(List<Player> lineup, bool right) {
     final candidates = lineup
         .where(
-            (p) => right ? _isRightWide(p.position) : _isLeftWide(p.position))
+          (p) => right ? _isRightWide(p.position) : _isLeftWide(p.position),
+        )
         .toList();
     if (candidates.isEmpty) return null;
     final total = candidates.fold<int>(0, (s, p) => s + p.attack);
@@ -438,7 +471,8 @@ class MatchEngine {
   static Player? _findSameSideDefender(List<Player> lineup, bool right) {
     final candidates = lineup
         .where(
-            (p) => right ? _isRightWide(p.position) : _isLeftWide(p.position))
+          (p) => right ? _isRightWide(p.position) : _isLeftWide(p.position),
+        )
         .toList();
     if (candidates.isEmpty) return null;
     candidates.sort((a, b) => b.defense.compareTo(a.defense));
@@ -463,7 +497,8 @@ class MatchEngine {
   static Player? _pickAerialTarget(List<Player> lineup, {String? excludeId}) {
     final candidates = lineup
         .where(
-            (p) => p.position.group == PositionGroup.att && p.id != excludeId)
+          (p) => p.position.group == PositionGroup.att && p.id != excludeId,
+        )
         .toList();
     if (candidates.isEmpty) {
       return lineup.where((p) => p.id != excludeId).isEmpty
@@ -471,11 +506,12 @@ class MatchEngine {
           : lineup.firstWhere((p) => p.id != excludeId);
     }
     final total = candidates.fold<int>(
-        0,
-        (s, p) =>
-            s +
-            p.attributeValue(AttributeKeys.heading) +
-            p.attributeValue(AttributeKeys.jumpingReach));
+      0,
+      (s, p) =>
+          s +
+          p.attributeValue(AttributeKeys.heading) +
+          p.attributeValue(AttributeKeys.jumpingReach),
+    );
     if (total <= 0) return candidates[_rng.nextInt(candidates.length)];
     int r = _rng.nextInt(total);
     for (final p in candidates) {
@@ -529,8 +565,12 @@ class MatchEngine {
     return null;
   }
 
-  static void _applyFatigue(Team t, List<Player> lineup,
-      {double weatherFactor = 1.0, double intensity = 1.0}) {
+  static void _applyFatigue(
+    Team t,
+    List<Player> lineup, {
+    double weatherFactor = 1.0,
+    double intensity = 1.0,
+  }) {
     final timeWastingFactor = t.timeWastingMode ? 0.85 : 1.0;
     for (final p in lineup) {
       final gain = (12 + _rng.nextInt(8)) *
@@ -570,8 +610,10 @@ class MatchEngine {
 
   /// プレッシングがチームの守備力(ボール奪取)に与える倍率。労働量
   /// (workRate)の高い選手が多いほど、狙い通りにボールを奪いにいける。
-  static double pressingDefenseFactor(int pressing,
-          [double avgWorkRate = 50]) =>
+  static double pressingDefenseFactor(
+    int pressing, [
+    double avgWorkRate = 50,
+  ]) =>
       1 + (pressing - 50) / 400 * tacticalFitFactor(avgWorkRate);
 
   /// ライン高さがチームの守備力に与えるリスク倍率(高いラインほど守備が手薄になる)。
@@ -593,7 +635,7 @@ class MatchEngine {
   static ({
     double attackMultiplier,
     double defenseMultiplier,
-    double fatigueMultiplier
+    double fatigueMultiplier,
   }) tacticalImpact(Team t) {
     final lineup = lineupOf(t);
     final avgStamina = _avgAttribute(lineup, AttributeKeys.stamina);
@@ -622,10 +664,18 @@ class MatchEngine {
   }) {
     final homeLineup = lineupOf(home);
     final awayLineup = lineupOf(away);
-    _applyFatigue(home, homeLineup,
-        weatherFactor: weather.fatigueMultiplier, intensity: 0.5);
-    _applyFatigue(away, awayLineup,
-        weatherFactor: weather.fatigueMultiplier, intensity: 0.5);
+    _applyFatigue(
+      home,
+      homeLineup,
+      weatherFactor: weather.fatigueMultiplier,
+      intensity: 0.5,
+    );
+    _applyFatigue(
+      away,
+      awayLineup,
+      weatherFactor: weather.fatigueMultiplier,
+      intensity: 0.5,
+    );
   }
 
   /// 本職外のスロットで出場した選手のポジション慣れ度を積み増す。
@@ -716,10 +766,12 @@ class MatchEngine {
         lineup.where((p) => p.position.group != PositionGroup.gk).toList();
     if (candidates.isEmpty) return null;
     final weights = candidates
-        .map((p) =>
-            1 +
-            p.attributeValue(AttributeKeys.aggression) ~/ 10 +
-            (100 - p.attributeValue(AttributeKeys.composure)) ~/ 25)
+        .map(
+          (p) =>
+              1 +
+              p.attributeValue(AttributeKeys.aggression) ~/ 10 +
+              (100 - p.attributeValue(AttributeKeys.composure)) ~/ 25,
+        )
         .toList();
     final total = weights.fold<int>(0, (s, w) => s + w);
     if (total <= 0) return candidates[_rng.nextInt(candidates.length)];
@@ -813,13 +865,15 @@ class MatchEngine {
       final isSecondYellow = target.yellowCardedThisHalf;
       final isRed = isSecondYellow || _rng.nextDouble() < 0.08;
       if (!isRed) target.yellowCardedThisHalf = true;
-      events.add(MatchEvent(
-        minute: minute,
-        teamId: team.id,
-        scorerName: target.name,
-        scorerId: target.id,
-        type: isRed ? MatchEventType.redCard : MatchEventType.yellowCard,
-      ));
+      events.add(
+        MatchEvent(
+          minute: minute,
+          teamId: team.id,
+          scorerName: target.name,
+          scorerId: target.id,
+          type: isRed ? MatchEventType.redCard : MatchEventType.yellowCard,
+        ),
+      );
       if (isRed) {
         if (isHomeTeam) {
           homeRedMinute =
@@ -849,14 +903,17 @@ class MatchEngine {
       // ここも同じ半で既に警告済みの選手が対象になった場合は退場扱いにする。
       final isSecondYellow = target.yellowCardedThisHalf;
       if (!isSecondYellow) target.yellowCardedThisHalf = true;
-      events.add(MatchEvent(
-        minute: minute,
-        teamId: t.id,
-        scorerName: target.name,
-        scorerId: target.id,
-        type:
-            isSecondYellow ? MatchEventType.redCard : MatchEventType.yellowCard,
-      ));
+      events.add(
+        MatchEvent(
+          minute: minute,
+          teamId: t.id,
+          scorerName: target.name,
+          scorerId: target.id,
+          type: isSecondYellow
+              ? MatchEventType.redCard
+              : MatchEventType.yellowCard,
+        ),
+      );
       if (isSecondYellow) {
         if (isHomeTeam) {
           homeRedMinute =
@@ -931,7 +988,9 @@ class MatchEngine {
         if (subRoll < 0.15) {
           isPenalty = true;
           scorer = _pickSetPieceTaker(
-                  attackingTeam.penaltyTakerId, attackingLineup) ??
+                attackingTeam.penaltyTakerId,
+                attackingLineup,
+              ) ??
               _pickScorer(attackingLineup);
           final penaltyAttr =
               scorer?.attributeValue(AttributeKeys.penalties) ?? 50;
@@ -939,35 +998,51 @@ class MatchEngine {
         } else if (subRoll < 0.55) {
           isDirectFreeKick = true;
           scorer = _pickSetPieceTaker(
-                  attackingTeam.freeKickTakerId, attackingLineup) ??
+                attackingTeam.freeKickTakerId,
+                attackingLineup,
+              ) ??
               _pickScorer(attackingLineup);
           final freeKickAttr =
               scorer?.attributeValue(AttributeKeys.freeKick) ?? 50;
           scoreProb = (0.18 + (freeKickAttr - 50) / 300).clamp(0.05, 0.35);
-          scoreProb =
-              applySetPieceDefense(scoreProb, defendingTeam, defendingLineup);
+          scoreProb = applySetPieceDefense(
+            scoreProb,
+            defendingTeam,
+            defendingLineup,
+          );
         } else {
-          final cornerTaker =
-              _pickSetPieceTaker(attackingTeam.cornerTakerId, attackingLineup);
+          final cornerTaker = _pickSetPieceTaker(
+            attackingTeam.cornerTakerId,
+            attackingLineup,
+          );
           // コーナーは実際の得点シーンと同様、ヘディングに強い選手が
           // 合わせるケースを主として扱う(蹴った選手がそのままアシストになる)。
-          scorer =
-              _pickAerialTarget(attackingLineup, excludeId: cornerTaker?.id);
+          scorer = _pickAerialTarget(
+            attackingLineup,
+            excludeId: cornerTaker?.id,
+          );
           forcedAssist = cornerTaker;
           if (cornerTaker != null) {
-            final cornersAttr =
-                cornerTaker.attributeValue(AttributeKeys.corners);
+            final cornersAttr = cornerTaker.attributeValue(
+              AttributeKeys.corners,
+            );
             // ロングスローもコーナーと同様に、ワイドからの精度あるボールの
             // 供給という点で質に少し寄与させる(コーナーの専門性を主としつつ)。
-            final longThrowsAttr =
-                cornerTaker.attributeValue(AttributeKeys.longThrows);
+            final longThrowsAttr = cornerTaker.attributeValue(
+              AttributeKeys.longThrows,
+            );
             final deliveryQuality =
                 (cornersAttr * 0.8 + longThrowsAttr * 0.2).round();
-            scoreProb = (scoreProb * (1 + (deliveryQuality - 50) / 200))
-                .clamp(0.05, 0.75);
+            scoreProb = (scoreProb * (1 + (deliveryQuality - 50) / 200)).clamp(
+              0.05,
+              0.75,
+            );
           }
-          scoreProb =
-              applySetPieceDefense(scoreProb, defendingTeam, defendingLineup);
+          scoreProb = applySetPieceDefense(
+            scoreProb,
+            defendingTeam,
+            defendingLineup,
+          );
           scoreProb = _applyHeaderQuality(scoreProb, scorer);
         }
       } else {
@@ -982,13 +1057,18 @@ class MatchEngine {
           final wonDuel =
               _rng.nextDouble() < _wideDuelWinProb(wideAttacker, marker);
           if (wonDuel) {
-            scorer =
-                _pickAerialTarget(attackingLineup, excludeId: wideAttacker.id);
+            scorer = _pickAerialTarget(
+              attackingLineup,
+              excludeId: wideAttacker.id,
+            );
             forcedAssist = wideAttacker;
-            final crossQuality =
-                wideAttacker.attributeValue(AttributeKeys.crossing);
-            scoreProb =
-                (scoreProb * (1 + (crossQuality - 50) / 250)).clamp(0.05, 0.8);
+            final crossQuality = wideAttacker.attributeValue(
+              AttributeKeys.crossing,
+            );
+            scoreProb = (scoreProb * (1 + (crossQuality - 50) / 250)).clamp(
+              0.05,
+              0.8,
+            );
             if (scorer != null) {
               scoreProb =
                   scoreProb * _aerialDuelFactor(scorer, defendingLineup);
@@ -1008,13 +1088,16 @@ class MatchEngine {
         final assist = (isPenalty || isDirectFreeKick)
             ? null
             : (forcedAssist ?? _pickAssist(attackingLineup, scorer));
-        events.add(MatchEvent(
+        events.add(
+          MatchEvent(
             minute: minute,
             teamId: attackingTeam.id,
             scorerName: scorer?.name,
             scorerId: scorer?.id,
             assistName: assist?.name,
-            assistId: assist?.id));
+            assistId: assist?.id,
+          ),
+        );
         if (isHomeChance) {
           homeGoals++;
           homeShotsOnTarget++;
@@ -1034,12 +1117,15 @@ class MatchEngine {
         } else {
           awayShotsOnTarget++;
         }
-        events.add(MatchEvent(
+        events.add(
+          MatchEvent(
             minute: minute,
             teamId: attackingTeam.id,
             scorerName: shooter?.name,
             scorerId: shooter?.id,
-            type: MatchEventType.chance));
+            type: MatchEventType.chance,
+          ),
+        );
       }
       homeMomentum *= 0.9;
       awayMomentum *= 0.9;
@@ -1062,9 +1148,14 @@ class MatchEngine {
   /// 相手が守備セットプレー担当を指名して出場させている場合、その選手の
   /// ヘディング・ジャンプ力に応じてセットプレー由来のチャンスの質を下げる。
   static double applySetPieceDefense(
-      double scoreProb, Team defendingTeam, List<Player> defendingLineup) {
-    final defender =
-        _pickSetPieceTaker(defendingTeam.setPieceDefenderId, defendingLineup);
+    double scoreProb,
+    Team defendingTeam,
+    List<Player> defendingLineup,
+  ) {
+    final defender = _pickSetPieceTaker(
+      defendingTeam.setPieceDefenderId,
+      defendingLineup,
+    );
     if (defender == null) return scoreProb;
     final defSkill = (defender.attributeValue(AttributeKeys.heading) +
             defender.attributeValue(AttributeKeys.jumpingReach)) /
@@ -1099,10 +1190,18 @@ class MatchEngine {
     final awayLineup = lineupOf(away);
     // 前半分の疲労は既にapplyHalfTimeFatigueで反映済みのため、ここでは
     // 後半分(intensity 0.5)のみを加算する。
-    _applyFatigue(home, homeLineup,
-        weatherFactor: weather.fatigueMultiplier, intensity: 0.5);
-    _applyFatigue(away, awayLineup,
-        weatherFactor: weather.fatigueMultiplier, intensity: 0.5);
+    _applyFatigue(
+      home,
+      homeLineup,
+      weatherFactor: weather.fatigueMultiplier,
+      intensity: 0.5,
+    );
+    _applyFatigue(
+      away,
+      awayLineup,
+      weatherFactor: weather.fatigueMultiplier,
+      intensity: 0.5,
+    );
     _rollInjuries(homeLineup, homeInjuryFactor);
     _rollInjuries(awayLineup, awayInjuryFactor);
     _growPositionFamiliarity(home, homeLineup);
@@ -1122,8 +1221,11 @@ class MatchEngine {
 
   /// 出場選手の通算出場数・通算得点数を加算する(親善試合はこの関数を
   /// 呼ばないため対象外)。
-  static void _applyCareerStats(List<Player> homeLineup,
-      List<Player> awayLineup, List<MatchEvent> events) {
+  static void _applyCareerStats(
+    List<Player> homeLineup,
+    List<Player> awayLineup,
+    List<MatchEvent> events,
+  ) {
     final lineupIds = <String, Player>{
       for (final p in [...homeLineup, ...awayLineup]) p.id: p,
     };
@@ -1150,7 +1252,10 @@ class MatchEngine {
 
   /// 今節発生した警告・退場イベントを選手の累積数に反映する。
   static void _applyCardAccumulation(
-      Team home, Team away, List<MatchEvent> events) {
+    Team home,
+    Team away,
+    List<MatchEvent> events,
+  ) {
     final byId = {
       for (final p in [...home.players, ...away.players]) p.id: p,
     };
@@ -1228,8 +1333,9 @@ class MatchEngine {
       ratings[p.id] = ratings[p.id]! - resultBonus;
     }
 
-    return ratings
-        .map((id, r) => MapEntry(id, (r.clamp(1.0, 10.0) * 2).round() / 2));
+    return ratings.map(
+      (id, r) => MapEntry(id, (r.clamp(1.0, 10.0) * 2).round() / 2),
+    );
   }
 
   /// 前半・後半をまとめて一括シミュレートする(CPU同士の試合・カップ戦など、
@@ -1266,20 +1372,22 @@ class MatchEngine {
     _maybeAutoAssignManMarker(home, lineupOf(away));
     _maybeAutoAssignManMarker(away, lineupOf(home));
     final first = simulateMinutes(
-        home: home,
-        away: away,
-        startMinute: 1,
-        endMinute: 45,
-        weather: weather,
-        homeAdvantageFactor: homeAdvantageFactor);
+      home: home,
+      away: away,
+      startMinute: 1,
+      endMinute: 45,
+      weather: weather,
+      homeAdvantageFactor: homeAdvantageFactor,
+    );
     applyHalfTimeFatigue(home: home, away: away, weather: weather);
     final second = simulateMinutes(
-        home: home,
-        away: away,
-        startMinute: 46,
-        endMinute: 90,
-        weather: weather,
-        homeAdvantageFactor: homeAdvantageFactor);
+      home: home,
+      away: away,
+      startMinute: 46,
+      endMinute: 90,
+      weather: weather,
+      homeAdvantageFactor: homeAdvantageFactor,
+    );
     final allEvents = [...first.events, ...second.events];
     final homeGoals = first.homeGoals + second.homeGoals;
     final awayGoals = first.awayGoals + second.awayGoals;

@@ -62,7 +62,10 @@ class CalendarEngine {
   /// カップ戦の対戦相手表示に使うチーム名を、リーグ勢+大陸カップ参加勢
   /// (両方渡された場合)から解決する。
   static String? _teamNameFor(
-      String teamId, League league, List<Team> extraTeams) {
+    String teamId,
+    League league,
+    List<Team> extraTeams,
+  ) {
     for (final t in league.teams) {
       if (t.id == teamId) return t.name;
     }
@@ -75,7 +78,11 @@ class CalendarEngine {
   /// [cup]の次の未消化試合が消化可能になる日付("1節分の間隔"ルールにより
   /// 消化可能になる最初の日)と、カレンダー表示用ラベルを返す。
   static (DateTime, String)? _domesticCupEntry(
-      Cup? cup, League league, String userTeamId, List<Team> extraTeams) {
+    Cup? cup,
+    League league,
+    String userTeamId,
+    List<Team> extraTeams,
+  ) {
     if (cup == null) return null;
     final match = cup.nextUnplayedMatch;
     if (match == null) return null;
@@ -92,8 +99,12 @@ class CalendarEngine {
 
   /// 大陸カップ版の[_domesticCupEntry]。グループステージ・決勝トーナメントの
   /// いずれの段階でも、次の未消化試合から対戦カードを解決する。
-  static (DateTime, String)? _continentalCupEntry(ContinentalCup? cup,
-      League league, String userTeamId, List<Team> extraTeams) {
+  static (DateTime, String)? _continentalCupEntry(
+    ContinentalCup? cup,
+    League league,
+    String userTeamId,
+    List<Team> extraTeams,
+  ) {
     if (cup == null) return null;
     String? homeId;
     String? awayId;
@@ -152,7 +163,11 @@ class CalendarEngine {
     for (final entry in [
       _domesticCupEntry(domesticCup, league, userTeamId, continentalTeams),
       _continentalCupEntry(
-          continentalCup, league, userTeamId, continentalTeams),
+        continentalCup,
+        league,
+        userTeamId,
+        continentalTeams,
+      ),
     ]) {
       if (entry == null) continue;
       cupLabelsByDate.putIfAbsent(entry.$1, () => []).add(entry.$2);
@@ -176,22 +191,26 @@ class CalendarEngine {
             break;
           }
         }
-        days.add(CalendarDayInfo(
-          date: cursor,
-          isLeagueMatchDay: true,
-          isHomeMatch: isHome,
-          opponentName: opponentName,
-          matchday: fixture.matchday,
-          isToday: isToday,
-          cupLabels: cupLabels,
-        ));
+        days.add(
+          CalendarDayInfo(
+            date: cursor,
+            isLeagueMatchDay: true,
+            isHomeMatch: isHome,
+            opponentName: opponentName,
+            matchday: fixture.matchday,
+            isToday: isToday,
+            cupLabels: cupLabels,
+          ),
+        );
       } else {
-        days.add(CalendarDayInfo(
-          date: cursor,
-          isTrainingFocusDay: cursor.weekday == trainingDayOfWeek,
-          isToday: isToday,
-          cupLabels: cupLabels,
-        ));
+        days.add(
+          CalendarDayInfo(
+            date: cursor,
+            isTrainingFocusDay: cursor.weekday == trainingDayOfWeek,
+            isToday: isToday,
+            cupLabels: cupLabels,
+          ),
+        );
       }
       cursor = cursor.add(const Duration(days: 1));
     }

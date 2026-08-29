@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../logic/continental_cup_engine.dart';
 import '../logic/cup_engine.dart';
 import '../models/continental_cup.dart';
@@ -23,15 +24,17 @@ class CupScreen extends StatelessWidget {
           title: const Text('カップ戦'),
           leading: const BackButton(),
           actions: const [QuickAccessMenuButton()],
-          bottom: const TabBar(tabs: [Tab(text: '国内カップ'), Tab(text: '大陸カップ')]),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: '国内カップ'),
+              Tab(text: '大陸カップ'),
+            ],
+          ),
         ),
         drawer: const QuickAccessDrawer(),
         body: const ResponsiveBody(
           child: TabBarView(
-            children: [
-              _DomesticCupTab(),
-              _ContinentalCupTab(),
-            ],
+            children: [_DomesticCupTab(), _ContinentalCupTab()],
           ),
         ),
       ),
@@ -85,8 +88,10 @@ class _DomesticCupTab extends StatelessWidget {
         else if (userEliminated)
           Card(
             child: ListTile(
-              leading: Icon(Icons.info_outline,
-                  color: SemanticColors.negative(context)),
+              leading: Icon(
+                Icons.info_outline,
+                color: SemanticColors.negative(context),
+              ),
               title: const Text('自クラブは敗退しました'),
               subtitle: const Text('他クラブの結果は引き続き更新されます'),
             ),
@@ -108,8 +113,10 @@ class _DomesticCupTab extends StatelessWidget {
                 if (!gameState.canPlayNextDomesticCupMatch)
                   const Padding(
                     padding: EdgeInsets.only(top: 4),
-                    child: Text('リーグ戦を1節進めると次の試合を消化できます',
-                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    child: Text(
+                      'リーグ戦を1節進めると次の試合を消化できます',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                   ),
               ],
             ),
@@ -141,8 +148,9 @@ class _DomesticCupTab extends StatelessWidget {
     if (result != null && isUserMatch) {
       Navigator.of(context).push(
         MaterialPageRoute(
-            builder: (_) =>
-                MatchScreen(result: result, teams: teams, title: '国内カップ')),
+          builder: (_) =>
+              MatchScreen(result: result, teams: teams, title: '国内カップ'),
+        ),
       );
     }
   }
@@ -160,8 +168,10 @@ class _ContinentalCupTab extends StatelessWidget {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text('前シーズンをリーグ2位以内で終えると、翌シーズンは大陸カップに出場できます。',
-              textAlign: TextAlign.center),
+          child: Text(
+            '前シーズンをリーグ2位以内で終えると、翌シーズンは大陸カップに出場できます。',
+            textAlign: TextAlign.center,
+          ),
         ),
       );
     }
@@ -197,8 +207,10 @@ class _ContinentalCupTab extends StatelessWidget {
         else if (userEliminated)
           Card(
             child: ListTile(
-              leading: Icon(Icons.info_outline,
-                  color: SemanticColors.negative(context)),
+              leading: Icon(
+                Icons.info_outline,
+                color: SemanticColors.negative(context),
+              ),
               title: const Text('自クラブは敗退しました'),
               subtitle: const Text('他クラブの結果は引き続き更新されます'),
             ),
@@ -220,8 +232,10 @@ class _ContinentalCupTab extends StatelessWidget {
                 if (!gameState.canPlayNextContinentalMatch)
                   const Padding(
                     padding: EdgeInsets.only(top: 4),
-                    child: Text('リーグ戦を1節進めると次の試合を消化できます',
-                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    child: Text(
+                      'リーグ戦を1節進めると次の試合を消化できます',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                   ),
               ],
             ),
@@ -243,8 +257,10 @@ class _ContinentalCupTab extends StatelessWidget {
                 if (!gameState.canPlayNextContinentalMatch)
                   const Padding(
                     padding: EdgeInsets.only(top: 4),
-                    child: Text('リーグ戦を1節進めると次の試合を消化できます',
-                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    child: Text(
+                      'リーグ戦を1節進めると次の試合を消化できます',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                   ),
               ],
             ),
@@ -267,7 +283,9 @@ class _ContinentalCupTab extends StatelessWidget {
           for (final round in cup.knockoutRounds)
             _RoundSection(
               title: ContinentalCupEngine.roundLabel(
-                  round.first.round, cup.knockoutRounds.length),
+                round.first.round,
+                cup.knockoutRounds.length,
+              ),
               initiallyExpanded: round == cup.knockoutRounds.last,
               children: [
                 for (final tie in round)
@@ -282,8 +300,9 @@ class _ContinentalCupTab extends StatelessWidget {
     final gameState = context.read<GameState>();
     final userId = gameState.userTeam.id;
     final List<Team> teams = gameState.allTeamsForCups;
-    final match =
-        ContinentalCupEngine.nextGroupMatch(gameState.continentalCup!);
+    final match = ContinentalCupEngine.nextGroupMatch(
+      gameState.continentalCup!,
+    );
     final isUserMatch = match != null &&
         (match.homeTeamId == userId || match.awayTeamId == userId);
     final result = await gameState.playNextContinentalGroupMatch();
@@ -291,8 +310,12 @@ class _ContinentalCupTab extends StatelessWidget {
     if (result != null && isUserMatch) {
       Navigator.of(context).push(
         MaterialPageRoute(
-            builder: (_) => MatchScreen(
-                result: result, teams: teams, title: '大陸カップ グループステージ')),
+          builder: (_) => MatchScreen(
+            result: result,
+            teams: teams,
+            title: '大陸カップ グループステージ',
+          ),
+        ),
       );
     }
   }
@@ -302,16 +325,22 @@ class _ContinentalCupTab extends StatelessWidget {
     final userId = gameState.userTeam.id;
     final List<Team> teams = gameState.allTeamsForCups;
     final round = gameState.continentalCup!.knockoutRounds.last;
-    final tie =
-        round.firstWhere((t) => !t.isComplete, orElse: () => round.first);
+    final tie = round.firstWhere(
+      (t) => !t.isComplete,
+      orElse: () => round.first,
+    );
     final isUserTie = tie.teamAId == userId || tie.teamBId == userId;
     final result = await gameState.playNextContinentalKnockoutLeg();
     if (!context.mounted) return;
     if (result != null && isUserTie) {
       Navigator.of(context).push(
         MaterialPageRoute(
-            builder: (_) => MatchScreen(
-                result: result, teams: teams, title: '大陸カップ 決勝トーナメント')),
+          builder: (_) => MatchScreen(
+            result: result,
+            teams: teams,
+            title: '大陸カップ 決勝トーナメント',
+          ),
+        ),
       );
     }
   }
@@ -324,8 +353,11 @@ class _BracketMatchCard extends StatelessWidget {
   final String Function(String) nameOf;
   final String userId;
 
-  const _BracketMatchCard(
-      {required this.match, required this.nameOf, required this.userId});
+  const _BracketMatchCard({
+    required this.match,
+    required this.nameOf,
+    required this.userId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -343,8 +375,9 @@ class _BracketMatchCard extends StatelessWidget {
                 .primaryContainer
                 .withValues(alpha: 0.25)
             : null,
-        title:
-            Text('${nameOf(match.homeTeamId)} vs ${nameOf(match.awayTeamId)}'),
+        title: Text(
+          '${nameOf(match.homeTeamId)} vs ${nameOf(match.awayTeamId)}',
+        ),
         subtitle: match.penaltyWinnerId != null
             ? Text('PK戦: ${nameOf(match.penaltyWinnerId!)}が勝利')
             : null,
@@ -380,8 +413,11 @@ class _GroupTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final standings =
-        ContinentalCupEngine.groupStandings(cup, groupIndex, teams);
+    final standings = ContinentalCupEngine.groupStandings(
+      cup,
+      groupIndex,
+      teams,
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Card(
@@ -392,38 +428,45 @@ class _GroupTable extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child:
-                    Text(label, style: Theme.of(context).textTheme.titleSmall),
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
               ),
               for (int i = 0; i < standings.length; i++)
-                Builder(builder: (context) {
-                  final isUserRow = standings[i].teamId == userId;
-                  final teamName = teams
-                      .firstWhere((t) => t.id == standings[i].teamId,
-                          orElse: () => teams.first)
-                      .name;
-                  final row = Container(
-                    color: isUserRow
-                        ? Theme.of(context)
-                            .colorScheme
-                            .primaryContainer
-                            .withValues(alpha: 0.25)
-                        : null,
-                    child: ListTile(
-                      dense: true,
-                      leading: SizedBox(width: 20, child: Text('${i + 1}')),
-                      title: Text(teamName),
-                      trailing: Text(
-                          '${standings[i].points}pt (${standings[i].played}試合)'),
-                    ),
-                  );
-                  if (!isUserRow) return row;
-                  return Semantics(
-                    label: '自クラブ。${i + 1}位: $teamName、'
-                        '${standings[i].points}pt (${standings[i].played}試合)',
-                    child: ExcludeSemantics(child: row),
-                  );
-                }),
+                Builder(
+                  builder: (context) {
+                    final isUserRow = standings[i].teamId == userId;
+                    final teamName = teams
+                        .firstWhere(
+                          (t) => t.id == standings[i].teamId,
+                          orElse: () => teams.first,
+                        )
+                        .name;
+                    final row = Container(
+                      color: isUserRow
+                          ? Theme.of(context)
+                              .colorScheme
+                              .primaryContainer
+                              .withValues(alpha: 0.25)
+                          : null,
+                      child: ListTile(
+                        dense: true,
+                        leading: SizedBox(width: 20, child: Text('${i + 1}')),
+                        title: Text(teamName),
+                        trailing: Text(
+                          '${standings[i].points}pt (${standings[i].played}試合)',
+                        ),
+                      ),
+                    );
+                    if (!isUserRow) return row;
+                    return Semantics(
+                      label: '自クラブ。${i + 1}位: $teamName、'
+                          '${standings[i].points}pt (${standings[i].played}試合)',
+                      child: ExcludeSemantics(child: row),
+                    );
+                  },
+                ),
             ],
           ),
         ),
@@ -437,8 +480,11 @@ class _TieCard extends StatelessWidget {
   final String Function(String) nameOf;
   final String userId;
 
-  const _TieCard(
-      {required this.tie, required this.nameOf, required this.userId});
+  const _TieCard({
+    required this.tie,
+    required this.nameOf,
+    required this.userId,
+  });
 
   @override
   Widget build(BuildContext context) {

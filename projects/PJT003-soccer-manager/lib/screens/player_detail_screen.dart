@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../logic/contract_engine.dart';
 import '../logic/lineup_utils.dart';
 import '../logic/match_engine.dart';
@@ -59,10 +60,13 @@ class PlayerDetailScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.help_outline),
             tooltip: '能力値の意味を見る',
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => const GlossaryScreen(
-                  initialCategory: GlossaryCategory.attribute),
-            )),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const GlossaryScreen(
+                  initialCategory: GlossaryCategory.attribute,
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -72,10 +76,11 @@ class PlayerDetailScreen extends StatelessWidget {
           Row(
             children: [
               PlayerFaceAvatar(
-                  playerId: p.id,
-                  position: p.position,
-                  size: 56,
-                  highlighted: true),
+                playerId: p.id,
+                position: p.position,
+                size: 56,
+                highlighted: true,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -93,24 +98,26 @@ class PlayerDetailScreen extends StatelessWidget {
                 style: const TextStyle(color: Colors.grey),
               ),
             ),
-          Builder(builder: (context) {
-            final familiarities = [
-              for (final pos in Position.values)
-                if (pos != p.position &&
-                    !p.secondaryPositions.contains(pos) &&
-                    p.familiarityFor(pos) > 0)
-                  (pos: pos, value: p.familiarityFor(pos))
-            ]..sort((a, b) => b.value.compareTo(a.value));
-            if (familiarities.isEmpty) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                'ポジション慣れ度(習得中): ${familiarities.map((f) => '${f.pos.label} ${f.value}/100').join(' / ')}'
-                '${p.trainingConvertTargetPosition != null ? ' ★コンバート特訓中' : ''}',
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
-              ),
-            );
-          }),
+          Builder(
+            builder: (context) {
+              final familiarities = [
+                for (final pos in Position.values)
+                  if (pos != p.position &&
+                      !p.secondaryPositions.contains(pos) &&
+                      p.familiarityFor(pos) > 0)
+                    (pos: pos, value: p.familiarityFor(pos)),
+              ]..sort((a, b) => b.value.compareTo(a.value));
+              if (familiarities.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'ポジション慣れ度(習得中): ${familiarities.map((f) => '${f.pos.label} ${f.value}/100').join(' / ')}'
+                  '${p.trainingConvertTargetPosition != null ? ' ★コンバート特訓中' : ''}',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              );
+            },
+          ),
           if (seasonStats.appearances > 0)
             Padding(
               padding: const EdgeInsets.only(top: 4),
@@ -120,7 +127,9 @@ class PlayerDetailScreen extends StatelessWidget {
                 '${seasonStats.redCards > 0 ? ' 退場${seasonStats.redCards}' : ''}'
                 ' / 平均採点${seasonStats.averageRating!.toStringAsFixed(1)}',
                 style: const TextStyle(
-                    color: Colors.teal, fontWeight: FontWeight.bold),
+                  color: Colors.teal,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           if (p.careerAppearances > 0)
@@ -138,9 +147,10 @@ class PlayerDetailScreen extends StatelessWidget {
             children: [
               if (isStarting)
                 Chip(
-                    label: const Text('スタメン'),
-                    backgroundColor:
-                        Theme.of(context).colorScheme.primaryContainer),
+                  label: const Text('スタメン'),
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primaryContainer,
+                ),
               if (team.captainId == p.id)
                 const Chip(
                   label: Text('キャプテン'),
@@ -155,9 +165,10 @@ class PlayerDetailScreen extends StatelessWidget {
                 ),
               if (p.isLoan)
                 const Chip(
-                    label: Text('ローン加入中'),
-                    backgroundColor: Colors.indigo,
-                    labelStyle: TextStyle(color: Colors.white)),
+                  label: Text('ローン加入中'),
+                  backgroundColor: Colors.indigo,
+                  labelStyle: TextStyle(color: Colors.white),
+                ),
               if (p.wantsTransfer)
                 const Chip(
                   label: Text('移籍を希望している'),
@@ -193,7 +204,9 @@ class PlayerDetailScreen extends StatelessWidget {
                     ? '負傷中（あと${p.injuryWeeks}週は出場不可）'
                     : '${p.injuryType!.label}で負傷中（あと${p.injuryWeeks}週は出場不可）',
                 style: const TextStyle(
-                    color: Colors.redAccent, fontWeight: FontWeight.bold),
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           if (p.injuryHistoryCounts.isNotEmpty)
@@ -215,7 +228,9 @@ class PlayerDetailScreen extends StatelessWidget {
               child: Text(
                 '出場停止中（あと${p.suspendedMatches}試合は出場不可）',
                 style: const TextStyle(
-                    color: Colors.redAccent, fontWeight: FontWeight.bold),
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           if (p.yellowCards > 0)
@@ -238,15 +253,19 @@ class PlayerDetailScreen extends StatelessWidget {
               child: Text(
                 '代表召集中（あと${p.internationalDutyWeeksRemaining}週は出場不可）',
                 style: const TextStyle(
-                    color: Colors.blueAccent, fontWeight: FontWeight.bold),
+                  color: Colors.blueAccent,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           const SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text('総合力: ${p.overall}',
-                  style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                '総合力: ${p.overall}',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               if (latestGrowth != null && latestGrowth.overallDelta != 0) ...[
                 const SizedBox(width: 8),
                 Text(
@@ -261,60 +280,71 @@ class PlayerDetailScreen extends StatelessWidget {
               ],
             ],
           ),
-          Builder(builder: (context) {
-            final potentialProgress = p.potential > 0
-                ? (p.overall / p.potential * 100).clamp(0, 100)
-                : 0.0;
-            final seasonStart =
-                gameState.save?.seasonStartOverallByPlayerId[p.id];
-            final seasonDelta =
-                seasonStart != null ? p.overall - seasonStart : null;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                children: [
-                  Text(
-                    '潜在能力到達度: ${potentialProgress.toStringAsFixed(0)}%',
-                    style: const TextStyle(fontSize: 12, color: Colors.purple),
-                  ),
-                  if (seasonDelta != null) ...[
-                    const SizedBox(width: 12),
+          Builder(
+            builder: (context) {
+              final potentialProgress = p.potential > 0
+                  ? (p.overall / p.potential * 100).clamp(0, 100)
+                  : 0.0;
+              final seasonStart =
+                  gameState.save?.seasonStartOverallByPlayerId[p.id];
+              final seasonDelta =
+                  seasonStart != null ? p.overall - seasonStart : null;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
                     Text(
-                      '今シーズンの成長: ${seasonDelta > 0 ? '+' : ''}$seasonDelta',
-                      style: TextStyle(
+                      '潜在能力到達度: ${potentialProgress.toStringAsFixed(0)}%',
+                      style: const TextStyle(
                         fontSize: 12,
-                        color: seasonDelta > 0 ? Colors.green : Colors.grey,
-                        fontWeight: seasonDelta > 0
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                        color: Colors.purple,
                       ),
                     ),
+                    if (seasonDelta != null) ...[
+                      const SizedBox(width: 12),
+                      Text(
+                        '今シーズンの成長: ${seasonDelta > 0 ? '+' : ''}$seasonDelta',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: seasonDelta > 0 ? Colors.green : Colors.grey,
+                          fontWeight: seasonDelta > 0
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
-              ),
-            );
-          }),
+                ),
+              );
+            },
+          ),
           Text('市場価値: ${p.marketValue}万円'),
-          Builder(builder: (context) {
-            final b = p.marketValueBreakdown;
-            return Text(
-              '内訳: 基礎${b.base.round()}万円 + 伸びしろ${b.potentialBonus.round()}万円 を'
-              '年齢×${b.ageFactor.toStringAsFixed(2)} 性格×${b.personalityFactor.toStringAsFixed(2)} '
-              '統率力×${b.leadershipFactor.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
-            );
-          }),
+          Builder(
+            builder: (context) {
+              final b = p.marketValueBreakdown;
+              return Text(
+                '内訳: 基礎${b.base.round()}万円 + 伸びしろ${b.potentialBonus.round()}万円 を'
+                '年齢×${b.ageFactor.toStringAsFixed(2)} 性格×${b.personalityFactor.toStringAsFixed(2)} '
+                '統率力×${b.leadershipFactor.toStringAsFixed(2)}',
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              );
+            },
+          ),
           Text(
             p.isLoan
                 ? '週俸: ${p.wage}万円 / ローン残り${p.loanWeeksRemaining}週'
                 : '週俸: ${p.wage}万円 / ${ContractEngine.yearsLabel(p.contractYearsRemaining)}',
           ),
           if (p.releaseClause != null)
-            Text('リリース条項: ${p.releaseClause}万円',
-                style: const TextStyle(color: Colors.deepPurple)),
+            Text(
+              'リリース条項: ${p.releaseClause}万円',
+              style: const TextStyle(color: Colors.deepPurple),
+            ),
           const SizedBox(height: 4),
-          Text(p.personality.description,
-              style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          Text(
+            p.personality.description,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
           Text(
             p.wantsTransfer
                 ? '不満度${p.happiness}が移籍希望ライン(${p.personality.transferRequestThreshold}未満)を下回っており、移籍を希望している'
@@ -326,30 +356,42 @@ class PlayerDetailScreen extends StatelessWidget {
           ),
           if (p.role != PlayerRole.standard) ...[
             const SizedBox(height: 4),
-            Text('ロール: ${p.role.label} — ${p.role.description}',
-                style: const TextStyle(fontSize: 12, color: Colors.teal)),
+            Text(
+              'ロール: ${p.role.label} — ${p.role.description}',
+              style: const TextStyle(fontSize: 12, color: Colors.teal),
+            ),
           ],
           if (p.trait != null) ...[
             const SizedBox(height: 4),
-            Text('特性: ${p.trait!.label} — ${p.trait!.description}',
-                style: const TextStyle(fontSize: 12, color: Colors.deepOrange)),
+            Text(
+              '特性: ${p.trait!.label} — ${p.trait!.description}',
+              style: const TextStyle(fontSize: 12, color: Colors.deepOrange),
+            ),
           ],
           if (p.growthType != PlayerGrowthType.balanced) ...[
             const SizedBox(height: 4),
-            Text('成長タイプ: ${p.growthType.label} — ${p.growthType.description}',
-                style: const TextStyle(fontSize: 12, color: Colors.indigo)),
+            Text(
+              '成長タイプ: ${p.growthType.label} — ${p.growthType.description}',
+              style: const TextStyle(fontSize: 12, color: Colors.indigo),
+            ),
           ],
           if (latestGrowth != null && latestGrowth.isBreakthrough) ...[
             const SizedBox(height: 4),
-            const Text('★ 今週、才能開花が発生しました！',
-                style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.amber,
-                    fontWeight: FontWeight.bold)),
+            const Text(
+              '★ 今週、才能開花が発生しました！',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.amber,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
           const SizedBox(height: 12),
           _MatchImpactSummary(
-              player: p, isStarting: isStarting, assignedSlot: assignedSlot),
+            player: p,
+            isStarting: isStarting,
+            assignedSlot: assignedSlot,
+          ),
           const SizedBox(height: 16),
           Text('選手を操作', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
@@ -384,8 +426,10 @@ class PlayerDetailScreen extends StatelessWidget {
               ),
             )
           else ...[
-            Text('現在の出場手当: ${p.appearanceFee}万円/試合',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(
+              '現在の出場手当: ${p.appearanceFee}万円/試合',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
             const SizedBox(height: 8),
             FilledButton(
               onPressed: gameState.save!.budget < totalRenewalCost
@@ -401,9 +445,11 @@ class PlayerDetailScreen extends StatelessWidget {
             OutlinedButton.icon(
               icon: const Icon(Icons.handshake_outlined),
               onPressed: () => _negotiate(context, isNegotiatingThisPlayer),
-              label: Text(isNegotiatingThisPlayer
-                  ? '交渉を続ける（選手の対案: ${negotiation.counterWage}万円/週）'
-                  : '週俸交渉で更新する'),
+              label: Text(
+                isNegotiatingThisPlayer
+                    ? '交渉を続ける（選手の対案: ${negotiation.counterWage}万円/週）'
+                    : '週俸交渉で更新する',
+              ),
             ),
             const SizedBox(height: 8),
             OutlinedButton(
@@ -411,9 +457,11 @@ class PlayerDetailScreen extends StatelessWidget {
                       !gameState.isTransferWindowOpen)
                   ? null
                   : () => _confirmSell(context, netReleaseValue),
-              child: Text(netReleaseValue >= 0
-                  ? '放出する（$netReleaseValue万円 獲得）'
-                  : '放出する（違約金${-netReleaseValue}万円 支払い）'),
+              child: Text(
+                netReleaseValue >= 0
+                    ? '放出する（$netReleaseValue万円 獲得）'
+                    : '放出する（違約金${-netReleaseValue}万円 支払い）',
+              ),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
@@ -435,8 +483,10 @@ class PlayerDetailScreen extends StatelessWidget {
             ),
             if (!gameState.isTransferWindowOpen) ...[
               const SizedBox(height: 4),
-              Text(gameState.transferWindowStatusLabel,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text(
+                gameState.transferWindowStatusLabel,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
             ],
           ],
           const SizedBox(height: 8),
@@ -444,9 +494,11 @@ class PlayerDetailScreen extends StatelessWidget {
             icon: const Icon(Icons.chat_bubble_outline),
             onPressed:
                 p.reassureCooldownWeeks > 0 ? null : () => _reassure(context),
-            label: Text(p.reassureCooldownWeeks > 0
-                ? '話し合う（あと${p.reassureCooldownWeeks}週は待つ必要がある）'
-                : '話し合う（不満度を和らげる）'),
+            label: Text(
+              p.reassureCooldownWeeks > 0
+                  ? '話し合う（あと${p.reassureCooldownWeeks}週は待つ必要がある）'
+                  : '話し合う（不満度を和らげる）',
+            ),
           ),
           if (!p.isLoan && !p.isLoanedOut) ...[
             const SizedBox(height: 8),
@@ -454,8 +506,9 @@ class PlayerDetailScreen extends StatelessWidget {
               icon: const Icon(Icons.gavel),
               onPressed: () =>
                   _editReleaseClause(context, p.releaseClause, p.marketValue),
-              label:
-                  Text(p.releaseClause == null ? 'リリース条項を設定する' : 'リリース条項を変更する'),
+              label: Text(
+                p.releaseClause == null ? 'リリース条項を設定する' : 'リリース条項を変更する',
+              ),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
@@ -471,11 +524,13 @@ class PlayerDetailScreen extends StatelessWidget {
               icon: const Icon(Icons.shield_outlined),
               onPressed: () {
                 FeedbackService.tap();
-                gameState
-                    .setViceCaptain(team.viceCaptainId == p.id ? null : p.id);
+                gameState.setViceCaptain(
+                  team.viceCaptainId == p.id ? null : p.id,
+                );
               },
               label: Text(
-                  team.viceCaptainId == p.id ? '副キャプテンを解任する' : '副キャプテンに任命する'),
+                team.viceCaptainId == p.id ? '副キャプテンを解任する' : '副キャプテンに任命する',
+              ),
             ),
           ],
           const Divider(height: 32),
@@ -486,14 +541,23 @@ class PlayerDetailScreen extends StatelessWidget {
           const Divider(height: 32),
           StatBar(label: '潜在能力', value: p.potential, color: Colors.purple),
           StatBar(
-              label: '疲労', value: p.fatigue, max: 100, color: Colors.redAccent),
+            label: '疲労',
+            value: p.fatigue,
+            max: 100,
+            color: Colors.redAccent,
+          ),
           StatBar(
-              label: '士気', value: p.morale, max: 100, color: Colors.blueAccent),
+            label: '士気',
+            value: p.morale,
+            max: 100,
+            color: Colors.blueAccent,
+          ),
           StatBar(
-              label: 'マッチシャープネス',
-              value: p.matchSharpness,
-              max: 100,
-              color: Colors.teal),
+            label: 'マッチシャープネス',
+            value: p.matchSharpness,
+            max: 100,
+            color: Colors.teal,
+          ),
           StatBar(
             label: '不満度(高いほど満足)',
             value: p.happiness,
@@ -511,14 +575,19 @@ class PlayerDetailScreen extends StatelessWidget {
                   Theme.of(context).copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
                 title: Text('${category.label}（${category.keys.length}項目）'),
-                initiallyExpanded: true,
+                subtitle: Text(
+                  '平均 ${(category.keys.fold<int>(0, (s, k) => s + p.attributeValue(k)) / category.keys.length).round()}',
+                  style: const TextStyle(color: Colors.grey),
+                ),
+                initiallyExpanded: false,
                 children: [
                   for (final key in category.keys)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: StatBar(
-                          label: AttributeKeys.labelOf(key),
-                          value: p.attributeValue(key)),
+                        label: AttributeKeys.labelOf(key),
+                        value: p.attributeValue(key),
+                      ),
                     ),
                 ],
               ),
@@ -563,8 +632,9 @@ class PlayerDetailScreen extends StatelessWidget {
     final gameState = context.read<GameState>();
     final negotiation = gameState.pendingContractNegotiation;
     if (negotiation == null) return;
-    final controller =
-        TextEditingController(text: negotiation.counterWage.toString());
+    final controller = TextEditingController(
+      text: negotiation.counterWage.toString(),
+    );
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -574,11 +644,14 @@ class PlayerDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('現在の週俸: ${negotiation.initialWage}万円'),
-            Text('選手の対案: ${negotiation.counterWage}万円/週',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
             Text(
-                '交渉回数: ${negotiation.roundsUsed}/${ContractEngine.maxNegotiationRounds}',
-                style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              '選手の対案: ${negotiation.counterWage}万円/週',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Text(
+              '交渉回数: ${negotiation.roundsUsed}/${ContractEngine.maxNegotiationRounds}',
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
@@ -614,13 +687,14 @@ class PlayerDetailScreen extends StatelessWidget {
   }
 
   void _showNegotiationResultSnackBar(
-      BuildContext context, ContractOfferResult result) {
+    BuildContext context,
+    ContractOfferResult result,
+  ) {
     switch (result) {
       case ContractOfferResult.accepted:
         FeedbackService.success();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('週俸交渉が成立し、契約を更新しました')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('週俸交渉が成立し、契約を更新しました')));
         break;
       case ContractOfferResult.countered:
         FeedbackService.tap();
@@ -630,15 +704,15 @@ class PlayerDetailScreen extends StatelessWidget {
         break;
       case ContractOfferResult.insufficientFunds:
         FeedbackService.error();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('資金が不足しており契約を更新できませんでした')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('資金が不足しており契約を更新できませんでした')));
         break;
       case ContractOfferResult.walkedAway:
         FeedbackService.error();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('選手は交渉に納得できず、交渉から離脱しました')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('選手は交渉に納得できず、交渉から離脱しました')));
         break;
     }
   }
@@ -650,15 +724,16 @@ class PlayerDetailScreen extends StatelessWidget {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content:
-                Text(ok ? '買取オプションを行使し、完全移籍が成立しました' : '買取オプションを行使できませんでした')),
+          content: Text(ok ? '買取オプションを行使し、完全移籍が成立しました' : '買取オプションを行使できませんでした'),
+        ),
       );
     }
   }
 
   void _editReleaseClause(BuildContext context, int? current, int marketValue) {
-    final controller =
-        TextEditingController(text: (current ?? marketValue).toString());
+    final controller = TextEditingController(
+      text: (current ?? marketValue).toString(),
+    );
     final gameState = context.read<GameState>();
     showDialog<void>(
       context: context,
@@ -696,8 +771,9 @@ class PlayerDetailScreen extends StatelessWidget {
                   child: const Text('解除する'),
                 ),
               TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('キャンセル')),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('キャンセル'),
+              ),
               FilledButton(
                 onPressed: !isValid
                     ? null
@@ -740,8 +816,9 @@ class PlayerDetailScreen extends StatelessWidget {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('キャンセル')),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('キャンセル'),
+            ),
             FilledButton(
               onPressed: () async {
                 Navigator.pop(ctx);
@@ -766,12 +843,16 @@ class PlayerDetailScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('この選手を放出しますか？'),
-        content: Text(netReleaseValue >= 0
-            ? '$netReleaseValue万円を獲得しますが、元には戻せません。'
-            : '違約金として${-netReleaseValue}万円を支払うことになりますが、元には戻せません。'),
+        content: Text(
+          netReleaseValue >= 0
+              ? '$netReleaseValue万円を獲得しますが、元には戻せません。'
+              : '違約金として${-netReleaseValue}万円を支払うことになりますが、元には戻せません。',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル'),
+          ),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
@@ -827,23 +908,31 @@ class _MatchImpactSummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('試合への影響(定量)',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 6),
-          Text('ロール適性: 攻撃${pct(roleAttack)} / 守備${pct(roleDefense)}',
-              style: const TextStyle(fontSize: 12)),
           Text(
-              'デューティ(${player.duty.label}): 攻撃${pct(dutyAttack)} / 守備${pct(dutyDefense)}',
-              style: const TextStyle(fontSize: 12)),
+            '試合への影響(定量)',
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium
+                ?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'ロール適性: 攻撃${pct(roleAttack)} / 守備${pct(roleDefense)}',
+            style: const TextStyle(fontSize: 12),
+          ),
+          Text(
+            'デューティ(${player.duty.label}): 攻撃${pct(dutyAttack)} / 守備${pct(dutyDefense)}',
+            style: const TextStyle(fontSize: 12),
+          ),
           if (positionFit != null && positionFit != 1.0)
-            Text('ポジション適性(${assignedSlot.label}で起用中): ${pct(positionFit)}',
-                style: TextStyle(
-                    fontSize: 12,
-                    color: SemanticColors.negative(context),
-                    fontWeight: FontWeight.bold)),
+            Text(
+              'ポジション適性(${assignedSlot.label}で起用中): ${pct(positionFit)}',
+              style: TextStyle(
+                fontSize: 12,
+                color: SemanticColors.negative(context),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
         ],
       ),
     );

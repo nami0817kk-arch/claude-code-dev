@@ -5,8 +5,11 @@ class _OnboardingSlide {
   final String title;
   final String description;
 
-  const _OnboardingSlide(
-      {required this.icon, required this.title, required this.description});
+  const _OnboardingSlide({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
 }
 
 const _slides = [
@@ -78,9 +81,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(slide.icon,
-                            size: 96,
-                            color: Theme.of(context).colorScheme.primary),
+                        Icon(
+                          slide.icon,
+                          size: 96,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                         const SizedBox(height: 32),
                         Text(
                           slide.title,

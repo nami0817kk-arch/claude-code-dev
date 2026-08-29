@@ -7,11 +7,12 @@ class BusyOverlay extends StatelessWidget {
   final String label;
   final Widget child;
 
-  const BusyOverlay(
-      {super.key,
-      required this.visible,
-      required this.child,
-      this.label = '処理中…'});
+  const BusyOverlay({
+    super.key,
+    required this.visible,
+    required this.child,
+    this.label = '処理中…',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +28,9 @@ class BusyOverlay extends StatelessWidget {
                   child: Card(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 28, vertical: 24),
+                        horizontal: 28,
+                        vertical: 24,
+                      ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [

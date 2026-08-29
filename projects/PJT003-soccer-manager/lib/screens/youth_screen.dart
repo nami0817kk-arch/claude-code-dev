@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../logic/scouting_engine.dart';
 import '../models/player.dart';
 import '../models/training_focus.dart';
@@ -55,8 +56,10 @@ class YouthScreen extends StatefulWidget {
         players.sort((a, b) => a.age.compareTo(b.age));
         break;
       case YouthSortOption.wonderkidGap:
-        players.sort((a, b) =>
-            (b.potential - b.overall).compareTo(a.potential - a.overall));
+        players.sort(
+          (a, b) =>
+              (b.potential - b.overall).compareTo(a.potential - a.overall),
+        );
         break;
     }
     return players;
@@ -88,13 +91,21 @@ class _YouthScreenState extends State<YouthScreen> {
     final refreshCost = gameState.scoutRefreshCost;
     final canRefresh = save.budget >= refreshCost;
 
-    final prospects = YouthScreen.filterAndSort(save.youthProspects,
-        group: _filter, query: _query, sort: _sort);
+    final prospects = YouthScreen.filterAndSort(
+      save.youthProspects,
+      group: _filter,
+      query: _query,
+      sort: _sort,
+    );
     final canScout =
         save.budget >= scoutCost && save.youthProspects.length < maxProspects;
 
-    final candidates = YouthScreen.filterAndSort(gameState.scoutCandidates,
-        group: _filter, query: _query, sort: _sort);
+    final candidates = YouthScreen.filterAndSort(
+      gameState.scoutCandidates,
+      group: _filter,
+      query: _query,
+      sort: _sort,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -111,8 +122,10 @@ class _YouthScreenState extends State<YouthScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('資金: ${save.budget}万円',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    '資金: ${save.budget}万円',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   Text('昇格枠: ${save.youthProspects.length}/$maxProspects'),
                 ],
               ),
@@ -186,55 +199,75 @@ class _YouthScreenState extends State<YouthScreen> {
             if (candidates.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child:
-                    Text('該当する候補選手はいません', style: TextStyle(color: Colors.grey)),
+                child: Text(
+                  '該当する候補選手はいません',
+                  style: TextStyle(color: Colors.grey),
+                ),
               )
             else
               for (final p in candidates)
-                Builder(builder: (context) {
-                  final range = ScoutingEngine.estimatedPotentialRange(p,
-                      scoutLevel: gameState.scoutLevel);
-                  final maybeWonderkid = range.$2 - p.overall >= _wonderkidGap;
-                  return Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: Card(
-                      child: ListTile(
-                        leading: PlayerFaceAvatar(
-                            playerId: p.id, position: p.position),
-                        title: Row(
-                          children: [
-                            Flexible(
-                                child: Text(p.name,
-                                    overflow: TextOverflow.ellipsis)),
-                            if (maybeWonderkid) ...[
-                              const SizedBox(width: 6),
-                              const Tooltip(
-                                message:
-                                    'ワンダーキッドの可能性あり(推定潜在能力の上限が高い。獲得するまで確定情報ではない)',
-                                child: Icon(Icons.auto_awesome,
-                                    size: 14, color: Colors.amber),
+                Builder(
+                  builder: (context) {
+                    final range = ScoutingEngine.estimatedPotentialRange(
+                      p,
+                      scoutLevel: gameState.scoutLevel,
+                    );
+                    final maybeWonderkid =
+                        range.$2 - p.overall >= _wonderkidGap;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      child: Card(
+                        child: ListTile(
+                          leading: PlayerFaceAvatar(
+                            playerId: p.id,
+                            position: p.position,
+                          ),
+                          title: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  p.name,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
+                              if (maybeWonderkid) ...[
+                                const SizedBox(width: 6),
+                                const Tooltip(
+                                  message:
+                                      'ワンダーキッドの可能性あり(推定潜在能力の上限が高い。獲得するまで確定情報ではない)',
+                                  child: Icon(
+                                    Icons.auto_awesome,
+                                    size: 14,
+                                    color: Colors.amber,
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                        subtitle: Text(
+                          ),
+                          subtitle: Text(
                             '${p.age}歳 / ${p.position.label} / 総合 ${p.overall} / '
-                            '潜在(推定) ${range.$1}〜${range.$2} / 成長 ${p.growthType.label}'),
-                        trailing: FilledButton(
-                          onPressed:
-                              canScout ? () => _scout(context, p.id) : null,
-                          child: const Text('獲得'),
+                            '潜在(推定) ${range.$1}〜${range.$2} / 成長 ${p.growthType.label}',
+                          ),
+                          trailing: FilledButton(
+                            onPressed:
+                                canScout ? () => _scout(context, p.id) : null,
+                            child: const Text('獲得'),
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                }),
+                    );
+                  },
+                ),
             const Divider(height: 32),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child:
-                  Text('昇格候補', style: Theme.of(context).textTheme.titleMedium),
+              child: Text(
+                '昇格候補',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -248,32 +281,46 @@ class _YouthScreenState extends State<YouthScreen> {
             const SizedBox(height: 8),
             if (prospects.isEmpty)
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(save.youthProspects.isEmpty
-                    ? '現在、昇格候補はいません'
-                    : '該当する昇格候補はいません'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Text(
+                  save.youthProspects.isEmpty
+                      ? '現在、昇格候補はいません'
+                      : '該当する昇格候補はいません',
+                ),
               )
             else
               for (final p in prospects)
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
                   child: Card(
                     child: ListTile(
                       leading: PlayerFaceAvatar(
-                          playerId: p.id, position: p.position),
+                        playerId: p.id,
+                        position: p.position,
+                      ),
                       title: Row(
                         children: [
                           Flexible(
-                              child: Text(p.name,
-                                  overflow: TextOverflow.ellipsis)),
+                            child: Text(
+                              p.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                           if (p.potential - p.overall >= _wonderkidGap) ...[
                             const SizedBox(width: 6),
                             const Tooltip(
                               message: 'ワンダーキッド(潜在能力が現在能力を大きく上回る逸材)',
-                              child: Icon(Icons.auto_awesome,
-                                  size: 14, color: Colors.amber),
+                              child: Icon(
+                                Icons.auto_awesome,
+                                size: 14,
+                                color: Colors.amber,
+                              ),
                             ),
                           ],
                         ],
@@ -282,18 +329,25 @@ class _YouthScreenState extends State<YouthScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                              '${p.age}歳 / 総合 ${p.overall} / 潜在 ${p.potential} / 成長 ${p.growthType.label}'),
+                            '${p.age}歳 / 総合 ${p.overall} / 潜在 ${p.potential} / 成長 ${p.growthType.label}',
+                          ),
                           Row(
                             children: [
-                              const Text('育成方針: ',
-                                  style: TextStyle(fontSize: 12)),
+                              const Text(
+                                '育成方針: ',
+                                style: TextStyle(fontSize: 12),
+                              ),
                               DropdownButton<TrainingFocus?>(
                                 value: p.individualFocus,
                                 isDense: true,
                                 style: const TextStyle(
-                                    fontSize: 12, color: Colors.black87),
-                                hint: const Text('ポジション別(既定)',
-                                    style: TextStyle(fontSize: 12)),
+                                  fontSize: 12,
+                                  color: Colors.black87,
+                                ),
+                                hint: const Text(
+                                  'ポジション別(既定)',
+                                  style: TextStyle(fontSize: 12),
+                                ),
                                 items: [
                                   const DropdownMenuItem<TrainingFocus?>(
                                     value: null,
@@ -314,7 +368,9 @@ class _YouthScreenState extends State<YouthScreen> {
                                   context
                                       .read<GameState>()
                                       .setYouthProspectTrainingFocus(
-                                          p.id, focus);
+                                        p.id,
+                                        focus,
+                                      );
                                 },
                               ),
                             ],
@@ -369,7 +425,10 @@ class _YouthScreenState extends State<YouthScreen> {
   }
 
   Future<void> _promote(
-      BuildContext context, String playerId, String name) async {
+    BuildContext context,
+    String playerId,
+    String name,
+  ) async {
     final ok = await context.read<GameState>().promoteYouthProspect(playerId);
     ok ? FeedbackService.success() : FeedbackService.error();
     if (context.mounted) {
@@ -387,7 +446,9 @@ class _YouthScreenState extends State<YouthScreen> {
         content: Text('$nameを手放します。この操作は元に戻せません。'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル'),
+          ),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);

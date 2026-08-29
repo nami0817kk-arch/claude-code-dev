@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import '../models/player.dart';
 import 'player_generator.dart';
 
@@ -16,7 +17,10 @@ class FreeAgentEngine {
     final tier = 40 + _rng.nextInt(36);
     final age = 27 + _rng.nextInt(9);
     final player = PlayerGenerator.generate(
-        position: position, strengthTier: tier, ageOverride: age);
+      position: position,
+      strengthTier: tier,
+      ageOverride: age,
+    );
     player.contractYearsRemaining = 0;
     return player;
   }

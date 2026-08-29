@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/player.dart';
 import '../state/game_state.dart';
 import '../widgets/player_face_avatar.dart';
@@ -58,19 +59,26 @@ class _LegendCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading:
-            PlayerFaceAvatar(playerId: player.id, position: player.position),
+        leading: PlayerFaceAvatar(
+          playerId: player.id,
+          position: player.position,
+        ),
         title: Text(player.name),
         subtitle: Text(
-            '${player.position.fullLabel} ・ 引退時${player.age}歳 ・ 総合${player.overall}'),
+          '${player.position.fullLabel} ・ 引退時${player.age}歳 ・ 総合${player.overall}',
+        ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text('${player.careerAppearances}試合',
-                style: const TextStyle(fontSize: 12)),
-            Text('${player.careerGoals}得点',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(
+              '${player.careerAppearances}試合',
+              style: const TextStyle(fontSize: 12),
+            ),
+            Text(
+              '${player.careerGoals}得点',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ],
         ),
       ),

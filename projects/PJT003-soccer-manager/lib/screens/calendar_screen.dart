@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../logic/calendar_engine.dart';
 import '../state/game_state.dart';
 import '../widgets/quick_access_drawer.dart';
@@ -31,10 +32,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final today = gameState.currentDate;
 
     final firstOfMonth = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
-    final lastOfMonth =
-        DateTime(_visibleMonth.year, _visibleMonth.month + 1, 0);
-    final gridStart =
-        firstOfMonth.subtract(Duration(days: firstOfMonth.weekday - 1));
+    final lastOfMonth = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month + 1,
+      0,
+    );
+    final gridStart = firstOfMonth.subtract(
+      Duration(days: firstOfMonth.weekday - 1),
+    );
     final gridEnd = lastOfMonth.add(Duration(days: 7 - lastOfMonth.weekday));
 
     final days = CalendarEngine.buildRange(
@@ -67,17 +72,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   IconButton(
                     icon: const Icon(Icons.chevron_left),
                     onPressed: () => setState(() {
-                      _visibleMonth =
-                          DateTime(_visibleMonth.year, _visibleMonth.month - 1);
+                      _visibleMonth = DateTime(
+                        _visibleMonth.year,
+                        _visibleMonth.month - 1,
+                      );
                     }),
                   ),
-                  Text('${_visibleMonth.year}年${_visibleMonth.month}月',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    '${_visibleMonth.year}年${_visibleMonth.month}月',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   IconButton(
                     icon: const Icon(Icons.chevron_right),
                     onPressed: () => setState(() {
-                      _visibleMonth =
-                          DateTime(_visibleMonth.year, _visibleMonth.month + 1);
+                      _visibleMonth = DateTime(
+                        _visibleMonth.year,
+                        _visibleMonth.month + 1,
+                      );
                     }),
                   ),
                 ],
@@ -90,15 +101,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   for (final label in const ['月', '火', '水', '木', '金', '土', '日'])
                     Expanded(
                       child: Center(
-                        child: Text(label,
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: label == '土'
-                                    ? Colors.blue.shade700
-                                    : label == '日'
-                                        ? Colors.red.shade700
-                                        : Colors.grey.shade700)),
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: label == '土'
+                                ? Colors.blue.shade700
+                                : label == '日'
+                                    ? Colors.red.shade700
+                                    : Colors.grey.shade700,
+                          ),
+                        ),
                       ),
                     ),
                 ],
@@ -139,8 +153,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
         '${day.date.month}/${day.date.day}(${CalendarEngine.weekdayLabel(day.date.weekday)})';
     final messages = <String>[];
     if (day.isLeagueMatchDay) {
-      messages.add('第${day.matchday}節 ${day.isHomeMatch ? '(H)' : '(A)'} '
-          'vs ${day.opponentName ?? '未定'}');
+      messages.add(
+        '第${day.matchday}節 ${day.isHomeMatch ? '(H)' : '(A)'} '
+        'vs ${day.opponentName ?? '未定'}',
+      );
     } else if (day.isTrainingFocusDay) {
       messages.add('重点トレーニング日');
     } else {
@@ -170,18 +186,22 @@ class _CalendarDayCell extends StatelessWidget {
     Color? background;
     Widget? marker;
     if (day.isLeagueMatchDay) {
-      background = (day.isHomeMatch ? Colors.blue : Colors.grey)
-          .withValues(alpha: dimmed ? 0.12 : 0.22);
-      marker = Icon(Icons.sports_soccer,
-          size: 14,
-          color: (day.isHomeMatch ? Colors.blue.shade700 : Colors.grey.shade700)
-              .withValues(alpha: dimmed ? 0.5 : 1));
+      background = (day.isHomeMatch ? Colors.blue : Colors.grey).withValues(
+        alpha: dimmed ? 0.12 : 0.22,
+      );
+      marker = Icon(
+        Icons.sports_soccer,
+        size: 14,
+        color: (day.isHomeMatch ? Colors.blue.shade700 : Colors.grey.shade700)
+            .withValues(alpha: dimmed ? 0.5 : 1),
+      );
     } else if (day.isTrainingFocusDay) {
       background = Colors.deepOrange.withValues(alpha: dimmed ? 0.08 : 0.14);
-      marker = Icon(Icons.fitness_center,
-          size: 14,
-          color:
-              Colors.deepOrange.shade400.withValues(alpha: dimmed ? 0.5 : 1));
+      marker = Icon(
+        Icons.fitness_center,
+        size: 14,
+        color: Colors.deepOrange.shade400.withValues(alpha: dimmed ? 0.5 : 1),
+      );
     }
 
     return InkWell(
@@ -218,10 +238,13 @@ class _CalendarDayCell extends StatelessWidget {
               Positioned(
                 top: 0,
                 right: 0,
-                child: Icon(Icons.emoji_events,
-                    size: 12,
-                    color: Colors.amber.shade700
-                        .withValues(alpha: dimmed ? 0.5 : 1)),
+                child: Icon(
+                  Icons.emoji_events,
+                  size: 12,
+                  color: Colors.amber.shade700.withValues(
+                    alpha: dimmed ? 0.5 : 1,
+                  ),
+                ),
               ),
           ],
         ),

@@ -46,7 +46,8 @@ class ContractEngine {
   /// 選手(事前警告用)をそれぞれ返す(UI通知用)。ローン選手は対象外
   /// (ローン期間は個別合意された週数で管理し、[advanceLoanWeek]で扱う)。
   static ({List<Player> expired, List<Player> nearingExpiry}) advanceSeason(
-      Team team) {
+    Team team,
+  ) {
     final expired = <Player>[];
     final nearingExpiry = <Player>[];
     for (final p in List<Player>.from(team.players)) {

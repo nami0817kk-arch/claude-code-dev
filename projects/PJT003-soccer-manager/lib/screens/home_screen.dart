@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../data/quick_access_destinations.dart';
 import '../logic/calendar_engine.dart';
 import '../logic/match_engine.dart' show HalfResult;
@@ -83,14 +84,17 @@ class HomeScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                              '${gameState.leagueDisplayName} シーズン${league.season}',
-                              style: Theme.of(context).textTheme.titleMedium),
+                            '${gameState.leagueDisplayName} シーズン${league.season}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
                           Chip(label: Text(userTeam.formation.label)),
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text('目標: ${save.boardTargetRank}位以内',
-                          style: TextStyle(color: scheme.onSurfaceVariant)),
+                      Text(
+                        '目標: ${save.boardTargetRank}位以内',
+                        style: TextStyle(color: scheme.onSurfaceVariant),
+                      ),
                     ],
                   ),
                 ),
@@ -168,11 +172,13 @@ class HomeScreen extends StatelessWidget {
                           children: [
                             Icon(Icons.gavel, color: Colors.indigo.shade700),
                             const SizedBox(width: 8),
-                            Text('シーズン中盤 理事会レビュー',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleSmall
-                                    ?.copyWith(color: Colors.indigo.shade900)),
+                            Text(
+                              'シーズン中盤 理事会レビュー',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleSmall
+                                  ?.copyWith(color: Colors.indigo.shade900),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -223,11 +229,14 @@ class HomeScreen extends StatelessWidget {
                     leading: const Icon(Icons.emoji_people),
                     title: const Text('ユースインテーク'),
                     subtitle: Text(
-                        '${gameState.pendingYouthIntake.length}名の新人候補が加入を待っています'),
+                      '${gameState.pendingYouthIntake.length}名の新人候補が加入を待っています',
+                    ),
                     trailing: FilledButton(
                       onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                              builder: (_) => const YouthIntakeScreen())),
+                        MaterialPageRoute(
+                          builder: (_) => const YouthIntakeScreen(),
+                        ),
+                      ),
                       child: const Text('選抜する'),
                     ),
                   ),
@@ -239,8 +248,10 @@ class HomeScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('移籍オファー',
-                            style: Theme.of(context).textTheme.titleSmall),
+                        Text(
+                          '移籍オファー',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
                         for (final entry in _groupOffersByPlayer(gameState))
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -253,9 +264,10 @@ class HomeScreen extends StatelessWidget {
                                     child: Text(
                                       '${entry.first.playerName}に競合オファー',
                                       style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.orange.shade800),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange.shade800,
+                                      ),
                                     ),
                                   ),
                                 for (int i = 0; i < entry.length; i++)
@@ -264,17 +276,23 @@ class HomeScreen extends StatelessWidget {
                                       if (entry.length > 1 && i == 0)
                                         const Padding(
                                           padding: EdgeInsets.only(right: 4),
-                                          child: Icon(Icons.star,
-                                              size: 14, color: Colors.amber),
+                                          child: Icon(
+                                            Icons.star,
+                                            size: 14,
+                                            color: Colors.amber,
+                                          ),
                                         ),
                                       Expanded(
-                                          child: Text(
-                                              '${entry[i].buyerClubName}が${entry[i].playerName}に${entry[i].amount}万円')),
+                                        child: Text(
+                                          '${entry[i].buyerClubName}が${entry[i].playerName}に${entry[i].amount}万円',
+                                        ),
+                                      ),
                                       TextButton(
                                         onPressed: () {
                                           FeedbackService.tap();
                                           gameState.declineIncomingOffer(
-                                              entry[i].id);
+                                            entry[i].id,
+                                          );
                                         },
                                         child: const Text('拒否'),
                                       ),
@@ -283,7 +301,9 @@ class HomeScreen extends StatelessWidget {
                                             !gameState.isTransferWindowOpen
                                                 ? null
                                                 : () => _confirmAcceptOffer(
-                                                    context, entry[i]),
+                                                      context,
+                                                      entry[i],
+                                                    ),
                                         child: const Text('承諾'),
                                       ),
                                     ],
@@ -303,8 +323,10 @@ class HomeScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('親善試合',
-                            style: Theme.of(context).textTheme.titleSmall),
+                        Text(
+                          '親善試合',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
                         for (int i = 0; i < save.friendlies.length; i++)
                           if (save.friendlies[i].result == null)
                             Padding(
@@ -312,8 +334,10 @@ class HomeScreen extends StatelessWidget {
                               child: Row(
                                 children: [
                                   Expanded(
-                                      child: Text(_fixtureLabel(
-                                          league, save.friendlies[i]))),
+                                    child: Text(
+                                      _fixtureLabel(league, save.friendlies[i]),
+                                    ),
+                                  ),
                                   OutlinedButton(
                                     onPressed: () => _playFriendly(context, i),
                                     child: const Text('開催'),
@@ -352,11 +376,13 @@ class HomeScreen extends StatelessWidget {
                                   ? next.awayTeamId
                                   : next.homeTeamId,
                               teamName: league.teams
-                                  .firstWhere((t) =>
-                                      t.id ==
-                                      (next.homeTeamId == userTeam.id
-                                          ? next.awayTeamId
-                                          : next.homeTeamId))
+                                  .firstWhere(
+                                    (t) =>
+                                        t.id ==
+                                        (next.homeTeamId == userTeam.id
+                                            ? next.awayTeamId
+                                            : next.homeTeamId),
+                                  )
                                   .name,
                               size: 40,
                             ),
@@ -371,11 +397,14 @@ class HomeScreen extends StatelessWidget {
                                       if (gameState.isRivalFixture(next)) ...[
                                         const SizedBox(width: 6),
                                         const Chip(
-                                          label: Text('ダービー',
-                                              style: TextStyle(fontSize: 11)),
+                                          label: Text(
+                                            'ダービー',
+                                            style: TextStyle(fontSize: 11),
+                                          ),
                                           backgroundColor: Colors.redAccent,
-                                          labelStyle:
-                                              TextStyle(color: Colors.white),
+                                          labelStyle: TextStyle(
+                                            color: Colors.white,
+                                          ),
                                           visualDensity: VisualDensity.compact,
                                           materialTapTargetSize:
                                               MaterialTapTargetSize.shrinkWrap,
@@ -383,9 +412,10 @@ class HomeScreen extends StatelessWidget {
                                       ],
                                     ],
                                   ),
-                                  Text(_fixtureLabel(league, next),
-                                      style:
-                                          const TextStyle(color: Colors.grey)),
+                                  Text(
+                                    _fixtureLabel(league, next),
+                                    style: const TextStyle(color: Colors.grey),
+                                  ),
                                 ],
                               ),
                             ),
@@ -403,13 +433,17 @@ class HomeScreen extends StatelessWidget {
                             TextButton(
                               onPressed: () =>
                                   _quickSimNextMatch(context, next),
-                              child: const Text('結果だけ見る',
-                                  style: TextStyle(fontSize: 12)),
+                              child: const Text(
+                                '結果だけ見る',
+                                style: TextStyle(fontSize: 12),
+                              ),
                             ),
                             TextButton(
                               onPressed: () => _showScoutReport(context, next),
-                              child: const Text('偵察レポート',
-                                  style: TextStyle(fontSize: 12)),
+                              child: const Text(
+                                '偵察レポート',
+                                style: TextStyle(fontSize: 12),
+                              ),
                             ),
                           ],
                         ),
@@ -448,8 +482,10 @@ class HomeScreen extends StatelessWidget {
   }
 
   int _netWeekly(GameState gameState) {
-    final loanRepayment =
-        gameState.bankLoans.fold<int>(0, (s, l) => s + l.weeklyRepayment);
+    final loanRepayment = gameState.bankLoans.fold<int>(
+      0,
+      (s, l) => s + l.weeklyRepayment,
+    );
     final team = gameState.userTeam;
     final appearanceFees = team.players
         .where((p) => team.startingXI.contains(p.id))
@@ -476,8 +512,9 @@ class HomeScreen extends StatelessWidget {
     final opponent = league.teams.firstWhere((t) => t.id == opponentId);
     Navigator.of(context).push(
       MaterialPageRoute(
-          builder: (_) =>
-              ScoutReportScreen(opponent: opponent, userTeam: userTeam)),
+        builder: (_) =>
+            ScoutReportScreen(opponent: opponent, userTeam: userTeam),
+      ),
     );
   }
 
@@ -495,9 +532,8 @@ class HomeScreen extends StatelessWidget {
     _showMatchdayNotifications(context, gameState);
 
     if (firstHalf != null) {
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const LiveMatchScreen()),
-      );
+      await Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const LiveMatchScreen()));
     }
     if (context.mounted) _showMonthlyAwardNotification(context, gameState);
     if (context.mounted) showAchievementUnlockNotification(context, gameState);
@@ -581,8 +617,10 @@ class HomeScreen extends StatelessWidget {
     /// 自クラブの選手がまだ在籍している場合のみ、選手詳細へ遷移可能なIDを返す。
     String? ownPlayerIdOf(String? playerId) {
       if (playerId == null) return null;
-      final userTeam = teams.firstWhere((t) => t.id == userTeamId,
-          orElse: () => teams.first);
+      final userTeam = teams.firstWhere(
+        (t) => t.id == userTeamId,
+        orElse: () => teams.first,
+      );
       for (final p in userTeam.players) {
         if (p.id == playerId) return p.id;
       }
@@ -614,19 +652,23 @@ class HomeScreen extends StatelessWidget {
               children: [
                 Text(
                   '$userTeamName $userGoals - $oppGoals $opponentName',
-                  style: Theme.of(dialogContext)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(
-                          color: resultColor, fontWeight: FontWeight.bold),
+                  style:
+                      Theme.of(dialogContext).textTheme.titleMedium?.copyWith(
+                            color: resultColor,
+                            fontWeight: FontWeight.bold,
+                          ),
                 ),
                 const SizedBox(height: 12),
                 if (goals.isEmpty)
-                  const Text('得点者はいませんでした',
-                      style: TextStyle(color: Colors.grey))
+                  const Text(
+                    '得点者はいませんでした',
+                    style: TextStyle(color: Colors.grey),
+                  )
                 else ...[
-                  Text('得点者',
-                      style: Theme.of(dialogContext).textTheme.titleSmall),
+                  Text(
+                    '得点者',
+                    style: Theme.of(dialogContext).textTheme.titleSmall,
+                  ),
                   const SizedBox(height: 4),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 200),
@@ -634,16 +676,22 @@ class HomeScreen extends StatelessWidget {
                       shrinkWrap: true,
                       children: [
                         for (final g in goals)
-                          _buildGoalRow(context, dialogContext, g,
-                              ownPlayerIdOf(g.scorerId), teamNameOf),
+                          _buildGoalRow(
+                            context,
+                            dialogContext,
+                            g,
+                            ownPlayerIdOf(g.scorerId),
+                            teamNameOf,
+                          ),
                       ],
                     ),
                   ),
                 ],
                 MatchStatsBar(
-                    result: result,
-                    homeTeamName: teamNameOf(result.homeTeamId),
-                    awayTeamName: teamNameOf(result.awayTeamId)),
+                  result: result,
+                  homeTeamName: teamNameOf(result.homeTeamId),
+                  awayTeamName: teamNameOf(result.awayTeamId),
+                ),
                 if (motmName != null) ...[
                   const SizedBox(height: 12),
                   InkWell(
@@ -651,9 +699,13 @@ class HomeScreen extends StatelessWidget {
                         ? null
                         : () {
                             Navigator.pop(dialogContext);
-                            Navigator.of(context).push(MaterialPageRoute(
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
                                 builder: (_) => PlayerDetailScreen(
-                                    playerId: motmOwnPlayerId)));
+                                  playerId: motmOwnPlayerId,
+                                ),
+                              ),
+                            );
                           },
                     child: Row(
                       children: [
@@ -692,8 +744,11 @@ class HomeScreen extends StatelessWidget {
           ? null
           : () {
               Navigator.pop(dialogContext);
-              Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => PlayerDetailScreen(playerId: playerId)));
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => PlayerDetailScreen(playerId: playerId),
+                ),
+              );
             },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
@@ -755,8 +810,9 @@ class HomeScreen extends StatelessWidget {
       final (text, isWarning) = messages.first;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(text),
-            backgroundColor: isWarning ? Colors.red.shade700 : null),
+          content: Text(text),
+          backgroundColor: isWarning ? Colors.red.shade700 : null,
+        ),
       );
       return;
     }
@@ -803,12 +859,15 @@ class HomeScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('この移籍オファーを承諾しますか？'),
-        content:
-            Text('${offer.playerName}が${offer.buyerClubName}へ${offer.amount}万円で'
-                '移籍します。この操作は元に戻せません。'),
+        content: Text(
+          '${offer.playerName}が${offer.buyerClubName}へ${offer.amount}万円で'
+          '移籍します。この操作は元に戻せません。',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル'),
+          ),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
@@ -823,12 +882,14 @@ class HomeScreen extends StatelessWidget {
   }
 
   void _showMonthlyAwardNotification(
-      BuildContext context, GameState gameState) {
+    BuildContext context,
+    GameState gameState,
+  ) {
     final monthlyAward = gameState.lastMonthlyManagerAward;
     if (monthlyAward != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$monthlyAward 月間最優秀監督賞を受賞しました！')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$monthlyAward 月間最優秀監督賞を受賞しました！')));
       gameState.lastMonthlyManagerAward = null;
     }
   }
@@ -839,7 +900,8 @@ class HomeScreen extends StatelessWidget {
     if (context.mounted && result != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('親善試合結果: ${result.homeGoals} - ${result.awayGoals}')),
+          content: Text('親善試合結果: ${result.homeGoals} - ${result.awayGoals}'),
+        ),
       );
     }
   }
@@ -912,7 +974,9 @@ class HomeScreen extends StatelessWidget {
     if (context.mounted && superCupNews != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(superCupNews), duration: const Duration(seconds: 5)),
+          content: Text(superCupNews),
+          duration: const Duration(seconds: 5),
+        ),
       );
       gameState.lastSuperCupNews = null;
     }
@@ -974,9 +1038,13 @@ class HomeScreen extends StatelessWidget {
                       Expanded(child: Text(s.playerName)),
                       Text('${s.overallBefore} → ${s.overallAfter}'),
                       const SizedBox(width: 8),
-                      Text(deltaLabel,
-                          style: TextStyle(
-                              color: deltaColor, fontWeight: FontWeight.bold)),
+                      Text(
+                        deltaLabel,
+                        style: TextStyle(
+                          color: deltaColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -1031,8 +1099,10 @@ class _PressConferenceCard extends StatelessWidget {
                       FeedbackService.tap();
                       gameState.answerPressConference(i);
                     },
-                    child: Text(question.options[i].label,
-                        textAlign: TextAlign.center),
+                    child: Text(
+                      question.options[i].label,
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
               ),
@@ -1066,18 +1136,20 @@ class _JobOfferCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                    onPressed: () {
-                      FeedbackService.tap();
-                      gameState.declineJobOffer();
-                    },
-                    child: const Text('断る')),
+                  onPressed: () {
+                    FeedbackService.tap();
+                    gameState.declineJobOffer();
+                  },
+                  child: const Text('断る'),
+                ),
                 const SizedBox(width: 8),
                 FilledButton(
-                    onPressed: () {
-                      FeedbackService.success();
-                      gameState.acceptJobOffer();
-                    },
-                    child: const Text('就任する')),
+                  onPressed: () {
+                    FeedbackService.success();
+                    gameState.acceptJobOffer();
+                  },
+                  child: const Text('就任する'),
+                ),
               ],
             ),
           ],
@@ -1145,8 +1217,11 @@ class _ThisWeekCard extends StatelessWidget {
   final Fixture? next;
   final League league;
 
-  const _ThisWeekCard(
-      {required this.gameState, required this.next, required this.league});
+  const _ThisWeekCard({
+    required this.gameState,
+    required this.next,
+    required this.league,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1161,8 +1236,10 @@ class _ThisWeekCard extends StatelessWidget {
       final userId = gameState.userTeam.id;
       final isHome = next!.homeTeamId == userId;
       final opponentId = isHome ? next!.awayTeamId : next!.homeTeamId;
-      final opponent = league.teams.firstWhere((t) => t.id == opponentId,
-          orElse: () => league.teams.first);
+      final opponent = league.teams.firstWhere(
+        (t) => t.id == opponentId,
+        orElse: () => league.teams.first,
+      );
       final derby = gameState.isRivalFixture(next!);
       matchLine =
           '第${next!.matchday}節 ${isHome ? '(H)' : '(A)'} vs ${opponent.name}'
@@ -1178,18 +1255,21 @@ class _ThisWeekCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('今週の予定 ($dateLabel)',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  '今週の予定 ($dateLabel)',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
                 TextButton.icon(
                   icon: const Icon(Icons.calendar_month, size: 16),
                   label: const Text('カレンダー'),
                   onPressed: () {
                     FeedbackService.tap();
-                    Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const CalendarScreen()));
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const CalendarScreen()),
+                    );
                   },
                 ),
               ],
@@ -1206,8 +1286,11 @@ class _ThisWeekCard extends StatelessWidget {
               const SizedBox(height: 6),
               const Row(
                 children: [
-                  Icon(Icons.emoji_events_outlined,
-                      size: 18, color: Colors.amber),
+                  Icon(
+                    Icons.emoji_events_outlined,
+                    size: 18,
+                    color: Colors.amber,
+                  ),
                   SizedBox(width: 6),
                   Expanded(child: Text('国内カップ戦の出番も控えています')),
                 ],
@@ -1226,9 +1309,11 @@ class _ThisWeekCard extends StatelessWidget {
                       : Colors.orange,
                 ),
                 const SizedBox(width: 6),
-                Text(gameState.trainingDoneThisWeek
-                    ? '今週のトレーニングは実施済み'
-                    : '今週のトレーニングは未実施'),
+                Text(
+                  gameState.trainingDoneThisWeek
+                      ? '今週のトレーニングは実施済み'
+                      : '今週のトレーニングは未実施',
+                ),
               ],
             ),
           ],
@@ -1295,7 +1380,10 @@ class _StatTile extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                  value: progress, minHeight: 6, color: color),
+                value: progress,
+                minHeight: 6,
+                color: color,
+              ),
             ),
           ],
         ],
@@ -1310,11 +1398,12 @@ class _ActionTile extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _ActionTile(
-      {required this.icon,
-      required this.label,
-      required this.color,
-      required this.onTap});
+  const _ActionTile({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1329,12 +1418,15 @@ class _ActionTile extends StatelessWidget {
           child: Row(
             children: [
               CircleAvatar(
-                  backgroundColor: color,
-                  child: Icon(icon, color: Colors.white, size: 20)),
+                backgroundColor: color,
+                child: Icon(icon, color: Colors.white, size: 20),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(label,
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                child: Text(
+                  label,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
             ],
           ),
