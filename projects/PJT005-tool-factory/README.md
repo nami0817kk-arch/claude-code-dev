@@ -2,7 +2,7 @@
 
 ## 概要
 
-計算ツールのサイトを**量産する**ための仕組み。
+計算ツールのサイトを**量産する**ための仕組み。現在 10 ツール。
 ツールを1本足すのに必要なのは `tools/` に定義ファイルを1つ置くことだけで、
 ページ・SEO・構造化データ・広告枠・アフィリ導線・内部リンク・サイトマップは自動で付く。
 
@@ -74,15 +74,47 @@ TOOL = Tool(
 
 ## 公開まで
 
+### GitHub Pages に自動公開する
+
+`.github/workflows/pages.yml` を用意してある。`master` に push すると、
+テスト → ビルド → 公開まで自動で走る。
+
+**GitHub 側で1度だけ設定が要る。**
+
+1. リポジトリの **Settings → Pages → Build and deployment → Source** を
+   「**GitHub Actions**」に変更する
+2. 公開URL（`https://<ユーザー名>.github.io/<リポジトリ名>/`）を
+   `site.json` の `base_url` に設定する
+3. `master` に push する
+
+テストが落ちるとビルドされないので、収益導線の無いツールや壊れた定義が
+公開されることはない。
+
+### 手動で公開する場合
+
 ```powershell
 python build.py            # dist/ に出力
 ```
 
-`dist/` をそのまま静的ホスティング（GitHub Pages など）に置ける。
-サーバー処理は不要で、**固定費は増えない**。
+`dist/` の中身をそのまま任意の静的ホスティングに置ける。サーバー処理は不要。
 
-`site.json` の `base_url` を実際のドメインに変えてからビルドすること
-（canonical と sitemap に使われる）。
+### 資産の参照は相対パス
+
+`style.css` などへの参照は相対パスで出力している。
+絶対パス（`/style.css`）にすると、GitHub Pages のプロジェクトサイトのように
+**サブディレクトリで配信したときにドメイン直下を指してしまい 404 になる**。
+相対パスなので、ドメイン直下・サブパス・ローカルファイル（`file://`）の
+いずれでも同じように動く。
+
+`site.json` の `base_url` は canonical と sitemap.xml にのみ使われる。
+ここは実際の公開URLに合わせておくこと。
+
+### 長期的には専用リポジトリを
+
+いまは開発ワークスペースのサブディレクトリを公開する形になっている。
+独自ドメインを当てる段階になったら、`PJT005-tool-factory` の中身を
+専用リポジトリに移してドメイン直下で配信するほうが扱いやすい。
+その場合も相対パスなので、コードの変更は要らない。
 
 ## 設計
 
@@ -119,6 +151,9 @@ python -m unittest discover -s tests
 PR表記の有無、エスケープ、広告タグが設定時のみ出ること、
 そして**実際に置いてあるツールが公開できる状態か**を確認する。
 
+公開ワークフローはテストが通らないとビルドに進まないので、
+収益導線の無いツールや、説明・FAQの欠けたツールは公開されない。
+
 ## 構成
 
 ```
@@ -126,10 +161,18 @@ PJT005-tool-factory/
 ├── build.py            全ツールを dist/ に出力
 ├── new_tool.py         ツールのひな型を作る
 ├── site.json           サイト名・ドメイン・広告ID・計測ID
-├── tools/
+├── tools/              ツール定義（1ファイル＝1ツール）
 │   ├── _spec.py        Tool / Field / Output / Faq / Affiliate
 │   ├── safety_stock.py 安全在庫・発注点
-│   └── eoq.py          経済的発注量
+│   ├── eoq.py          経済的発注量
+│   ├── oee.py          設備総合効率
+│   ├── cpk.py          工程能力指数
+│   ├── standard_time.py 標準時間・必要人員
+│   ├── labor_productivity.py 人時生産性
+│   ├── yield_rate.py   歩留まり・投入必要数
+│   ├── manufacturing_cost.py 製造原価・損益分岐点
+│   ├── payback_period.py 設備投資の回収期間
+│   └── paid_leave.py   有給休暇の付与日数
 ├── theme/
 │   ├── base.py         HTML の組み立て
 │   ├── style.css       共通スタイル（全ページで共有）
@@ -143,7 +186,9 @@ PJT005-tool-factory/
 - [x] 共通テンプレート（レイアウト・SEO・構造化データ・広告枠・アフィリ導線）
 - [x] ツール定義の宣言化とひな型生成
 - [x] ビルドとテスト
-- [x] 1本目・2本目（安全在庫、EOQ）
-- [ ] `site.json` を実際のドメインに設定して公開
-- [ ] ASP に登録し、`affiliate.url` を実際の提携リンクに差し替え
+- [x] 最初の10本（在庫2・生産管理2・品質2・原価2・労務1、うち1本は生産管理）
+- [x] GitHub Pages への自動公開（テスト通過が公開の条件）
+- [ ] **ASP に登録し、`affiliate.url` を実際の提携リンクに差し替える**
+- [ ] `site.json` の `base_url` を公開URLに設定する
+- [ ] Search Console に登録し、sitemap.xml を送信する
 - [ ] 30本まで量産

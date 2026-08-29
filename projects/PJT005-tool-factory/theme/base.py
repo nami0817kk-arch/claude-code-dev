@@ -108,7 +108,7 @@ def render_promo(tool) -> str:
       </aside>"""
 
 
-def render_related(tool, all_tools, limit: int = 4) -> str:
+def render_related(tool, all_tools, limit: int = 4, prefix: str = "") -> str:
     same = [t for t in all_tools
             if t.category == tool.category and t.slug != tool.slug]
     others = [t for t in all_tools
@@ -117,7 +117,7 @@ def render_related(tool, all_tools, limit: int = 4) -> str:
     if not picked:
         return ""
     cards = "".join(
-        f'<a href="{esc(t.url_path)}"><span class="t">{esc(t.title)}</span>'
+        f'<a href="{prefix}{esc(t.slug)}/"><span class="t">{esc(t.title)}</span>'
         f'<span class="d">{esc(t.description[:52])}</span></a>' for t in picked)
     return f"""
       <h2>関連するツール</h2>
@@ -207,7 +207,13 @@ FAVICON = (
 
 
 def head(title: str, description: str, canonical: str, site: dict,
-         extra: str = "") -> str:
+         extra: str = "", prefix: str = "") -> str:
+    """prefix はページからサイト直下までの相対パス。
+
+    絶対パス（/style.css）にすると、GitHub Pages のプロジェクトサイトのように
+    サブディレクトリで配信したときにドメイン直下を指してしまい 404 になる。
+    相対パスにしておけば、直下・サブパス・ローカルファイルのどれでも動く。
+    """
     ads = ""
     if site.get("adsense_client"):
         ads = (f'\n<script async crossorigin="anonymous"\n'
@@ -240,14 +246,14 @@ def head(title: str, description: str, canonical: str, site: dict,
 <meta property="og:site_name" content="{esc(site['name'])}">
 <meta name="twitter:card" content="summary">
 <link rel="icon" href="{FAVICON}">
-<link rel="stylesheet" href="/style.css">{ads}{analytics}
+<link rel="stylesheet" href="{prefix}style.css">{ads}{analytics}
 {extra}
 </head>
 <body>
 <header class="site-head">
   <div class="wrap">
-    <a class="site-name" href="/">{esc(site['name'])}</a>
-    <nav class="site-nav"><a href="/">ツール一覧</a></nav>
+    <a class="site-name" href="{prefix or './'}">{esc(site['name'])}</a>
+    <nav class="site-nav"><a href="{prefix or './'}">ツール一覧</a></nav>
   </div>
 </header>"""
 
@@ -294,9 +300,9 @@ def render_tool(tool, site: dict, all_tools: list) -> str:
     lead = f'<p class="lead">{esc(tool.lead)}</p>' if tool.lead else ""
 
     return f"""{head(page_title, tool.description, canonical, site,
-                     structured_data(tool, site))}
+                     structured_data(tool, site), prefix="../")}
 <main class="wrap">
-  <nav class="crumbs"><a href="/">ツール一覧</a> ／ {esc(tool.category)}</nav>
+  <nav class="crumbs"><a href="../">ツール一覧</a> ／ {esc(tool.category)}</nav>
   {pr}
   <h1>{esc(tool.title)}</h1>
   {lead}
@@ -321,11 +327,11 @@ def render_tool(tool, site: dict, all_tools: list) -> str:
 {render_formula(tool)}
 {render_faq(tool)}
   </div>
-{render_related(tool, all_tools)}
+{render_related(tool, all_tools, prefix="../")}
 {ad_slot(site, "bottom")}
 </main>
 {render_spec_script(tool)}
-<script src="/app.js" defer></script>
+<script src="../app.js" defer></script>
 {foot(site)}"""
 
 
@@ -338,7 +344,7 @@ def render_index(site: dict, all_tools: list) -> str:
     sections = []
     for category, tools in groups.items():
         cards = "".join(
-            f'<a href="{esc(t.url_path)}"><span class="t">{esc(t.title)}</span>'
+            f'<a href="{esc(t.slug)}/"><span class="t">{esc(t.title)}</span>'
             f'<span class="d">{esc(t.description)}</span></a>' for t in tools)
         sections.append(f'<section class="cat"><h2>{esc(category)}</h2>'
                         f'<div class="related">{cards}</div></section>')

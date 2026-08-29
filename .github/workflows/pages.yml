@@ -1,0 +1,64 @@
+# ツールサイト（PJT005）を GitHub Pages に公開する。
+#
+# 使う前に GitHub 側で1度だけ設定が要る:
+#   リポジトリの Settings → Pages → Build and deployment → Source を
+#   「GitHub Actions」に変更する。
+#
+# 公開URLは https://<ユーザー名>.github.io/<リポジトリ名>/ になる。
+# projects/PJT005-tool-factory/site.json の base_url をこのURLに合わせておくこと
+# （canonical と sitemap.xml に使われる）。
+name: ツールサイトを公開する
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "projects/PJT005-tool-factory/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 公開は同時に1つだけ走らせる。走行中のものは止めない。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projects/PJT005-tool-factory
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # 収益導線の無いツールや壊れた定義があれば、ここで止める
+      - name: テスト
+        run: python -m unittest discover -s tests
+
+      - name: ビルド
+        run: python build.py
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: projects/PJT005-tool-factory/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
