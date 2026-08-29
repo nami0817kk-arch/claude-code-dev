@@ -102,46 +102,97 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
     if (_decisionDialogShowing) return;
     _decisionDialogShowing = true;
     final gameState = context.read<GameState>();
+    final isAttack = pending.context == ChanceContext.attack;
     final choice = await showDialog<ChanceDecision>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('決定機!'),
+        title: Text(isAttack ? '決定機!' : '相手の決定機!'),
         content: Text(
-          pending.passTarget != null
-              ? '${pending.shooter.name}がチャンス。自分で狙うか、より良い位置の'
-                  '${pending.passTarget!.name}へつなぐか選べる。'
-              : '${pending.shooter.name}がチャンス。',
+          isAttack
+              ? '${pending.shooter!.name}がチャンス。狙うプレーを選ぼう。'
+                  '(カッコ内は成功率の目安)'
+              : '${pending.attacker!.name}にチャンス。守り方を選ぼう。'
+                  '(カッコ内は相手の成功率の目安)',
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, ChanceDecision.shoot),
-            child: const Text('シュート'),
-          ),
-          if (pending.passTarget != null)
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, ChanceDecision.pass),
-              child: Text('パス(${pending.passTarget!.name}へ)'),
-            ),
-        ],
+        actions: isAttack
+            ? [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, ChanceDecision.shoot),
+                  child: Text(
+                    'シュート(${_pctText(pending.shootChance)})',
+                  ),
+                ),
+                if (pending.passTarget != null)
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, ChanceDecision.pass),
+                    child: Text(
+                      'パス: ${pending.passTarget!.name}'
+                      '(${_pctText(pending.passChance)})',
+                    ),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, ChanceDecision.longShot),
+                  child: Text(
+                    'ロングシュート(${_pctText(pending.longShotChance)})',
+                  ),
+                ),
+              ]
+            : [
+                TextButton(
+                  onPressed: () =>
+                      Navigator.pop(ctx, ChanceDecision.aggressiveTackle),
+                  child: Text(
+                    '積極的にタックル'
+                    '(相手${_pctText(pending.aggressiveChanceAgainst)}'
+                    ' / カード注意)',
+                  ),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      Navigator.pop(ctx, ChanceDecision.coverSpace),
+                  child: Text(
+                    'カバーリングに専念'
+                    '(相手${_pctText(pending.safeChanceAgainst)})',
+                  ),
+                ),
+              ],
       ),
     );
     _decisionDialogShowing = false;
     if (!mounted) return;
-    final merged =
-        await gameState.resolveChanceDecision(choice ?? ChanceDecision.shoot);
+    final decision =
+        choice ?? (isAttack ? ChanceDecision.shoot : ChanceDecision.coverSpace);
+    final result = await gameState.resolveChanceDecision(decision);
     if (!mounted) return;
+
+    // 選んだ結果を、アニメーションの再生を待たず即座に反映・演出する。
+    final event = result.decisionEvent;
+    if (event != null) _handleEvent(event);
+    final message = _describeDecisionOutcome(pending, decision, event);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(milliseconds: 2600),
+        ),
+      );
+
+    final merged = result.merged;
     if (merged != null) {
-      // この選択で試合(後半)がちょうど完了した。
+      // この選択で試合(後半)がちょうど完了した。決定機自身のイベントは
+      // 直前に_handleEventで既に反映済みのため、残りの分だけを再生する。
       final segmentEvents = merged.events
-          .where((e) => e.minute > _segmentStartMinute && e.minute <= 90)
+          .where((e) => e.minute > pending.minute && e.minute <= 90)
           .toList();
-      final span = (90 - _segmentStartMinute).clamp(1, 45);
+      final span = (90 - pending.minute).clamp(1, 45);
       setState(() {
         _finalResult = merged;
+        _segmentStartMinute = pending.minute;
         _game = PitchGame(
           events: segmentEvents,
-          startMinute: _segmentStartMinute + 1,
+          startMinute: pending.minute + 1,
           endMinute: 90,
           durationSeconds: (span / 45 * 6).clamp(0.6, 6.0),
           onEvent: _handleEvent,
@@ -153,8 +204,67 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
     }
     final isSecondHalf = _phase == _Phase.secondHalf;
     setState(() {
+      _segmentStartMinute = pending.minute;
       _game = _buildSegmentGame(gameState, isSecondHalf: isSecondHalf);
     });
+  }
+
+  String _pctText(double? chance) =>
+      chance == null ? '-' : '${(chance * 100).round()}%';
+
+  /// 選んだプレーの表示名(結果メッセージ・ダイアログ共通)。
+  String _choiceLabel(PendingChanceDecision pending, ChanceDecision decision) {
+    if (pending.context == ChanceContext.attack) {
+      switch (decision) {
+        case ChanceDecision.pass:
+          return 'パス(${pending.passTarget?.name ?? "?"})';
+        case ChanceDecision.longShot:
+          return 'ロングシュート';
+        default:
+          return 'シュート';
+      }
+    }
+    return decision == ChanceDecision.aggressiveTackle ? '積極的タックル' : 'カバーリング';
+  }
+
+  /// 選択直後に短く表示する結果フィードバック文言。成功率とともに
+  /// 「選んだプレーがどうなったか」を明示し、選択の手応えを演出する。
+  String _describeDecisionOutcome(
+    PendingChanceDecision pending,
+    ChanceDecision decision,
+    MatchEvent? event,
+  ) {
+    final label = _choiceLabel(pending, decision);
+    if (pending.context == ChanceContext.attack) {
+      final pct = _pctText(
+        decision == ChanceDecision.pass
+            ? pending.passChance
+            : decision == ChanceDecision.longShot
+                ? pending.longShotChance
+                : pending.shootChance,
+      );
+      if (event?.type == MatchEventType.goal) return '$label($pct)→ ゴール!';
+      if (event?.type == MatchEventType.chance) {
+        return '$label($pct)→ 惜しい!枠の外へ';
+      }
+      return '$label($pct)→ 相手に読まれてボールを失った';
+    }
+    final pct = _pctText(
+      decision == ChanceDecision.aggressiveTackle
+          ? pending.aggressiveChanceAgainst
+          : pending.safeChanceAgainst,
+    );
+    if (event?.type == MatchEventType.goal) return '$label(相手$pct)→ 失点…';
+    if (event?.type == MatchEventType.redCard) {
+      return '$labelでボールは奪ったが、${event?.scorerName}が退場に…';
+    }
+    if (event?.type == MatchEventType.yellowCard) {
+      return '$labelでボールは奪ったが、${event?.scorerName}に警告';
+    }
+    if (event?.type == MatchEventType.chance) {
+      return '$label(相手$pct)→ 危なかったが凌いだ';
+    }
+    return '$label(相手$pct)→ 攻撃を防いだ!';
   }
 
   void _handleEvent(MatchEvent e) {

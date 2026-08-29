@@ -40,22 +40,60 @@ class HalfResult {
   });
 }
 
-/// シュート/パスの選択(オープンプレーの決定機のみ対象)。
-enum ChanceDecision { shoot, pass }
+/// 攻撃側の決定機での選択(シュート/パス/ロングシュート)と、守備側の
+/// 決定機での選択(積極的にタックル/カバーリングに専念)をまとめた列挙。
+/// [PendingChanceDecision.context]に応じてどちらの値を渡すべきかが決まる
+/// (不適切な値を渡した場合は既定の安全な選択にフォールバックする)。
+enum ChanceDecision { shoot, pass, longShot, aggressiveTackle, coverSpace }
 
-/// オープンプレーの決定機で、ユーザーチームに対しシュート/パスの判断を
-/// 求めるための情報。[passTarget]がnullの場合はつなげる味方がおらず、
-/// パスは選べない(シュート一択)。
+/// [PendingChanceDecision]が攻撃側の決定機か守備側の決定機かを表す。
+enum ChanceContext { attack, defense }
+
+/// オープンプレーの決定機で、ユーザーチームに判断を求めるための情報。
+/// [context]が[ChanceContext.attack]の場合はシュート/パス/ロングシュートを
+/// (各選択肢の成功率を[shootChance]/[passChance]/[longShotChance]として
+/// 事前に提示する)、[ChanceContext.defense]の場合は積極的にタックルに
+/// 行くかカバーリングに専念するかを([aggressiveChanceAgainst]/
+/// [safeChanceAgainst]として相手の成功率を提示しつつ)選べる。
 class PendingChanceDecision {
   final int minute;
-  final Player shooter;
-  final Player? passTarget;
+  final ChanceContext context;
 
-  const PendingChanceDecision({
+  // attackコンテキストのみ有効。
+  final Player? shooter;
+  final Player? passTarget;
+  final double? shootChance;
+  final double? passChance;
+  final double? longShotChance;
+
+  // defenseコンテキストのみ有効。相手チーム視点の得点成功率を示す。
+  final Player? attacker;
+  final double? aggressiveChanceAgainst;
+  final double? safeChanceAgainst;
+
+  const PendingChanceDecision.attack({
     required this.minute,
-    required this.shooter,
+    required Player this.shooter,
     this.passTarget,
-  });
+    required double this.shootChance,
+    this.passChance,
+    required double this.longShotChance,
+  })  : context = ChanceContext.attack,
+        attacker = null,
+        aggressiveChanceAgainst = null,
+        safeChanceAgainst = null;
+
+  const PendingChanceDecision.defense({
+    required this.minute,
+    required Player this.attacker,
+    required double this.aggressiveChanceAgainst,
+    required double this.safeChanceAgainst,
+  })  : context = ChanceContext.defense,
+        shooter = null,
+        passTarget = null,
+        shootChance = null,
+        passChance = null,
+        longShotChance = null;
 }
 
 /// [MatchEngine.beginInteractiveHalf]/[MatchEngine.resolvePendingChance]が
@@ -72,10 +110,13 @@ class InteractiveHalfState {
   final double awayAttackBase;
   final double homeDefenseBase;
   final double awayDefenseBase;
-  final int? homeRedMinute;
-  final int? awayRedMinute;
   final List<int> chanceMinutes;
   final List<MatchEvent> events;
+
+  // 決定機の中でカード(警告・退場)が出た場合に更新されるため、
+  // 事前生成分と合わせて可変にしている。
+  int? homeRedMinute;
+  int? awayRedMinute;
 
   int chanceIndex = 0;
   int homeGoals = 0;
@@ -91,7 +132,12 @@ class InteractiveHalfState {
   PendingChanceDecision? pending;
   // pending解決に必要な文脈(次のresolvePendingChance呼び出しでのみ使う)。
   bool? pendingIsHomeChance;
-  double? pendingBaseScoreProb;
+
+  /// 直近の[MatchEngine.resolvePendingChance]呼び出しで、この決定機の結果
+  /// として実際に発生したイベント(得点・惜しいチャンス・カード)。何も
+  /// 起きなかった(攻撃が不発に終わった)場合はnull。UI側の即時フィード
+  /// バック表示に使う。
+  MatchEvent? lastDecisionEvent;
 
   InteractiveHalfState({
     required this.home,
@@ -1488,7 +1534,10 @@ class MatchEngine {
     return candidates.last;
   }
 
-  static void _finalizeChance(
+  /// このチャンスを最終的な成功率([scoreProb])で判定し、結果に応じた
+  /// イベントを[s.events]に追加する。実際に発生したイベント(得点/惜しい
+  /// チャンス)を返す。何も起きなかった場合はnull。
+  static MatchEvent? _finalizeChance(
     InteractiveHalfState s, {
     required int minute,
     required bool isHomeChance,
@@ -1500,20 +1549,20 @@ class MatchEngine {
     required bool isDirectFreeKick,
   }) {
     final attackingLineup = isHomeChance ? s.homeLineup : s.awayLineup;
+    MatchEvent? produced;
     if (_rng.nextDouble() < scoreProb) {
       final assist = (isPenalty || isDirectFreeKick)
           ? null
           : (forcedAssist ?? _pickAssist(attackingLineup, scorer));
-      s.events.add(
-        MatchEvent(
-          minute: minute,
-          teamId: attackingTeam.id,
-          scorerName: scorer?.name,
-          scorerId: scorer?.id,
-          assistName: assist?.name,
-          assistId: assist?.id,
-        ),
+      produced = MatchEvent(
+        minute: minute,
+        teamId: attackingTeam.id,
+        scorerName: scorer?.name,
+        scorerId: scorer?.id,
+        assistName: assist?.name,
+        assistId: assist?.id,
       );
+      s.events.add(produced);
       if (isHomeChance) {
         s.homeGoals++;
         s.homeShotsOnTarget++;
@@ -1531,19 +1580,42 @@ class MatchEngine {
       } else {
         s.awayShotsOnTarget++;
       }
-      s.events.add(
-        MatchEvent(
-          minute: minute,
-          teamId: attackingTeam.id,
-          scorerName: scorer?.name,
-          scorerId: scorer?.id,
-          type: MatchEventType.chance,
-        ),
+      produced = MatchEvent(
+        minute: minute,
+        teamId: attackingTeam.id,
+        scorerName: scorer?.name,
+        scorerId: scorer?.id,
+        type: MatchEventType.chance,
       );
+      s.events.add(produced);
     }
     s.homeMomentum *= 0.9;
     s.awayMomentum *= 0.9;
+    return produced;
   }
+
+  /// 決定機の対象になった選手のオープンプレー基礎成功率([baseScoreProb])
+  /// から、ロングシュートを選んだ場合の成功率を算出する。近距離のシュート
+  /// より成功率は下がる一方、ロングシュート適性(longShots・technique)が
+  /// 高い選手ほどその下げ幅が小さくなる。
+  static double _applyLongShotQuality(double baseScoreProb, Player? shooter) {
+    final reduced = (baseScoreProb * 0.55).clamp(0.03, 0.4);
+    if (shooter == null) return reduced;
+    final quality = shooter.attributeValue(AttributeKeys.longShots) * 0.65 +
+        shooter.attributeValue(AttributeKeys.technique) * 0.35;
+    return (reduced * (1 + (quality - 50) / 120)).clamp(0.03, 0.55);
+  }
+
+  /// 守備側が「積極的にタックル」を選んだ場合に、相手の得点成功率へ乗じる
+  /// 倍率。より大きく下げる代わり、後述の警告/退場リスクを伴う。
+  static const double _aggressiveTackleReduction = 0.72;
+
+  /// 守備側が「カバーリングに専念」を選んだ場合の、相手の得点成功率への
+  /// 倍率。下げ幅は控えめだが警告/退場のリスクを負わない安全な選択肢。
+  static const double _coverSpaceReduction = 0.90;
+
+  /// 積極的にタックルへ行った際に警告(まれに退場)を受ける基礎確率。
+  static const double _aggressiveTackleCardChance = 0.16;
 
   /// [simulateMinutes]と同じ区間シミュレーションのセットアップ(カード生成・
   /// チャンス発生分の抽選・攻守力算出)を行い、チャンス評価に進む前の
@@ -1838,22 +1910,51 @@ class MatchEngine {
         }
       }
 
-      if (isInteractiveOpenPlay && attackingTeam.id == s.interactiveTeamId) {
-        final passTarget = _pickPassTarget(
-          attackingLineup,
-          excludeId: scorer?.id,
-        );
-        s.pending = PendingChanceDecision(
-          minute: minute,
-          shooter: scorer!,
-          passTarget: passTarget,
-        );
-        s.pendingIsHomeChance = isHomeChance;
-        s.pendingBaseScoreProb = scoreProb;
-        return; // ここで一時停止。再開はresolvePendingChanceから。
-      }
-
       if (isInteractiveOpenPlay) {
+        if (attackingTeam.id == s.interactiveTeamId) {
+          // 自クラブの攻撃側決定機: シュート/パス/ロングシュートを選べる。
+          final passTarget = _pickPassTarget(
+            attackingLineup,
+            excludeId: scorer?.id,
+          );
+          s.pending = PendingChanceDecision.attack(
+            minute: minute,
+            shooter: scorer!,
+            passTarget: passTarget,
+            shootChance: _applyFinisherQuality(scoreProb, scorer).clamp(
+              0.0,
+              1.0,
+            ),
+            passChance: passTarget != null
+                ? _applyFinisherQuality(scoreProb, passTarget).clamp(0.0, 1.0)
+                : null,
+            longShotChance: _applyLongShotQuality(scoreProb, scorer).clamp(
+              0.0,
+              1.0,
+            ),
+          );
+          s.pendingIsHomeChance = isHomeChance;
+          return; // ここで一時停止。再開はresolvePendingChanceから。
+        }
+        if (defendingTeam.id == s.interactiveTeamId) {
+          // 自クラブの守備側決定機: 積極的にタックルに行くか、カバーリングに
+          // 専念するかを選べる(相手の得点成功率が変わる)。
+          final baseAgainst = _applyFinisherQuality(scoreProb, scorer);
+          s.pending = PendingChanceDecision.defense(
+            minute: minute,
+            attacker: scorer!,
+            aggressiveChanceAgainst:
+                (baseAgainst * _aggressiveTackleReduction).clamp(0.0, 1.0),
+            safeChanceAgainst: (baseAgainst * _coverSpaceReduction).clamp(
+              0.0,
+              1.0,
+            ),
+          );
+          s.pendingIsHomeChance = isHomeChance;
+          return; // ここで一時停止。再開はresolvePendingChanceから。
+        }
+        // 理論上どちらのチームもinteractiveTeamIdでない場合の安全策として、
+        // 従来通りシュートとして即座に解決する。
         scoreProb = _applyFinisherQuality(scoreProb, scorer);
       }
 
@@ -1873,46 +1974,108 @@ class MatchEngine {
   }
 
   /// [state.pending]をユーザーの選択([decision])に基づいて解決し、次の決定機
-  /// (または半終了)まで進行を再開する。パスを選んでもつなげる味方がいない
-  /// 場合はシュートとして扱う。
-  static void resolvePendingChance(
+  /// (または半終了)まで進行を再開する。攻撃側の決定機でパスを選んでも
+  /// つなげる味方がいない場合や、文脈に合わない選択(例えば守備側の決定機に
+  /// シュートを渡した場合)は既定の安全な選択(シュート/カバーリング)に
+  /// フォールバックする。この決定機の結果として実際に発生したイベント
+  /// (得点・惜しいチャンス・積極的タックルによるカード)を返す。何も
+  /// 起きなかった場合はnull。UI側の即時フィードバック表示に使う。
+  static MatchEvent? resolvePendingChance(
     InteractiveHalfState state,
     ChanceDecision decision,
   ) {
     final pending = state.pending;
-    if (pending == null) return;
+    if (pending == null) return null;
     final isHomeChance = state.pendingIsHomeChance!;
-    final baseScoreProb = state.pendingBaseScoreProb!;
     final attackingTeam = isHomeChance ? state.home : state.away;
-
-    Player finalScorer;
-    Player? forcedAssist;
-    if (decision == ChanceDecision.pass && pending.passTarget != null) {
-      finalScorer = pending.passTarget!;
-      forcedAssist = pending.shooter;
-    } else {
-      finalScorer = pending.shooter;
-      forcedAssist = null;
-    }
-    final finalScoreProb = _applyFinisherQuality(baseScoreProb, finalScorer);
+    final defendingTeam = isHomeChance ? state.away : state.home;
+    final defendingLineup = isHomeChance ? state.awayLineup : state.homeLineup;
 
     state.pending = null;
     state.pendingIsHomeChance = null;
-    state.pendingBaseScoreProb = null;
 
-    _finalizeChance(
-      state,
-      minute: pending.minute,
-      isHomeChance: isHomeChance,
-      attackingTeam: attackingTeam,
-      scorer: finalScorer,
-      forcedAssist: forcedAssist,
-      scoreProb: finalScoreProb,
-      isPenalty: false,
-      isDirectFreeKick: false,
-    );
+    MatchEvent? produced;
+    if (pending.context == ChanceContext.attack) {
+      Player finalScorer;
+      Player? forcedAssist;
+      double finalScoreProb;
+      if (decision == ChanceDecision.pass && pending.passTarget != null) {
+        finalScorer = pending.passTarget!;
+        forcedAssist = pending.shooter;
+        finalScoreProb = pending.passChance!;
+      } else if (decision == ChanceDecision.longShot) {
+        finalScorer = pending.shooter!;
+        forcedAssist = null;
+        finalScoreProb = pending.longShotChance!;
+      } else {
+        finalScorer = pending.shooter!;
+        forcedAssist = null;
+        finalScoreProb = pending.shootChance!;
+      }
+      produced = _finalizeChance(
+        state,
+        minute: pending.minute,
+        isHomeChance: isHomeChance,
+        attackingTeam: attackingTeam,
+        scorer: finalScorer,
+        forcedAssist: forcedAssist,
+        scoreProb: finalScoreProb,
+        isPenalty: false,
+        isDirectFreeKick: false,
+      );
+    } else {
+      // 守備側の決定機: attackerは相手チームの選手で、選んだ対応に応じた
+      // 成功率でそのまま相手の攻撃を判定する。
+      final aggressive = decision == ChanceDecision.aggressiveTackle;
+      final finalScoreProb = aggressive
+          ? pending.aggressiveChanceAgainst!
+          : pending.safeChanceAgainst!;
+      produced = _finalizeChance(
+        state,
+        minute: pending.minute,
+        isHomeChance: isHomeChance,
+        attackingTeam: attackingTeam,
+        scorer: pending.attacker,
+        forcedAssist: null,
+        scoreProb: finalScoreProb,
+        isPenalty: false,
+        isDirectFreeKick: false,
+      );
+      if (aggressive && _rng.nextDouble() < _aggressiveTackleCardChance) {
+        final tackler = _pickCardTarget(defendingLineup);
+        if (tackler != null) {
+          final isSecondYellow = tackler.yellowCardedThisHalf;
+          final isRed = isSecondYellow || _rng.nextDouble() < 0.12;
+          if (!isRed) tackler.yellowCardedThisHalf = true;
+          final cardEvent = MatchEvent(
+            minute: pending.minute,
+            teamId: defendingTeam.id,
+            scorerName: tackler.name,
+            scorerId: tackler.id,
+            type: isRed ? MatchEventType.redCard : MatchEventType.yellowCard,
+          );
+          state.events.add(cardEvent);
+          if (isRed) {
+            if (isHomeChance) {
+              state.awayRedMinute = state.awayRedMinute == null
+                  ? pending.minute
+                  : min(state.awayRedMinute!, pending.minute);
+            } else {
+              state.homeRedMinute = state.homeRedMinute == null
+                  ? pending.minute
+                  : min(state.homeRedMinute!, pending.minute);
+            }
+          }
+          // 得点が発生していなければ、カードをこの決定機の結果として扱う。
+          produced ??= cardEvent;
+        }
+      }
+    }
+
+    state.lastDecisionEvent = produced;
     state.chanceIndex++;
     _advanceInteractiveHalf(state);
+    return produced;
   }
 
   static MatchResult simulate({

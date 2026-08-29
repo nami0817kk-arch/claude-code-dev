@@ -2716,24 +2716,28 @@ class GameState extends ChangeNotifier {
 
   /// 前半・後半のシュート/パスの判断待ち([pendingChanceDecision])を
   /// [decision]で解決し、次の決定機(または試合終了)まで進行を再開する。
-  /// この呼び出しで試合(後半)がちょうど完了した場合のみ、確定した
-  /// [MatchResult]を返す(それ以外はnull)。
-  Future<MatchResult?> resolveChanceDecision(ChanceDecision decision) async {
-    if (_save == null) return null;
+  /// [merged]はこの呼び出しで試合(後半)がちょうど完了した場合のみ確定した
+  /// [MatchResult]を返す(それ以外はnull)。[decisionEvent]はこの決定機の
+  /// 結果として実際に発生したイベント(得点・惜しいチャンス・カード)で、
+  /// 何も起きなかった場合はnull。UI側が選択直後に即時フィードバックを
+  /// 表示するために使う。
+  Future<({MatchResult? merged, MatchEvent? decisionEvent})>
+      resolveChanceDecision(ChanceDecision decision) async {
+    if (_save == null) return (merged: null, decisionEvent: null);
     final secondState = _liveSecondHalfState;
     if (secondState != null && !secondState.isFinished) {
-      MatchEngine.resolvePendingChance(secondState, decision);
+      final event = MatchEngine.resolvePendingChance(secondState, decision);
       if (secondState.isFinished) {
         final merged = await _finalizeSecondHalf(secondState.toHalfResult());
-        return merged;
+        return (merged: merged, decisionEvent: event);
       }
       notifyListeners();
       await _persist();
-      return null;
+      return (merged: null, decisionEvent: event);
     }
     final firstState = _liveFirstHalfState;
     if (firstState != null && !firstState.isFinished) {
-      MatchEngine.resolvePendingChance(firstState, decision);
+      final event = MatchEngine.resolvePendingChance(firstState, decision);
       if (firstState.isFinished && _liveFixture != null) {
         final league = _save!.league;
         final f = _liveFixture!;
@@ -2745,8 +2749,9 @@ class GameState extends ChangeNotifier {
       }
       notifyListeners();
       await _persist();
+      return (merged: null, decisionEvent: event);
     }
-    return null;
+    return (merged: null, decisionEvent: null);
   }
 
   /// [playSecondHalf]/[resolveChanceDecision]から、後半がちょうど完了した

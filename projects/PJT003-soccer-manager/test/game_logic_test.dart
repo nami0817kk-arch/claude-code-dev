@@ -1511,7 +1511,9 @@ void main() {
       );
       while (!state.isFinished) {
         final pending = state.pending!;
-        expect(homeIds.contains(pending.shooter.id), isTrue);
+        if (pending.context == ChanceContext.attack) {
+          expect(homeIds.contains(pending.shooter!.id), isTrue);
+        }
         pendingCount++;
         MatchEngine.resolvePendingChance(state, ChanceDecision.shoot);
       }
@@ -1582,13 +1584,14 @@ void main() {
     while (gameState.pendingChanceDecision != null) {
       final result =
           await gameState.resolveChanceDecision(ChanceDecision.shoot);
-      expect(result, isNull);
+      expect(result.merged, isNull);
     }
     expect(gameState.isHalfTime, isTrue);
 
     MatchResult? merged = await gameState.playSecondHalf(interactive: true);
     while (merged == null && gameState.pendingChanceDecision != null) {
-      merged = await gameState.resolveChanceDecision(ChanceDecision.shoot);
+      merged =
+          (await gameState.resolveChanceDecision(ChanceDecision.shoot)).merged;
     }
 
     expect(merged, isNotNull);
@@ -1602,6 +1605,124 @@ void main() {
             f.homeTeamId == mergedResult.homeTeamId &&
             f.awayTeamId == mergedResult.awayTeamId);
     expect(fixture.result, isNotNull);
+  });
+
+  test(
+      'MatchEngine.resolvePendingChance with longShot uses '
+      'pending.longShotChance instead of shootChance, and always advances '
+      'past the decision', () {
+    final home = PlayerGenerator.generateSquad(
+        id: 'lsh', name: 'LongShot Home FC', strengthTier: 60);
+    final away = PlayerGenerator.generateSquad(
+        id: 'lsa', name: 'LongShot Away FC', strengthTier: 60);
+    LineupUtils.autoFill(home);
+    LineupUtils.autoFill(away);
+
+    var sawAttackChance = false;
+    for (int i = 0; i < 40; i++) {
+      final state = MatchEngine.beginInteractiveHalf(
+        home: home,
+        away: away,
+        startMinute: 1,
+        endMinute: 45,
+        interactiveTeamId: home.id,
+      );
+      while (!state.isFinished) {
+        final pending = state.pending!;
+        if (pending.context != ChanceContext.attack) {
+          MatchEngine.resolvePendingChance(state, ChanceDecision.coverSpace);
+          continue;
+        }
+        expect(pending.longShotChance, isNotNull);
+        expect(pending.shootChance, isNotNull);
+        sawAttackChance = true;
+        MatchEngine.resolvePendingChance(state, ChanceDecision.longShot);
+      }
+      expect(state.isFinished, isTrue);
+    }
+    expect(sawAttackChance, isTrue);
+  });
+
+  test(
+      'MatchEngine.beginInteractiveHalf pauses with a defense decision when '
+      "the interactive team is defending, offering a lower success chance "
+      'against for aggressiveTackle than coverSpace, and repeatedly '
+      'choosing aggressiveTackle eventually produces a card event', () {
+    final home = PlayerGenerator.generateSquad(
+        id: 'dh', name: 'Defense Home FC', strengthTier: 60);
+    final away = PlayerGenerator.generateSquad(
+        id: 'da', name: 'Defense Away FC', strengthTier: 60);
+    LineupUtils.autoFill(home);
+    LineupUtils.autoFill(away);
+
+    var sawDefenseChance = false;
+    var sawCardEvent = false;
+    for (int i = 0; i < 60; i++) {
+      final state = MatchEngine.beginInteractiveHalf(
+        home: home,
+        away: away,
+        startMinute: 1,
+        endMinute: 45,
+        interactiveTeamId: away.id,
+      );
+      while (!state.isFinished) {
+        final pending = state.pending!;
+        if (pending.context != ChanceContext.defense) {
+          MatchEngine.resolvePendingChance(state, ChanceDecision.shoot);
+          continue;
+        }
+        sawDefenseChance = true;
+        expect(pending.aggressiveChanceAgainst, isNotNull);
+        expect(pending.safeChanceAgainst, isNotNull);
+        expect(
+          pending.aggressiveChanceAgainst!,
+          lessThan(pending.safeChanceAgainst!),
+        );
+        final eventsBefore = state.events.length;
+        MatchEngine.resolvePendingChance(
+            state, ChanceDecision.aggressiveTackle);
+        for (int j = eventsBefore; j < state.events.length; j++) {
+          final e = state.events[j];
+          if (e.type == MatchEventType.yellowCard ||
+              e.type == MatchEventType.redCard) {
+            sawCardEvent = true;
+          }
+        }
+      }
+      expect(state.isFinished, isTrue);
+    }
+    expect(sawDefenseChance, isTrue);
+    expect(sawCardEvent, isTrue);
+  });
+
+  test(
+      'GameState.resolveChanceDecision returns the produced MatchEvent as '
+      'decisionEvent, matching MatchEngine.resolvePendingChance', () async {
+    final gameState = GameState();
+    await gameState.startNewGame('テストFC');
+
+    await gameState.playNextMatchday(interactive: true);
+    var sawDecisionEvent = false;
+    while (gameState.pendingChanceDecision != null) {
+      final result =
+          await gameState.resolveChanceDecision(ChanceDecision.shoot);
+      if (result.decisionEvent != null) {
+        sawDecisionEvent = true;
+      }
+    }
+    expect(gameState.isHalfTime, isTrue);
+
+    MatchResult? merged = await gameState.playSecondHalf(interactive: true);
+    while (merged == null && gameState.pendingChanceDecision != null) {
+      final result =
+          await gameState.resolveChanceDecision(ChanceDecision.shoot);
+      if (result.decisionEvent != null) {
+        sawDecisionEvent = true;
+      }
+      merged = result.merged;
+    }
+    expect(merged, isNotNull);
+    expect(sawDecisionEvent, isTrue);
   });
 
   test(
