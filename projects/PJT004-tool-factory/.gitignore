@@ -1,0 +1,21 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# エディタ
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ビルド成果物（build.py でいつでも作り直せる）
+dist/
+
+# 環境変数・秘密情報
+.env
+*.key
+*.pem

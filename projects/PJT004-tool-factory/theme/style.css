@@ -1,0 +1,288 @@
+/* ツール共通スタイル。全ページで1ファイルを共有するのでキャッシュが効く。 */
+:root {
+  color-scheme: light;
+  --page: #f5f7f7;
+  --card: #ffffff;
+  --line: #d8dee0;
+  --line-soft: #eaeeef;
+  --ink: #161c1f;
+  --ink-2: #4e585c;
+  --ink-3: #7c888d;
+  --accent: #1d5a80;
+  --accent-soft: #e8f0f4;
+  --good: #0f7a3d;
+  --warn: #8a5a08;
+  --warn-soft: #fbf2e2;
+  --radius: 10px;
+  --font: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI",
+          "Noto Sans JP", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #0f1416;
+    --card: #171e21;
+    --line: #2c373b;
+    --line-soft: #212a2e;
+    --ink: #eef3f4;
+    --ink-2: #b0bcc0;
+    --ink-3: #7f8c91;
+    --accent: #74b3d8;
+    --accent-soft: #15303d;
+    --good: #4cb87a;
+    --warn: #d9a441;
+    --warn-soft: #31280f;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.8;
+  -webkit-text-size-adjust: 100%;
+  /* ツールが少ないページでもフッターが浮かないようにする */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+main { flex: 1 0 auto; }
+.site-foot { flex: none; }
+
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 18px 72px; }
+
+/* ── ヘッダー ─────────────────────────── */
+.site-head {
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
+}
+.site-head .wrap {
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.site-name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.site-nav { margin-left: auto; font-size: 13.5px; }
+.site-nav a { margin-left: 16px; text-decoration: none; color: var(--ink-2); }
+.site-nav a:hover { color: var(--accent); }
+
+/* ── パンくず ─────────────────────────── */
+.crumbs { font-size: 13px; color: var(--ink-3); padding: 16px 0 0; }
+.crumbs a { color: var(--ink-2); text-decoration: none; }
+.crumbs a:hover { text-decoration: underline; }
+
+/* ── 見出し ───────────────────────────── */
+h1 {
+  font-size: clamp(23px, 5vw, 30px);
+  line-height: 1.35;
+  margin: 14px 0 10px;
+  letter-spacing: .01em;
+  text-wrap: balance;
+}
+h2 {
+  font-size: 19px;
+  margin: 44px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+.lead { color: var(--ink-2); margin: 0 0 8px; }
+.updated { font-size: 12.5px; color: var(--ink-3); margin: 0 0 24px; }
+
+/* ── 計算フォーム ─────────────────────── */
+.calc {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px;
+  margin-top: 8px;
+}
+.fields { display: grid; gap: 16px; }
+.field label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.field .hint { display: block; font-weight: 400; font-size: 12.5px; color: var(--ink-3); }
+.control { display: flex; align-items: center; gap: 8px; }
+input[type="number"], select {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--page);
+  color: var(--ink);
+}
+input[type="number"] { font-variant-numeric: tabular-nums; }
+.unit { color: var(--ink-3); font-size: 14px; flex: none; }
+
+.actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+button {
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 18px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+button:hover { color: var(--ink); border-color: var(--ink-3); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { opacity: .9; color: #fff; }
+@media (prefers-color-scheme: dark) {
+  button.primary { color: #0f1416; }
+  button.primary:hover { color: #0f1416; }
+}
+
+/* ── 結果 ─────────────────────────────── */
+.results { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line-soft); }
+.result {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.result:last-child { border-bottom: 0; }
+.result .name { font-size: 14px; color: var(--ink-2); }
+.result .name small { display: block; font-size: 12px; color: var(--ink-3); }
+.result .value {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.result .value span { font-size: 13px; font-weight: 500; color: var(--ink-2); margin-left: 3px; }
+.result.primary { padding: 14px 0; }
+.result.primary .value { font-size: 33px; color: var(--accent); letter-spacing: -.01em; }
+.result.invalid .value { color: var(--ink-3); }
+
+.copied { font-size: 13px; color: var(--good); margin-left: 4px; }
+
+/* ── PR表記・アフィリ ─────────────────── */
+.pr-note {
+  display: inline-block;
+  font-size: 12px;
+  color: var(--warn);
+  background: var(--warn-soft);
+  border-radius: 4px;
+  padding: 3px 9px;
+  margin-bottom: 14px;
+}
+.promo {
+  margin-top: 40px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 20px 22px;
+}
+.promo h2 { border: 0; margin: 0 0 8px; padding: 0; font-size: 17px; }
+.promo p { margin: 0 0 14px; color: var(--ink-2); font-size: 14.5px; }
+.promo .cta {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 11px 22px;
+  border-radius: 7px;
+}
+@media (prefers-color-scheme: dark) { .promo .cta { color: #0f1416; } }
+.promo .cta:hover { opacity: .9; }
+.promo .fine { display: block; margin-top: 10px; font-size: 12.5px; color: var(--ink-3); }
+
+/* ── 広告枠 ───────────────────────────── */
+.ad { margin: 36px 0; min-height: 1px; text-align: center; }
+
+/* ── 本文 ─────────────────────────────── */
+.prose p { color: var(--ink-2); }
+.prose ol, .prose ul { color: var(--ink-2); padding-left: 1.3em; }
+.prose li { margin-bottom: 6px; }
+.formula {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  color: var(--ink);
+}
+details {
+  border-bottom: 1px solid var(--line-soft);
+  padding: 12px 0;
+}
+details summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+  list-style: none;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before { content: "＋"; color: var(--accent); font-size: 13px; }
+details[open] summary::before { content: "−"; }
+details .body { color: var(--ink-2); font-size: 14.5px; padding: 6px 0 0 24px; }
+
+/* ── 関連ツール ───────────────────────── */
+.related { display: grid; gap: 10px; margin-top: 12px; }
+.related a {
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 14px 16px;
+  text-decoration: none;
+  color: var(--ink);
+}
+.related a:hover { border-color: var(--accent); }
+.related .t { display: block; font-weight: 700; font-size: 15px; }
+.related .d { display: block; font-size: 13px; color: var(--ink-3);
+              margin-top: 2px; line-height: 1.6; }
+
+/* ── 一覧ページ ───────────────────────── */
+.cat { margin-top: 40px; }
+.cat h2 { margin-top: 0; }
+
+/* ── フッター ─────────────────────────── */
+.site-foot {
+  border-top: 1px solid var(--line);
+  background: var(--card);
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.site-foot .wrap { padding: 22px 18px 30px; }
+.site-foot a { color: var(--ink-2); }
+
+@media (max-width: 560px) {
+  .result.primary .value { font-size: 27px; }
+  .calc { padding: 18px 16px; }
+}
