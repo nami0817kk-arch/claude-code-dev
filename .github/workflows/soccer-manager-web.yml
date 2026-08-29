@@ -6,7 +6,7 @@ on:
       - master
       - main
     paths:
-      - "PJT003-soccer-manager/**"
+      - "projects/PJT003-soccer-manager/**"
       - ".github/workflows/soccer-manager-web.yml"
   workflow_dispatch: {}
 
@@ -32,22 +32,22 @@ jobs:
           channel: stable
 
       - name: Install dependencies
-        working-directory: PJT003-soccer-manager
+        working-directory: projects/PJT003-soccer-manager
         run: flutter pub get
 
       - name: Run tests
-        working-directory: PJT003-soccer-manager
+        working-directory: projects/PJT003-soccer-manager
         run: flutter test
 
       - name: Build web
-        working-directory: PJT003-soccer-manager
+        working-directory: projects/PJT003-soccer-manager
         run: flutter build web --release --base-href "/claude-code-dev/soccer-manager/"
 
       - name: Assemble Pages artifact
         run: |
           mkdir -p dist/soccer-manager/legal
-          cp -r PJT003-soccer-manager/build/web/* dist/soccer-manager/
-          cp PJT003-soccer-manager/legal/*.html dist/soccer-manager/legal/
+          cp -r projects/PJT003-soccer-manager/build/web/* dist/soccer-manager/
+          cp projects/PJT003-soccer-manager/legal/*.html dist/soccer-manager/legal/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
