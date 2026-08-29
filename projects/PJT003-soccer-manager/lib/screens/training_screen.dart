@@ -14,67 +14,61 @@ import '../widgets/busy_overlay.dart';
 import '../widgets/position_filter_bar.dart';
 import '../widgets/quick_access_drawer.dart';
 
-/// 特性特訓ピッカーで表示するカテゴリ分け(PlayerTrait enum宣言時の
-/// グルーピングと対応させている)。
-const Map<String, List<PlayerTrait>> _traitCategoriesForPicker = {
-  '対戦相手との相対的な実力差': [
+/// 技術特訓ピッカーで表示するカテゴリ分け(技術カテゴリの特性のみ)。
+const Map<String, List<PlayerTrait>> _technicalTraitCategoriesForPicker = {
+  'シュート・フィニッシュ': [
+    PlayerTrait.sharpShooter,
+    PlayerTrait.clinicalFinisher,
+    PlayerTrait.distanceShooter,
+    PlayerTrait.setPieceMaestro,
+  ],
+  'パス・組み立て': [
+    PlayerTrait.visionary,
+    PlayerTrait.playmakerTrait,
+    PlayerTrait.sureTouch,
+  ],
+  'ドリブル・スピード': [
+    PlayerTrait.silkyDribbler,
+    PlayerTrait.paceMerchant,
+    PlayerTrait.explosiveStart,
+  ],
+  '守備・フィジカル': [
+    PlayerTrait.ballWinner,
+    PlayerTrait.shadowMarker,
+    PlayerTrait.powerhouse,
+    PlayerTrait.tirelessRunner,
+    PlayerTrait.enginesRunning,
+  ],
+  '空中戦・クロス': [PlayerTrait.aerialThreat, PlayerTrait.crossSpecialist],
+  '予測・判断': [PlayerTrait.clockwork],
+};
+
+/// 性格の指導ピッカーで表示するカテゴリ分け(性格カテゴリの特性のみ)。
+const Map<String, List<PlayerTrait>> _personalityTraitCategoriesForPicker = {
+  '対戦相手への向き合い方': [
     PlayerTrait.giantKiller,
     PlayerTrait.frontRunner,
     PlayerTrait.underdogSpirit,
     PlayerTrait.dominantForce,
+    PlayerTrait.bigGameHunter,
+    PlayerTrait.bullyBall,
   ],
-  '対戦相手の絶対的な実力': [PlayerTrait.bigGameHunter, PlayerTrait.bullyBall],
-  'ホーム/アウェイ': [PlayerTrait.homeBoy, PlayerTrait.roadWarrior],
-  '天候': [
-    PlayerTrait.rainMaster,
-    PlayerTrait.windMaster,
-    PlayerTrait.heatwaveMaster,
-    PlayerTrait.snowMaster,
-    PlayerTrait.fairWeatherPlayer,
-  ],
-  '疲労・コンディション': [
-    PlayerTrait.ironLungs,
-    PlayerTrait.freshLegs,
+  'ホーム/アウェイ・心の状態': [
+    PlayerTrait.homeBoy,
+    PlayerTrait.roadWarrior,
     PlayerTrait.confidentMind,
     PlayerTrait.clutchNerves,
     PlayerTrait.contentPlayer,
-    PlayerTrait.sharpShooter,
-    PlayerTrait.rustyButReady,
   ],
-  '年齢': [PlayerTrait.wonderkid, PlayerTrait.oldHead, PlayerTrait.primeTime],
-  'メンタル属性依存': [
+  '闘志・統率・判断': [
     PlayerTrait.warriorSpirit,
     PlayerTrait.calmHead,
     PlayerTrait.leaderOnPitch,
-  ],
-  '波・安定性': [
-    PlayerTrait.streaky,
-    PlayerTrait.volatileTalent,
-    PlayerTrait.metronome,
-  ],
-  '技術・フィジカル属性依存': [
-    PlayerTrait.visionary,
-    PlayerTrait.paceMerchant,
-    PlayerTrait.powerhouse,
-    PlayerTrait.enginesRunning,
-    PlayerTrait.silkyDribbler,
-    PlayerTrait.playmakerTrait,
-    PlayerTrait.ballWinner,
-    PlayerTrait.shadowMarker,
-    PlayerTrait.clinicalFinisher,
-    PlayerTrait.distanceShooter,
-    PlayerTrait.aerialThreat,
-    PlayerTrait.showman,
-    PlayerTrait.sureTouch,
-    PlayerTrait.crossSpecialist,
-    PlayerTrait.setPieceMaestro,
-    PlayerTrait.clockwork,
     PlayerTrait.decisiveMind,
     PlayerTrait.teamPlayer,
-    PlayerTrait.tirelessRunner,
-    PlayerTrait.explosiveStart,
     PlayerTrait.fearlessDefender,
   ],
+  '個性': [PlayerTrait.showman],
 };
 
 /// 特訓成功率への倍率([TrainingEngine.traitSuitability])を、選手詳細
@@ -395,7 +389,8 @@ class _TrainingScreenState extends State<TrainingScreen> {
 
 /// 選手1人分のトレーニング設定をまとめたカード。折りたたみ式にして、
 /// 普段は名前・ポジション・総合力・現在の方針だけを一覧でき、詳細な
-/// 育成アクション(メンター・特訓ドリル・ローテーション・声かけ・特性特訓)は
+/// 育成アクション(メンター・特訓ドリル・ローテーション・声かけ・技術特訓・
+/// 性格の指導)は
 /// タップして展開したときだけ表示する。
 class _PlayerTrainingCard extends StatelessWidget {
   final Player player;
@@ -428,7 +423,8 @@ class _PlayerTrainingCard extends StatelessWidget {
               const SizedBox(width: 6),
               const Icon(Icons.push_pin, size: 14, color: Colors.deepPurple),
             ],
-            if (p.traitTrainingTarget != null) ...[
+            if (p.traitTrainingTarget != null ||
+                p.personalityTraitTrainingTarget != null) ...[
               const SizedBox(width: 6),
               const Icon(
                 Icons.auto_awesome,
@@ -553,16 +549,28 @@ class _PlayerTrainingCard extends StatelessWidget {
                           ? null
                           : () => _talkToPlayer(context, p),
                     ),
-                    if (p.trait == null)
+                    if (p.trait == null) ...[
                       ActionChip(
                         avatar: const Icon(Icons.auto_awesome, size: 18),
                         label: Text(
                           p.traitTrainingTarget == null
-                              ? '特性特訓'
+                              ? '技術特訓'
                               : '特訓中: ${p.traitTrainingTarget!.label}',
                         ),
-                        onPressed: () => _showTraitTrainingPicker(context, p),
+                        onPressed: () =>
+                            _showTechnicalTraitTrainingPicker(context, p),
                       ),
+                      ActionChip(
+                        avatar: const Icon(Icons.diversity_3, size: 18),
+                        label: Text(
+                          p.personalityTraitTrainingTarget == null
+                              ? '性格の指導'
+                              : '指導中: ${p.personalityTraitTrainingTarget!.label}',
+                        ),
+                        onPressed: () =>
+                            _showPersonalityTraitTrainingPicker(context, p),
+                      ),
+                    ],
                   ],
                 ),
               ],
@@ -814,7 +822,7 @@ class _PlayerTrainingCard extends StatelessWidget {
     );
   }
 
-  void _showTraitTrainingPicker(BuildContext context, Player p) {
+  void _showTechnicalTraitTrainingPicker(BuildContext context, Player p) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -829,8 +837,8 @@ class _PlayerTrainingCard extends StatelessWidget {
               const Padding(
                 padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: Text(
-                  '狙いたい特性を選ぶと、以後の週次トレーニングで低確率に獲得を'
-                  '目指す特訓を行う。能力値・年齢がその特性に合っているほど'
+                  '狙いたい技術特性を選ぶと、以後の週次トレーニングで低確率に'
+                  '獲得を目指す特訓を行う。能力値・年齢がその特性に合っているほど'
                   '成功率が上がる(適性表示を参考に)。',
                   style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
@@ -838,7 +846,7 @@ class _PlayerTrainingCard extends StatelessWidget {
               if (p.traitTrainingTarget != null)
                 ListTile(
                   leading: const Icon(Icons.cancel_outlined),
-                  title: const Text('特性特訓を解除する'),
+                  title: const Text('技術特訓を解除する'),
                   onTap: () {
                     context.read<GameState>().setTraitTrainingTarget(
                           p.id,
@@ -847,62 +855,135 @@ class _PlayerTrainingCard extends StatelessWidget {
                     Navigator.of(sheetContext).pop();
                   },
                 ),
-              for (final entry in _traitCategoriesForPicker.entries) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Text(
-                    entry.key,
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
+              for (final entry in _technicalTraitCategoriesForPicker.entries)
+                ..._traitPickerSection(
+                  context: context,
+                  sheetContext: sheetContext,
+                  title: entry.key,
+                  traits: entry.value,
+                  p: p,
+                  currentTarget: p.traitTrainingTarget,
+                  onPick: (trait) =>
+                      context.read<GameState>().setTraitTrainingTarget(
+                            p.id,
+                            trait,
+                          ),
                 ),
-                for (final trait in entry.value)
-                  Builder(
-                    builder: (context) {
-                      final badge = _suitabilityBadge(
-                        TrainingEngine.traitSuitability(p, trait),
-                      );
-                      return ListTile(
-                        title: Text(trait.label),
-                        subtitle: Text(
-                          trait.description,
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                        trailing: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              badge.label,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: badge.color,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (p.traitTrainingTarget == trait)
-                              const Icon(
-                                Icons.check,
-                                color: Colors.deepPurple,
-                                size: 18,
-                              ),
-                          ],
-                        ),
-                        onTap: () {
-                          context.read<GameState>().setTraitTrainingTarget(
-                                p.id,
-                                trait,
-                              );
-                          Navigator.of(sheetContext).pop();
-                        },
-                      );
-                    },
-                  ),
-              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  void _showPersonalityTraitTrainingPicker(BuildContext context, Player p) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.75,
+        maxChildSize: 0.92,
+        builder: (sheetContext, scrollController) => SafeArea(
+          child: ListView(
+            controller: scrollController,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Text(
+                  '性格特性は練習では身につかない。メンター(チームメイト)を'
+                  '指名しているか、監督が今週この選手に声をかけていた週にのみ、'
+                  '低確率で選んだ特性を獲得する。'
+                  '${p.mentorId == null && p.talkCooldownWeeks == 0 ? '(現在はどちらの条件も満たしていない)' : ''}',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
+              if (p.personalityTraitTrainingTarget != null)
+                ListTile(
+                  leading: const Icon(Icons.cancel_outlined),
+                  title: const Text('性格の指導を解除する'),
+                  onTap: () {
+                    context
+                        .read<GameState>()
+                        .setPersonalityTraitTrainingTarget(p.id, null);
+                    Navigator.of(sheetContext).pop();
+                  },
+                ),
+              for (final entry in _personalityTraitCategoriesForPicker.entries)
+                ..._traitPickerSection(
+                  context: context,
+                  sheetContext: sheetContext,
+                  title: entry.key,
+                  traits: entry.value,
+                  p: p,
+                  currentTarget: p.personalityTraitTrainingTarget,
+                  onPick: (trait) => context
+                      .read<GameState>()
+                      .setPersonalityTraitTrainingTarget(p.id, trait),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 特性ピッカー内の1カテゴリ分(見出し + 各特性のListTile)を組み立てる。
+  /// 技術特訓・性格の指導の両ピッカーで共通のレイアウトを使い回す。
+  List<Widget> _traitPickerSection({
+    required BuildContext context,
+    required BuildContext sheetContext,
+    required String title,
+    required List<PlayerTrait> traits,
+    required Player p,
+    required PlayerTrait? currentTarget,
+    required void Function(PlayerTrait trait) onPick,
+  }) {
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: Text(title, style: Theme.of(context).textTheme.titleSmall),
+      ),
+      for (final trait in traits)
+        Builder(
+          builder: (context) {
+            final badge = _suitabilityBadge(
+              TrainingEngine.traitSuitability(p, trait),
+            );
+            return ListTile(
+              title: Text(trait.label),
+              subtitle: Text(
+                trait.description,
+                style: const TextStyle(fontSize: 11),
+              ),
+              trailing: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    badge.label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: badge.color,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (currentTarget == trait)
+                    const Icon(
+                      Icons.check,
+                      color: Colors.deepPurple,
+                      size: 18,
+                    ),
+                ],
+              ),
+              onTap: () {
+                onPick(trait);
+                Navigator.of(sheetContext).pop();
+              },
+            );
+          },
+        ),
+    ];
   }
 }
 

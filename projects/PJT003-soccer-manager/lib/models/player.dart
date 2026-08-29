@@ -711,6 +711,88 @@ extension PlayerTraitInfo on PlayerTrait {
       };
 }
 
+/// 選手特性の習得経路による分類。
+/// - [technical]: 具体的な技術・フィジカルの練習(特訓)で身につけられる。
+/// - [personality]: 練習では身につかず、メンター(チームメイト)や監督との
+///   関わり(声かけ)を通じて選手の中で育っていく。
+/// - [talent]: 生まれ持った資質であり、特訓によって後から獲得することはできない。
+enum PlayerTraitCategory { technical, personality, talent }
+
+extension PlayerTraitCategoryInfo on PlayerTraitCategory {
+  String get label => switch (this) {
+        PlayerTraitCategory.technical => '技術',
+        PlayerTraitCategory.personality => '性格',
+        PlayerTraitCategory.talent => '才能',
+      };
+
+  String get acquisitionHint => switch (this) {
+        PlayerTraitCategory.technical => '特訓(練習)で狙って身につけられる',
+        PlayerTraitCategory.personality => 'メンターや監督の声かけを通じて育っていく',
+        PlayerTraitCategory.talent => '生まれ持った資質。特訓では身につけられない',
+      };
+}
+
+/// 各選手特性がどの分類に属するか。
+/// 技術: 特定の技術・フィジカル能力値に直結し、練習で伸ばせるもの。
+/// 性格: 対戦相手・状況への向き合い方やメンタル面の資質で、チームメイト
+///   (メンター)や監督との関わりの中で育つもの。
+/// 才能: 天候・年齢・調子の波など、選手自身の生まれ持った資質や外的条件に
+///   左右され、練習では後天的に獲得できないもの。
+extension PlayerTraitCategoryOf on PlayerTrait {
+  PlayerTraitCategory get category => switch (this) {
+        PlayerTrait.giantKiller => PlayerTraitCategory.personality,
+        PlayerTrait.frontRunner => PlayerTraitCategory.personality,
+        PlayerTrait.underdogSpirit => PlayerTraitCategory.personality,
+        PlayerTrait.dominantForce => PlayerTraitCategory.personality,
+        PlayerTrait.bigGameHunter => PlayerTraitCategory.personality,
+        PlayerTrait.bullyBall => PlayerTraitCategory.personality,
+        PlayerTrait.homeBoy => PlayerTraitCategory.personality,
+        PlayerTrait.roadWarrior => PlayerTraitCategory.personality,
+        PlayerTrait.rainMaster => PlayerTraitCategory.talent,
+        PlayerTrait.windMaster => PlayerTraitCategory.talent,
+        PlayerTrait.heatwaveMaster => PlayerTraitCategory.talent,
+        PlayerTrait.snowMaster => PlayerTraitCategory.talent,
+        PlayerTrait.fairWeatherPlayer => PlayerTraitCategory.talent,
+        PlayerTrait.ironLungs => PlayerTraitCategory.talent,
+        PlayerTrait.freshLegs => PlayerTraitCategory.talent,
+        PlayerTrait.confidentMind => PlayerTraitCategory.personality,
+        PlayerTrait.clutchNerves => PlayerTraitCategory.personality,
+        PlayerTrait.contentPlayer => PlayerTraitCategory.personality,
+        PlayerTrait.sharpShooter => PlayerTraitCategory.technical,
+        PlayerTrait.rustyButReady => PlayerTraitCategory.talent,
+        PlayerTrait.wonderkid => PlayerTraitCategory.talent,
+        PlayerTrait.oldHead => PlayerTraitCategory.talent,
+        PlayerTrait.primeTime => PlayerTraitCategory.talent,
+        PlayerTrait.warriorSpirit => PlayerTraitCategory.personality,
+        PlayerTrait.calmHead => PlayerTraitCategory.personality,
+        PlayerTrait.leaderOnPitch => PlayerTraitCategory.personality,
+        PlayerTrait.streaky => PlayerTraitCategory.talent,
+        PlayerTrait.volatileTalent => PlayerTraitCategory.talent,
+        PlayerTrait.metronome => PlayerTraitCategory.talent,
+        PlayerTrait.visionary => PlayerTraitCategory.technical,
+        PlayerTrait.paceMerchant => PlayerTraitCategory.technical,
+        PlayerTrait.powerhouse => PlayerTraitCategory.technical,
+        PlayerTrait.enginesRunning => PlayerTraitCategory.technical,
+        PlayerTrait.silkyDribbler => PlayerTraitCategory.technical,
+        PlayerTrait.playmakerTrait => PlayerTraitCategory.technical,
+        PlayerTrait.ballWinner => PlayerTraitCategory.technical,
+        PlayerTrait.shadowMarker => PlayerTraitCategory.technical,
+        PlayerTrait.clinicalFinisher => PlayerTraitCategory.technical,
+        PlayerTrait.distanceShooter => PlayerTraitCategory.technical,
+        PlayerTrait.aerialThreat => PlayerTraitCategory.technical,
+        PlayerTrait.showman => PlayerTraitCategory.personality,
+        PlayerTrait.sureTouch => PlayerTraitCategory.technical,
+        PlayerTrait.crossSpecialist => PlayerTraitCategory.technical,
+        PlayerTrait.setPieceMaestro => PlayerTraitCategory.technical,
+        PlayerTrait.clockwork => PlayerTraitCategory.technical,
+        PlayerTrait.decisiveMind => PlayerTraitCategory.personality,
+        PlayerTrait.teamPlayer => PlayerTraitCategory.personality,
+        PlayerTrait.tirelessRunner => PlayerTraitCategory.technical,
+        PlayerTrait.explosiveStart => PlayerTraitCategory.technical,
+        PlayerTrait.fearlessDefender => PlayerTraitCategory.personality,
+      };
+}
+
 /// 選手の成長タイプ。年齢に応じた伸びやすさ・衰え始める時期の傾向を表す。
 /// 早熟は若いうちに一気に伸びて衰えも早く、大器晩成は伸びが遅い代わりに
 /// 長く成長・活躍できる。育成方針(誰を我慢して使い続けるか)に戦略性を
@@ -747,6 +829,23 @@ Position parsePosition(String raw) {
         return Position.mc;
       }
   }
+}
+
+/// セーブデータの技術特訓ターゲットを復元する。カテゴリ分類の導入以前の
+/// セーブデータでは技術以外の特性が入っている場合があるため、その場合は
+/// 練習では習得できない特性として黙って読み捨てる(null扱い)。
+PlayerTrait? _technicalTraitTargetFromJson(String? raw) {
+  if (raw == null) return null;
+  final trait = enumFromName(PlayerTrait.values, raw, PlayerTrait.streaky);
+  return trait.category == PlayerTraitCategory.technical ? trait : null;
+}
+
+/// セーブデータの性格特性ターゲットを復元する。性格カテゴリ以外の特性が
+/// 入っていた場合は同様に読み捨てる。
+PlayerTrait? _personalityTraitTargetFromJson(String? raw) {
+  if (raw == null) return null;
+  final trait = enumFromName(PlayerTrait.values, raw, PlayerTrait.streaky);
+  return trait.category == PlayerTraitCategory.personality ? trait : null;
 }
 
 class Player {
@@ -873,10 +972,17 @@ class Player {
   String? drillAttributeKey2;
 
   /// 特性未保有の選手に対し、週次トレーニングで狙って習得させたい選手特性
-  /// ([PlayerTrait])。設定すると毎週低確率でこの特性を獲得する判定が行われ、
-  /// 選手の能力値・年齢がその特性に適性が高いほど成功率が上がる。既に特性を
-  /// 持つ選手には効果がない。
+  /// ([PlayerTrait])。技術カテゴリの特性のみ指定できる(才能・性格の特性は
+  /// 練習では身につかないため)。設定すると毎週低確率でこの特性を獲得する
+  /// 判定が行われ、選手の能力値・年齢がその特性に適性が高いほど成功率が
+  /// 上がる。既に特性を持つ選手には効果がない。
   PlayerTrait? traitTrainingTarget;
+
+  /// 特性未保有の選手に対し、メンター(チームメイト)や監督との関わりを
+  /// 通じて習得させたい性格カテゴリの選手特性。設定すると、有効なメンターが
+  /// いる週・監督が個別に声をかけた週に、低確率でこの特性を獲得する判定が
+  /// 行われる。既に特性を持つ選手には効果がない。
+  PlayerTrait? personalityTraitTrainingTarget;
 
   /// 複数のトレーニング方針を登録し、週次トレーニングのたびに順番に
   /// 切り替える個別ローテーション。設定されている間は[individualFocus]
@@ -969,6 +1075,7 @@ class Player {
     this.drillAttributeKey,
     this.drillAttributeKey2,
     this.traitTrainingTarget,
+    this.personalityTraitTrainingTarget,
     this.focusRotation,
     this.rotationWeekIndex = 0,
     this.trainingConvertTargetPosition,
@@ -1178,6 +1285,7 @@ class Player {
         'drillAttributeKey': drillAttributeKey,
         'drillAttributeKey2': drillAttributeKey2,
         'traitTrainingTarget': traitTrainingTarget?.name,
+        'personalityTraitTrainingTarget': personalityTraitTrainingTarget?.name,
         'focusRotation': focusRotation?.map((f) => f.name).toList(),
         'rotationWeekIndex': rotationWeekIndex,
         'trainingConvertTargetPosition': trainingConvertTargetPosition,
@@ -1280,13 +1388,12 @@ class Player {
       mentorId: json['mentorId'] as String?,
       drillAttributeKey: json['drillAttributeKey'] as String?,
       drillAttributeKey2: json['drillAttributeKey2'] as String?,
-      traitTrainingTarget: json['traitTrainingTarget'] == null
-          ? null
-          : enumFromName(
-              PlayerTrait.values,
-              json['traitTrainingTarget'] as String?,
-              PlayerTrait.streaky,
-            ),
+      traitTrainingTarget: _technicalTraitTargetFromJson(
+        json['traitTrainingTarget'] as String?,
+      ),
+      personalityTraitTrainingTarget: _personalityTraitTargetFromJson(
+        json['personalityTraitTrainingTarget'] as String?,
+      ),
       focusRotation: (json['focusRotation'] as List?)
           ?.map(
             (e) => enumFromName(

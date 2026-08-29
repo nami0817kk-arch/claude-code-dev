@@ -699,11 +699,29 @@ class GameState extends ChangeNotifier {
   }
 
   /// 選手個別の特性特訓の目標特性を設定する。nullで解除。既に特性を
-  /// 保有している選手にも設定自体は可能(効果が発現しないだけ)。
+  /// 保有している選手にも設定自体は可能(効果が発現しないだけ)。技術
+  /// カテゴリ以外の特性(才能・性格)は練習では習得できないため無視する。
   void setTraitTrainingTarget(String playerId, PlayerTrait? target) {
     if (_save == null) return;
+    if (target != null && target.category != PlayerTraitCategory.technical) {
+      return;
+    }
     final player = userTeam.players.firstWhere((p) => p.id == playerId);
     player.traitTrainingTarget = target;
+    notifyListeners();
+    _persist();
+  }
+
+  /// 選手個別の性格特性の目標を設定する。nullで解除。メンター(チーム
+  /// メイト)や監督との関わりを通じて習得を目指す仕組みのため、性格
+  /// カテゴリ以外の特性は無視する。
+  void setPersonalityTraitTrainingTarget(String playerId, PlayerTrait? target) {
+    if (_save == null) return;
+    if (target != null && target.category != PlayerTraitCategory.personality) {
+      return;
+    }
+    final player = userTeam.players.firstWhere((p) => p.id == playerId);
+    player.personalityTraitTrainingTarget = target;
     notifyListeners();
     _persist();
   }
@@ -1340,11 +1358,11 @@ class GameState extends ChangeNotifier {
     return ok;
   }
 
-  /// 個別声かけ(モチベーショントーク)の基礎士気上昇量とクールダウン週数。
-  /// reassure(不満度)とは異なり士気(morale)を対象にした、より短い周期で
-  /// 使える個別コマンド。
+  /// 個別声かけ(モチベーショントーク)の基礎士気上昇量。reassure(不満度)
+  /// とは異なり士気(morale)を対象にした、より短い周期で使える個別コマンド。
+  /// クールダウン週数は[TrainingEngine.talkCooldownWeeks]で一元管理する
+  /// (週次トレーニングの性格特性習得判定からも参照するため)。
   static const int talkBaseMoraleBoost = 10;
-  static const int talkCooldownWeeks = 3;
 
   /// 選手個別に声をかけ、士気を高める。効果は性格の結果感応度で変動する
   /// (T10の檄と同じ考え方)。クールダウン中は実施できない。
@@ -1357,7 +1375,7 @@ class GameState extends ChangeNotifier {
     final delta =
         (talkBaseMoraleBoost * player.personality.resultSensitivity).round();
     player.morale = (player.morale + delta).clamp(0, 100);
-    player.talkCooldownWeeks = talkCooldownWeeks;
+    player.talkCooldownWeeks = TrainingEngine.talkCooldownWeeks;
     notifyListeners();
     await _persist();
     return true;

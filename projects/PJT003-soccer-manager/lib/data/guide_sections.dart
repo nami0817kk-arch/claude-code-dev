@@ -54,7 +54,10 @@ List<GuideTopic> _dutyTopics() => [
 /// 選手特性を説明するトピック一覧。持たない選手も多い。
 List<GuideTopic> _traitTopics() => [
       for (final t in PlayerTrait.values)
-        GuideTopic(title: t.label, description: t.description),
+        GuideTopic(
+          title: '${t.label}(${t.category.label})',
+          description: t.description,
+        ),
     ];
 
 /// 選手の成長タイプを説明するトピック一覧。
@@ -116,8 +119,14 @@ final List<GuideSection> guideSections = [
       ..._roleTopics(),
       const GuideTopic(
         title: '特性',
-        description: '性格とは別に、試合の相手や当日の調子によってパフォーマンスが変わる選手固有の個性。'
-            '持たない選手も多く、能力値が近い選手同士でも試合結果に差が生まれる要因になる。',
+        description: '性格(パーソナリティ)とは別に、試合の相手や当日の調子によってパフォーマンスが変わる'
+            '選手固有の個性。持たない選手も多く、能力値が近い選手同士でも試合結果に差が生まれる要因になる。'
+            '習得経路によって3つに分類される。\n'
+            '・技術: 特定の能力値と結びついており、トレーニング画面の「技術特訓」で狙って練習できる。\n'
+            '・性格: 対戦相手や状況への向き合い方などメンタル面の資質。練習では身につかず、'
+            'メンター(チームメイト)や監督の個別声かけを通じて「性格の指導」で育っていく。\n'
+            '・才能: 天候・年齢・調子の波など生まれ持った資質。特訓や指導では後天的に習得できず、'
+            'ユース昇格やスカウトで加入した時点で持っているかどうかが決まる。',
       ),
       ..._traitTopics(),
       const GuideTopic(

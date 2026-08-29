@@ -4928,6 +4928,150 @@ void main() {
   });
 
   test(
+      'PlayerTrait.category classifies all 50 traits into exactly 18 '
+      'technical, 18 personality and 14 talent traits', () {
+    final byCategory = <PlayerTraitCategory, int>{};
+    for (final t in PlayerTrait.values) {
+      byCategory[t.category] = (byCategory[t.category] ?? 0) + 1;
+    }
+    expect(byCategory[PlayerTraitCategory.technical], 18);
+    expect(byCategory[PlayerTraitCategory.personality], 18);
+    expect(byCategory[PlayerTraitCategory.talent], 14);
+  });
+
+  test(
+      'GameState.setTraitTrainingTarget ignores non-technical traits '
+      '(personality/talent traits cannot be trained via drills)', () async {
+    final gameState = GameState();
+    await gameState.startNewGame('テストFC');
+    final player = gameState.userTeam.players.first;
+
+    gameState.setTraitTrainingTarget(player.id, PlayerTrait.giantKiller);
+    expect(player.traitTrainingTarget, isNull);
+
+    gameState.setTraitTrainingTarget(player.id, PlayerTrait.wonderkid);
+    expect(player.traitTrainingTarget, isNull);
+  });
+
+  test(
+      'GameState.setPersonalityTraitTrainingTarget sets/clears a personality '
+      'trait target and ignores non-personality traits', () async {
+    final gameState = GameState();
+    await gameState.startNewGame('テストFC');
+    final player = gameState.userTeam.players.first;
+    expect(player.personalityTraitTrainingTarget, isNull);
+
+    gameState.setPersonalityTraitTrainingTarget(
+      player.id,
+      PlayerTrait.warriorSpirit,
+    );
+    expect(player.personalityTraitTrainingTarget, PlayerTrait.warriorSpirit);
+
+    gameState.setPersonalityTraitTrainingTarget(player.id, null);
+    expect(player.personalityTraitTrainingTarget, isNull);
+
+    gameState.setPersonalityTraitTrainingTarget(
+      player.id,
+      PlayerTrait.clinicalFinisher,
+    );
+    expect(player.personalityTraitTrainingTarget, isNull);
+    gameState.setPersonalityTraitTrainingTarget(
+      player.id,
+      PlayerTrait.wonderkid,
+    );
+    expect(player.personalityTraitTrainingTarget, isNull);
+  });
+
+  test(
+      'personality trait acquisition never happens without a mentor or a '
+      "manager's talk this week, even when a personality target is set", () {
+    var count = 0;
+    for (int i = 0; i < 500; i++) {
+      final p = makeFreshPlayer(determination: 99);
+      p.personalityTraitTrainingTarget = PlayerTrait.warriorSpirit;
+      final team = Team(
+          id: 't',
+          name: 'T',
+          players: [p],
+          defaultTrainingFocus: TrainingFocus.rest);
+      TrainingEngine.applyWeeklyTraining(team);
+      if (p.trait != null) count++;
+    }
+    expect(count, 0);
+  });
+
+  test(
+      'a mentor grants personality trait acquisition a nonzero chance, and '
+      'the acquired trait exactly matches the targeted personality trait', () {
+    Player? acquirer;
+    for (int i = 0; i < 2000; i++) {
+      final p = makeFreshPlayer(determination: 99);
+      p.setAttributeValue(AttributeKeys.determination, 99);
+      p.personalityTraitTrainingTarget = PlayerTrait.warriorSpirit;
+      final mentor = makeFreshPlayer(age: 32);
+      p.mentorId = mentor.id;
+      final team = Team(
+          id: 't',
+          name: 'T',
+          players: [p, mentor],
+          defaultTrainingFocus: TrainingFocus.rest);
+      TrainingEngine.applyWeeklyTraining(team);
+      if (p.trait != null) {
+        acquirer = p;
+        break;
+      }
+    }
+    expect(acquirer, isNotNull);
+    expect(acquirer!.trait, PlayerTrait.warriorSpirit);
+    expect(acquirer.acquiredTraitThisWeek, PlayerTrait.warriorSpirit);
+  });
+
+  test(
+      "a manager's talk this week (fresh talkCooldownWeeks) also grants "
+      'personality trait acquisition a nonzero chance without any mentor', () {
+    Player? acquirer;
+    for (int i = 0; i < 2000; i++) {
+      final p = makeFreshPlayer(determination: 99);
+      p.personalityTraitTrainingTarget = PlayerTrait.warriorSpirit;
+      p.talkCooldownWeeks = TrainingEngine.talkCooldownWeeks;
+      final team = Team(
+          id: 't',
+          name: 'T',
+          players: [p],
+          defaultTrainingFocus: TrainingFocus.rest);
+      TrainingEngine.applyWeeklyTraining(team);
+      if (p.trait != null) {
+        acquirer = p;
+        break;
+      }
+    }
+    expect(acquirer, isNotNull);
+    expect(acquirer!.trait, PlayerTrait.warriorSpirit);
+  });
+
+  test(
+      'Player.fromJson drops a stale traitTrainingTarget/'
+      'personalityTraitTrainingTarget whose category no longer matches the '
+      'field (e.g. from a save predating trait categories)', () {
+    final player = makeFreshPlayer();
+    final json = player.toJson();
+    json['traitTrainingTarget'] = PlayerTrait.giantKiller.name;
+    json['personalityTraitTrainingTarget'] = PlayerTrait.clinicalFinisher.name;
+    final restored = Player.fromJson(json);
+    expect(restored.traitTrainingTarget, isNull);
+    expect(restored.personalityTraitTrainingTarget, isNull);
+  });
+
+  test(
+      'Player/Team round-trip through JSON preserves '
+      'personalityTraitTrainingTarget', () {
+    final player = makeFreshPlayer()
+      ..personalityTraitTrainingTarget = PlayerTrait.calmHead;
+    final restored = Player.fromJson(player.toJson());
+    expect(restored.personalityTraitTrainingTarget, PlayerTrait.calmHead);
+  });
+
+  test(
       'a player with a focusRotation cycles through the listed foci weekly, '
       'taking priority over individualFocus', () {
     final p = makeFreshPlayer();
@@ -7312,7 +7456,7 @@ void main() {
     final ok1 = await gameState.talkToPlayer(player.id);
     expect(ok1, isTrue);
     expect(player.morale, greaterThan(50));
-    expect(player.talkCooldownWeeks, GameState.talkCooldownWeeks);
+    expect(player.talkCooldownWeeks, TrainingEngine.talkCooldownWeeks);
 
     final moraleAfterFirst = player.morale;
     final ok2 = await gameState.talkToPlayer(player.id);

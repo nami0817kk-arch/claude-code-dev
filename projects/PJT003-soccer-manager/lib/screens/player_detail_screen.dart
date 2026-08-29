@@ -364,7 +364,8 @@ class PlayerDetailScreen extends StatelessWidget {
           if (p.trait != null) ...[
             const SizedBox(height: 4),
             Text(
-              '特性: ${p.trait!.label} — ${p.trait!.description}',
+              '特性(${p.trait!.category.label}): ${p.trait!.label} — '
+              '${p.trait!.description}',
               style: const TextStyle(fontSize: 12, color: Colors.deepOrange),
             ),
           ],

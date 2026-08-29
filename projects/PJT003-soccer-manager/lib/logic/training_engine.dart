@@ -14,6 +14,11 @@ class TrainingEngine {
   /// メンターとして有効に扱える最低年齢。
   static const int minMentorAge = 28;
 
+  /// 個別声かけ(GameState.talkToPlayer)のクールダウン週数。性格特性の
+  /// 獲得判定([_rollPersonalityTraitAcquisition])が「監督が今週声をかけたか」
+  /// を判定する際にも参照するため、ここで一元管理する。
+  static const int talkCooldownWeeks = 3;
+
   /// チームの全選手にトレーニングを適用する。個別方針が設定されている選手は
   /// それを優先し、未設定の選手はチームの既定方針に従う。
   /// [headCoachLevel]は成長効率、[trainingGroundLevel]は成長効率と疲労回復を高める。
@@ -209,9 +214,21 @@ class TrainingEngine {
       _grow(p, p.drillAttributeKey2!, 0.2 * growthMultiplier * intensityFactor);
     }
 
-    // 特性トレーニング: 未保有の選手のみ、狙った特性を低確率で獲得する。
+    // 特性トレーニング: 未保有の選手のみ、狙った技術特性を低確率で獲得する。
     if (p.trait == null && p.traitTrainingTarget != null) {
       _rollTraitAcquisition(p, p.traitTrainingTarget!, effectiveGrowth);
+    }
+
+    // 性格特性の習得: 練習ではなく、メンター(チームメイト)や監督の
+    // 個別声かけを通じて、未保有の選手が狙った性格特性を低確率で獲得する。
+    if (p.trait == null && p.personalityTraitTrainingTarget != null) {
+      final talkedThisWeek = p.talkCooldownWeeks == talkCooldownWeeks;
+      _rollPersonalityTraitAcquisition(
+        p,
+        p.personalityTraitTrainingTarget!,
+        hasMentor,
+        talkedThisWeek,
+      );
     }
 
     p.fatigue = (p.fatigue - 5 - fatigueRecoveryBonus ~/ 2).clamp(0, 100);
@@ -529,10 +546,12 @@ class TrainingEngine {
     p.hadBreakthroughThisWeek = true;
   }
 
-  /// 特性未保有の選手が、狙った選手特性([target])を専用の特訓によって
+  /// 特性未保有の選手が、狙った技術特性([target])を専用の特訓によって
   /// 獲得するかどうかの判定。闘志が高く成長に前向きな性格の選手ほど、また
   /// [traitSuitability]が高い(=その特性に元々向いている)選手ほど獲得しやすい。
   /// 獲得すると[Player.acquiredTraitThisWeek]に反映してUI側で通知できるようにする。
+  /// [target]が技術カテゴリでない場合は何もしない(古いセーブデータ等に
+  /// 由来する不整合な指定に対する保険)。
   static const double _traitAcquisitionBaseChance = 0.02;
 
   static void _rollTraitAcquisition(
@@ -540,8 +559,35 @@ class TrainingEngine {
     PlayerTrait target,
     double effectiveGrowth,
   ) {
+    if (target.category != PlayerTraitCategory.technical) return;
     final chance = (_traitAcquisitionBaseChance * effectiveGrowth) *
         (0.7 + p.attributeValue(AttributeKeys.determination) / 165) *
+        p.personality.growthFactor *
+        traitSuitability(p, target);
+    if (_rng.nextDouble() >= chance.clamp(0, 1)) return;
+    p.trait = target;
+    p.acquiredTraitThisWeek = target;
+  }
+
+  /// 特性未保有の選手が、狙った性格特性([target])をメンター(チームメイト)
+  /// や監督の個別声かけを通じて獲得するかどうかの判定。技術特性の特訓とは
+  /// 異なり練習の強度・成長効率には依存せず、有効なメンターがいるか
+  /// ([hasMentor])・監督が今週声をかけたか([talkedThisWeek])のいずれかを
+  /// 満たした週にのみ判定を行う(いずれも満たさない週は何も起きない)。
+  /// [target]が性格カテゴリでない場合も何もしない。
+  static const double _personalityTraitAcquisitionBaseChance = 0.02;
+
+  static void _rollPersonalityTraitAcquisition(
+    Player p,
+    PlayerTrait target,
+    bool hasMentor,
+    bool talkedThisWeek,
+  ) {
+    if (target.category != PlayerTraitCategory.personality) return;
+    if (!hasMentor && !talkedThisWeek) return;
+    final chance = _personalityTraitAcquisitionBaseChance *
+        (hasMentor ? 1.5 : 1.0) *
+        (talkedThisWeek ? 1.3 : 1.0) *
         p.personality.growthFactor *
         traitSuitability(p, target);
     if (_rng.nextDouble() >= chance.clamp(0, 1)) return;
