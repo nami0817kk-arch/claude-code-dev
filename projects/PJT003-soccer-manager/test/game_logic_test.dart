@@ -1790,6 +1790,113 @@ void main() {
   });
 
   test(
+      'MatchEngine.beginInteractiveHalf assigns the defending goalkeeper as '
+      "PendingChanceDecision.attack.keeper, and a shooter with much higher "
+      "finishing/technique/composure than the keeper's reflexes/oneOnOnes/"
+      'handling gets a higher average shootChance', () {
+    Team buildAttackSide(String id, String name, {required bool sharp}) {
+      final team =
+          PlayerGenerator.generateSquad(id: id, name: name, strengthTier: 60);
+      LineupUtils.autoFill(team);
+      for (final p in MatchEngine.lineupOf(team)) {
+        if (p.position.group == PositionGroup.att) {
+          p.setAttributeValue(AttributeKeys.finishing, sharp ? 95 : 30);
+          p.setAttributeValue(AttributeKeys.technique, sharp ? 95 : 30);
+          p.setAttributeValue(AttributeKeys.composure, sharp ? 95 : 30);
+        }
+      }
+      return team;
+    }
+
+    double averageShootChance(Team home, Team away) {
+      var sum = 0.0;
+      var count = 0;
+      var sawKeeper = false;
+      for (int i = 0; i < 60; i++) {
+        final state = MatchEngine.beginInteractiveHalf(
+          home: home,
+          away: away,
+          startMinute: 1,
+          endMinute: 45,
+          interactiveTeamId: home.id,
+        );
+        while (!state.isFinished) {
+          final pending = state.pending!;
+          if (pending.context == ChanceContext.attack) {
+            sum += pending.shootChance!;
+            count++;
+            if (pending.keeper != null) sawKeeper = true;
+            MatchEngine.resolvePendingChance(state, ChanceDecision.shoot);
+          } else {
+            MatchEngine.resolvePendingChance(state, ChanceDecision.coverSpace);
+          }
+        }
+      }
+      expect(count, greaterThan(0));
+      expect(sawKeeper, isTrue);
+      return sum / count;
+    }
+
+    final away = PlayerGenerator.generateSquad(
+        id: 'keepera', name: 'Keeper Away FC', strengthTier: 60);
+    LineupUtils.autoFill(away);
+
+    final sharpAvg = averageShootChance(
+        buildAttackSide('keeperh1', 'Sharp Home FC', sharp: true), away);
+    final dullAvg = averageShootChance(
+        buildAttackSide('keeperh2', 'Dull Home FC', sharp: false), away);
+    expect(sharpAvg, greaterThan(dullAvg));
+  });
+
+  test(
+      'MatchEngine.beginInteractiveHalf assigns a specific defender as '
+      "PendingChanceDecision.defense.defender, and that same defender is "
+      'the one at risk of a card on aggressiveTackle', () {
+    final home = PlayerGenerator.generateSquad(
+        id: 'duelh', name: 'Duel Home FC', strengthTier: 60);
+    final away = PlayerGenerator.generateSquad(
+        id: 'duela', name: 'Duel Away FC', strengthTier: 60);
+    LineupUtils.autoFill(home);
+    LineupUtils.autoFill(away);
+
+    var sawDefenseChance = false;
+    var sawMatchingCardTarget = false;
+    for (int i = 0; i < 60; i++) {
+      final state = MatchEngine.beginInteractiveHalf(
+        home: home,
+        away: away,
+        startMinute: 1,
+        endMinute: 45,
+        interactiveTeamId: away.id,
+      );
+      while (!state.isFinished) {
+        final pending = state.pending!;
+        if (pending.context != ChanceContext.defense) {
+          MatchEngine.resolvePendingChance(state, ChanceDecision.shoot);
+          continue;
+        }
+        sawDefenseChance = true;
+        final defender = pending.defender;
+        final eventsBefore = state.events.length;
+        MatchEngine.resolvePendingChance(
+            state, ChanceDecision.aggressiveTackle);
+        for (int j = eventsBefore; j < state.events.length; j++) {
+          final e = state.events[j];
+          if ((e.type == MatchEventType.yellowCard ||
+                  e.type == MatchEventType.redCard) &&
+              defender != null &&
+              e.scorerId == defender.id) {
+            sawMatchingCardTarget = true;
+          }
+        }
+      }
+      expect(state.isFinished, isTrue);
+    }
+    expect(sawDefenseChance, isTrue);
+    expect(sawMatchingCardTarget, isTrue);
+  });
+
+  test(
       'GameState.playNextMatchday stops at half-time for the user fixture; playSecondHalf finalizes it',
       () async {
     final gameState = GameState();

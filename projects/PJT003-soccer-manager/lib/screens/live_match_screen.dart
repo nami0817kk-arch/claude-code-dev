@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../game/pitch_game.dart';
 import '../logic/match_engine.dart';
+import '../models/attributes.dart';
 import '../models/formation.dart';
 import '../models/match_result.dart';
 import '../models/player.dart';
@@ -108,12 +109,23 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         title: Text(isAttack ? '決定機!' : '相手の決定機!'),
-        content: Text(
-          isAttack
-              ? '${pending.shooter!.name}がチャンス。狙うプレーを選ぼう。'
-                  '(カッコ内は成功率の目安)'
-              : '${pending.attacker!.name}にチャンス。守り方を選ぼう。'
-                  '(カッコ内は相手の成功率の目安)',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isAttack
+                  ? '${pending.shooter!.name}がチャンス。狙うプレーを選ぼう。'
+                  : '${pending.attacker!.name}にチャンス。守り方を選ぼう。',
+            ),
+            const SizedBox(height: 10),
+            _buildDuelCard(pending),
+            const SizedBox(height: 6),
+            Text(
+              isAttack ? '(カッコ内は成功率の目安)' : '(カッコ内は相手の成功率の目安)',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
         ),
         actions: isAttack
             ? [
@@ -211,6 +223,80 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
 
   String _pctText(double? chance) =>
       chance == null ? '-' : '${(chance * 100).round()}%';
+
+  /// 決定機で実際に勝負する両者の名前と能力値を並べた「対戦カード」。
+  /// 攻撃側はシューター(決定力) vs 相手GK(反応速度)、守備側は
+  /// 自チーム守備者(タックル) vs 相手選手(ドリブル)を表示する。
+  Widget _buildDuelCard(PendingChanceDecision pending) {
+    final String leftName;
+    final String leftLabel;
+    final int leftValue;
+    final String rightName;
+    final String rightLabel;
+    final int rightValue;
+    if (pending.context == ChanceContext.attack) {
+      final shooter = pending.shooter!;
+      final keeper = pending.keeper;
+      leftName = shooter.name;
+      leftLabel = AttributeKeys.labelOf(AttributeKeys.finishing);
+      leftValue = shooter.attributeValue(AttributeKeys.finishing);
+      rightName = keeper?.name ?? '-';
+      rightLabel = 'GK ${AttributeKeys.labelOf(AttributeKeys.reflexes)}';
+      rightValue = keeper?.attributeValue(AttributeKeys.reflexes) ?? 0;
+    } else {
+      final defender = pending.defender;
+      final attacker = pending.attacker!;
+      leftName = defender?.name ?? '-';
+      leftLabel = AttributeKeys.labelOf(AttributeKeys.tackling);
+      leftValue = defender?.attributeValue(AttributeKeys.tackling) ?? 0;
+      rightName = attacker.name;
+      rightLabel = AttributeKeys.labelOf(AttributeKeys.dribbling);
+      rightValue = attacker.attributeValue(AttributeKeys.dribbling);
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  leftName,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text('$leftLabel $leftValue',
+                    style: const TextStyle(fontSize: 12)),
+              ],
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 6),
+            child: Text('vs', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  rightName,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text('$rightLabel $rightValue',
+                    style: const TextStyle(fontSize: 12)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   /// 選んだプレーの表示名(結果メッセージ・ダイアログ共通)。
   String _choiceLabel(PendingChanceDecision pending, ChanceDecision decision) {

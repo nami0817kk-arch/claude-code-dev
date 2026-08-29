@@ -84,10 +84,17 @@ class PendingChanceDecision {
   final double? passChance;
   final double? longShotChance;
 
+  /// シュートの相手となる守備側GK(存在すれば)。UIでの能力値比較表示用。
+  final Player? keeper;
+
   // defenseコンテキストのみ有効。相手チーム視点の得点成功率を示す。
   final Player? attacker;
   final double? aggressiveChanceAgainst;
   final double? safeChanceAgainst;
+
+  /// この決定機で相手を受け止める自チームの守備者。UIでの能力値比較
+  /// 表示用で、積極的タックル選択時のカードリスク判定にも使われる。
+  final Player? defender;
 
   const PendingChanceDecision.attack({
     required this.minute,
@@ -96,22 +103,26 @@ class PendingChanceDecision {
     required double this.shootChance,
     this.passChance,
     required double this.longShotChance,
+    this.keeper,
   })  : context = ChanceContext.attack,
         attacker = null,
         aggressiveChanceAgainst = null,
-        safeChanceAgainst = null;
+        safeChanceAgainst = null,
+        defender = null;
 
   const PendingChanceDecision.defense({
     required this.minute,
     required Player this.attacker,
     required double this.aggressiveChanceAgainst,
     required double this.safeChanceAgainst,
+    this.defender,
   })  : context = ChanceContext.defense,
         shooter = null,
         passTarget = null,
         shootChance = null,
         passChance = null,
-        longShotChance = null;
+        longShotChance = null,
+        keeper = null;
 }
 
 /// [MatchEngine.beginInteractiveHalf]/[MatchEngine.resolvePendingChance]が
@@ -1676,6 +1687,59 @@ class MatchEngine {
     state.instruction = instruction;
   }
 
+  /// [lineup]からゴールキーパーを探す(見つからなければnull)。
+  static Player? _findGoalkeeper(List<Player> lineup) {
+    for (final p in lineup) {
+      if (p.position.group == PositionGroup.gk) return p;
+    }
+    return null;
+  }
+
+  /// 決定機で相手の攻撃を最も受け止められる守備者(タックル+
+  /// ポジショニングが最も高い選手、GKを除く)を選ぶ。
+  static Player? _pickChallenger(List<Player> lineup) {
+    final candidates =
+        lineup.where((p) => p.position.group != PositionGroup.gk).toList();
+    if (candidates.isEmpty) return null;
+    candidates.sort((a, b) {
+      final aScore = a.attributeValue(AttributeKeys.tackling) +
+          a.attributeValue(AttributeKeys.positioning);
+      final bScore = b.attributeValue(AttributeKeys.tackling) +
+          b.attributeValue(AttributeKeys.positioning);
+      return bScore.compareTo(aScore);
+    });
+    return candidates.first;
+  }
+
+  /// シューター(またはパス先)とGKの一騎打ちを、決定力・テクニック・
+  /// 冷静さ vs GKの反応速度・一対一・ハンドリングで比較し、成功率への
+  /// 倍率(0.7〜1.3)として返す。GK不在(データ不整合)の場合は等倍。
+  static double _shooterVsKeeperFactor(Player shooter, Player? keeper) {
+    final shootSkill = shooter.attributeValue(AttributeKeys.finishing) * 0.5 +
+        shooter.attributeValue(AttributeKeys.technique) * 0.3 +
+        shooter.attributeValue(AttributeKeys.composure) * 0.2;
+    if (keeper == null) return 1.0;
+    final keeperSkill = keeper.attributeValue(AttributeKeys.reflexes) * 0.4 +
+        keeper.attributeValue(AttributeKeys.oneOnOnes) * 0.4 +
+        keeper.attributeValue(AttributeKeys.handling) * 0.2;
+    return (1.0 + (shootSkill - keeperSkill) / 300).clamp(0.7, 1.3);
+  }
+
+  /// 守備側の決定機で、対応する自チーム守備者と相手選手の突破力を
+  /// タックル・ポジショニング・積極性 vs ドリブル・スピード・閃きで
+  /// 比較し、相手の得点成功率への倍率(0.7〜1.3)として返す。対応できる
+  /// 守備者がいない(数的不利)場合は相手に有利な倍率を返す。
+  static double _defenderVsAttackerFactor(Player? defender, Player attacker) {
+    final attackSkill = attacker.attributeValue(AttributeKeys.dribbling) * 0.4 +
+        attacker.attributeValue(AttributeKeys.pace) * 0.3 +
+        attacker.attributeValue(AttributeKeys.flair) * 0.3;
+    if (defender == null) return 1.15;
+    final defendSkill = defender.attributeValue(AttributeKeys.tackling) * 0.45 +
+        defender.attributeValue(AttributeKeys.positioning) * 0.35 +
+        defender.attributeValue(AttributeKeys.aggression) * 0.2;
+    return (1.0 + (attackSkill - defendSkill) / 300).clamp(0.7, 1.3);
+  }
+
   /// [simulateMinutes]と同じ区間シミュレーションのセットアップ(カード生成・
   /// チャンス発生分の抽選・攻守力算出)を行い、チャンス評価に進む前の
   /// [InteractiveHalfState]を返す。呼び出し直後に内部で最初のチャンス評価まで
@@ -1977,24 +2041,26 @@ class MatchEngine {
             excludeId: scorer?.id,
           );
           final attackMult = _attackInstructionMultiplier(s.instruction);
+          final keeper = _findGoalkeeper(defendingLineup);
           s.pending = PendingChanceDecision.attack(
             minute: minute,
             shooter: scorer!,
             passTarget: passTarget,
-            shootChance:
-                (_applyFinisherQuality(scoreProb, scorer) * attackMult).clamp(
-              0.0,
-              1.0,
-            ),
+            shootChance: (_applyFinisherQuality(scoreProb, scorer) *
+                    attackMult *
+                    _shooterVsKeeperFactor(scorer, keeper))
+                .clamp(0.0, 1.0),
             passChance: passTarget != null
-                ? (_applyFinisherQuality(scoreProb, passTarget) * attackMult)
+                ? (_applyFinisherQuality(scoreProb, passTarget) *
+                        attackMult *
+                        _shooterVsKeeperFactor(passTarget, keeper))
                     .clamp(0.0, 1.0)
                 : null,
-            longShotChance:
-                (_applyLongShotQuality(scoreProb, scorer) * attackMult).clamp(
-              0.0,
-              1.0,
-            ),
+            longShotChance: (_applyLongShotQuality(scoreProb, scorer) *
+                    attackMult *
+                    _shooterVsKeeperFactor(scorer, keeper))
+                .clamp(0.0, 1.0),
+            keeper: keeper,
           );
           s.pendingIsHomeChance = isHomeChance;
           return; // ここで一時停止。再開はresolvePendingChanceから。
@@ -2004,17 +2070,20 @@ class MatchEngine {
           // 専念するかを選べる(相手の得点成功率が変わる)。
           final baseAgainst = _applyFinisherQuality(scoreProb, scorer);
           final defenseMult = _defenseInstructionMultiplier(s.instruction);
+          final defender = _pickChallenger(defendingLineup);
+          final duelFactor = _defenderVsAttackerFactor(defender, scorer!);
           s.pending = PendingChanceDecision.defense(
             minute: minute,
-            attacker: scorer!,
-            aggressiveChanceAgainst:
-                (baseAgainst * _aggressiveTackleReduction * defenseMult)
-                    .clamp(0.0, 1.0),
+            attacker: scorer,
+            aggressiveChanceAgainst: (baseAgainst *
+                    _aggressiveTackleReduction *
+                    defenseMult *
+                    duelFactor)
+                .clamp(0.0, 1.0),
             safeChanceAgainst:
-                (baseAgainst * _coverSpaceReduction * defenseMult).clamp(
-              0.0,
-              1.0,
-            ),
+                (baseAgainst * _coverSpaceReduction * defenseMult * duelFactor)
+                    .clamp(0.0, 1.0),
+            defender: defender,
           );
           s.pendingIsHomeChance = isHomeChance;
           return; // ここで一時停止。再開はresolvePendingChanceから。
@@ -2108,7 +2177,7 @@ class MatchEngine {
         isDirectFreeKick: false,
       );
       if (aggressive && _rng.nextDouble() < _aggressiveTackleCardChance) {
-        final tackler = _pickCardTarget(defendingLineup);
+        final tackler = pending.defender ?? _pickCardTarget(defendingLineup);
         if (tackler != null) {
           final isSecondYellow = tackler.yellowCardedThisHalf;
           final isRed = isSecondYellow || _rng.nextDouble() < 0.12;
