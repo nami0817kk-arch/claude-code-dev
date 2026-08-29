@@ -43,6 +43,11 @@ class SaveGame {
   /// ユース昇格候補・スカウトした有望株。
   List<Player> youthProspects;
 
+  /// 移籍市場に出ている選手(海外リーグからの移籍候補)。毎節ごとに
+  /// 全員を作り直すのではなく数人ずつ入れ替わる持続的な市場で、
+  /// ロードしても同じ顔ぶれが維持されるようセーブに含める。
+  List<Player> transferMarketPlayers;
+
   /// シーズン終了時に一括生成された、選抜待ちのユースインテーク候補。
   List<Player> pendingYouthIntake;
 
@@ -179,6 +184,7 @@ class SaveGame {
     this.managerReputation = 50,
     this.pendingJobOfferTeamId,
     List<Player>? youthProspects,
+    List<Player>? transferMarketPlayers,
     List<Player>? pendingYouthIntake,
     List<String>? watchlistPlayerIds,
     this.ticketPricing = TicketPricing.standard,
@@ -228,6 +234,7 @@ class SaveGame {
         seasonHistory = seasonHistory ?? [],
         bestElevenHistory = bestElevenHistory ?? [],
         youthProspects = youthProspects ?? [],
+        transferMarketPlayers = transferMarketPlayers ?? [],
         pendingYouthIntake = pendingYouthIntake ?? [],
         watchlistPlayerIds = watchlistPlayerIds ?? [],
         infrastructure = infrastructure ?? ClubInfrastructure(),
@@ -263,6 +270,8 @@ class SaveGame {
         'managerReputation': managerReputation,
         'pendingJobOfferTeamId': pendingJobOfferTeamId,
         'youthProspects': youthProspects.map((p) => p.toJson()).toList(),
+        'transferMarketPlayers':
+            transferMarketPlayers.map((p) => p.toJson()).toList(),
         'pendingYouthIntake':
             pendingYouthIntake.map((p) => p.toJson()).toList(),
         'watchlistPlayerIds': watchlistPlayerIds,
@@ -320,6 +329,10 @@ class SaveGame {
         managerReputation: json['managerReputation'] as int? ?? 50,
         pendingJobOfferTeamId: json['pendingJobOfferTeamId'] as String?,
         youthProspects: (json['youthProspects'] as List?)
+                ?.map((e) => Player.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+        transferMarketPlayers: (json['transferMarketPlayers'] as List?)
                 ?.map((e) => Player.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             [],

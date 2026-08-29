@@ -114,7 +114,24 @@ class GameState extends ChangeNotifier {
   /// nullに戻る。ブラウザのストレージ容量超過など、プレイ自体は継続できるが
   /// 進行状況が保存されていない可能性がある場合にUI側で警告を出すために使う。
   String? lastSaveError;
-  List<Player> transferMarket = [];
+
+  /// セーブ未ロード時のフォールバック用の移籍市場(通常はセーブ内の
+  /// [SaveGame.transferMarketPlayers]が実体)。
+  List<Player> _transferMarketFallback = [];
+
+  /// 移籍市場に出ている選手一覧。毎節数人ずつ入れ替わる持続的な市場で
+  /// ([TransferMarket.rotate])、セーブデータに保存されるためロードしても
+  /// 同じ顔ぶれが維持される。
+  List<Player> get transferMarket =>
+      _save?.transferMarketPlayers ?? _transferMarketFallback;
+
+  set transferMarket(List<Player> players) {
+    if (_save != null) {
+      _save!.transferMarketPlayers = players;
+    } else {
+      _transferMarketFallback = players;
+    }
+  }
 
   /// スカウトが見つけてきた、獲得可能な候補選手一覧(閲覧専用・未確定)。
   List<Player> scoutCandidates = [];
@@ -229,7 +246,11 @@ class GameState extends ChangeNotifier {
     if (_save != null) {
       _reseedPlayerIdCounter(_save!);
       _migrateDivisionPyramidIfNeeded();
-      transferMarket = TransferMarket.generate();
+      // 市場はセーブに保存された顔ぶれを維持する(旧セーブ等で空の場合のみ
+      // 新規生成する)。
+      if (transferMarket.isEmpty) {
+        transferMarket = TransferMarket.generate();
+      }
       _refreshScoutCandidates();
     }
     initialized = true;
@@ -388,7 +409,11 @@ class GameState extends ChangeNotifier {
     if (_save != null) {
       _reseedPlayerIdCounter(_save!);
       _migrateDivisionPyramidIfNeeded();
-      transferMarket = TransferMarket.generate();
+      // 市場はセーブに保存された顔ぶれを維持する(旧セーブ等で空の場合のみ
+      // 新規生成する)。
+      if (transferMarket.isEmpty) {
+        transferMarket = TransferMarket.generate();
+      }
       _refreshScoutCandidates();
     } else {
       transferMarket = [];
@@ -1175,6 +1200,58 @@ class GameState extends ChangeNotifier {
     return true;
   }
 
+  static final Random _transferOfferRng = Random();
+
+  /// 今週の値切り交渉で既にオファーを断られた市場選手のID。断られた選手には
+  /// 同じ週に再交渉できない(満額での獲得は引き続き可能)。節が進むとクリア。
+  final Set<String> transferOffersRejectedThisWeek = {};
+
+  /// 値切りオファーが受け入れられる確率(0.0〜1.0)。市場価値の満額なら
+  /// 必ず成立し、55%以下なら必ず拒否される。UIで交渉前に提示する。
+  double transferOfferAcceptChance(int marketValue, int offer) {
+    if (marketValue <= 0) return 1.0;
+    final ratio = offer / marketValue;
+    return ((ratio - 0.55) / 0.45).clamp(0.0, 1.0);
+  }
+
+  /// 市場の選手に移籍金[offer](万円)の値切りオファーを出す。成立すれば
+  /// その額で獲得し、拒否されればこの週は同じ選手に再交渉できない。
+  /// attempted=false は交渉自体が行えなかった場合(移籍ウィンドウ外・
+  /// 資金不足・スカッド満員・今週拒否済みなど)。
+  Future<({bool attempted, bool accepted})> makeTransferOffer(
+    String playerId,
+    int offer,
+  ) async {
+    if (_save == null || !isTransferWindowOpen) {
+      return (attempted: false, accepted: false);
+    }
+    if (transferOffersRejectedThisWeek.contains(playerId)) {
+      return (attempted: false, accepted: false);
+    }
+    final idx = transferMarket.indexWhere((p) => p.id == playerId);
+    if (idx < 0) return (attempted: false, accepted: false);
+    final player = transferMarket[idx];
+    if (offer <= 0 || _save!.budget < offer) {
+      return (attempted: false, accepted: false);
+    }
+    if (userTeam.players.length >= maxSquadSize) {
+      return (attempted: false, accepted: false);
+    }
+    final chance = transferOfferAcceptChance(player.marketValue, offer);
+    final accepted = _transferOfferRng.nextDouble() < chance;
+    if (!accepted) {
+      transferOffersRejectedThisWeek.add(playerId);
+      notifyListeners();
+      return (attempted: true, accepted: false);
+    }
+    _save!.budget -= offer;
+    userTeam.players.add(player);
+    transferMarket.removeWhere((p) => p.id == playerId);
+    notifyListeners();
+    await _persist();
+    return (attempted: true, accepted: true);
+  }
+
   /// 選手がチームを離れる際、キャプテンやセットプレー担当など個別の役割
   /// 指名にその選手のIDが残ったままにならないよう解除する。あわせて、
   /// その選手を対象にした契約交渉・分割払い残金が進行中であれば破棄する。
@@ -1200,6 +1277,9 @@ class GameState extends ChangeNotifier {
     return sellPrice - ContractEngine.releaseSeverance(player);
   }
 
+  /// 直近の[sellPlayer]で選手が移籍した行き先のニュース文言(表示用)。
+  String? lastSaleNews;
+
   Future<bool> sellPlayer(String playerId) async {
     if (_save == null) return false;
     if (!isTransferWindowOpen) return false;
@@ -1213,9 +1293,31 @@ class GameState extends ChangeNotifier {
     team.startingXI.remove(playerId);
     _clearPlayerRoleReferences(team, playerId);
     _save!.budget += net;
+    _placeSoldPlayerAtCpuClub(player);
     notifyListeners();
     await _persist();
     return true;
+  }
+
+  /// 放出した選手を消滅させず、実力に見合うリーグ内のCPUクラブへ移籍させる
+  /// (受け入れ余地のあるクラブがなければやむなく引退扱い=移動なし)。
+  void _placeSoldPlayerAtCpuClub(Player player) {
+    lastSaleNews = null;
+    final destinations = _save!.league.teams
+        .where((t) => t.id != _save!.userTeamId && t.players.length < 26)
+        .toList();
+    if (destinations.isEmpty) return;
+    final fitting = destinations
+        .where((t) => t.overallRating >= player.overall - 5)
+        .toList();
+    final pool = fitting.isNotEmpty ? fitting : destinations;
+    final dest = pool[_transferOfferRng.nextInt(pool.length)];
+    // 自クラブ専用の育成設定(メンター等)は移籍先では引き継がない。
+    player.mentorId = null;
+    player.contractYearsRemaining = 2 + _transferOfferRng.nextInt(3);
+    player.happiness = (player.happiness + 5).clamp(40, 90);
+    dest.players.add(player);
+    lastSaleNews = '${player.name}は${dest.name}へ移籍した。';
   }
 
   int renewalCostFor(String playerId) {
@@ -2799,7 +2901,9 @@ class GameState extends ChangeNotifier {
           '資金マイナスが${_save!.consecutiveNegativeBudgetWeeks}週続いています。理事会の信頼度が低下しました。';
     }
 
-    transferMarket = TransferMarket.generate();
+    // 移籍市場は全員を作り直さず、数人だけ入れ替える(持続的な市場)。
+    transferMarket = TransferMarket.rotate(transferMarket);
+    transferOffersRejectedThisWeek.clear();
     _refreshScoutCandidates();
 
     if (userFixture != null) {

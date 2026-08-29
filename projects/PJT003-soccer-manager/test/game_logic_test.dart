@@ -1550,18 +1550,18 @@ void main() {
           MatchEngine.resolvePendingChance(state, ChanceDecision.shoot);
           continue;
         }
-        final eventsBefore = state.events.length;
         final shooter = pending.shooter;
         final passTarget = pending.passTarget!;
-        MatchEngine.resolvePendingChance(state, ChanceDecision.pass);
-        if (state.events.length > eventsBefore) {
-          final e = state.events[eventsBefore];
-          if (e.type == MatchEventType.goal && e.teamId == home.id) {
-            passGoal = e;
-            shooterAtDecision = shooter;
-            passTargetAtDecision = passTarget;
-            break;
-          }
+        // resolvePendingChanceの戻り値は「この決定の結果として発生した
+        // イベント」そのもの。state.eventsをインデックスで見ると、解決後の
+        // 自動進行(PKやセットプレーなど決定機を挟まない自クラブの得点)が
+        // 紛れ込むため、戻り値で判定する。
+        final e = MatchEngine.resolvePendingChance(state, ChanceDecision.pass);
+        if (e != null && e.type == MatchEventType.goal && e.teamId == home.id) {
+          passGoal = e;
+          shooterAtDecision = shooter;
+          passTargetAtDecision = passTarget;
+          break;
         }
       }
     }
@@ -8650,5 +8650,83 @@ void main() {
     }
     expect(keySum(planned), greaterThan(keySum(unplanned)),
         reason: '育成プランの重視能力値(タックル・ポジショニング)が優先的に伸びるはず');
+  });
+
+  test(
+      'the transfer market persists across matchdays with partial rotation '
+      '(most faces stay, a few are replaced) and the roster survives a JSON '
+      'round-trip of the save', () async {
+    final gameState = GameState();
+    await gameState.startNewGame('テストFC');
+    final before = gameState.transferMarket.map((p) => p.id).toSet();
+    expect(before, isNotEmpty);
+
+    await gameState.playNextMatchday();
+    await gameState.playSecondHalf();
+
+    final after = gameState.transferMarket.map((p) => p.id).toSet();
+    expect(after.length, 24);
+    final stayed = before.intersection(after);
+    expect(stayed.length, greaterThanOrEqualTo(before.length - 6),
+        reason: '1週の入れ替えは最大6人で、大半の選手は市場に残り続ける');
+    expect(stayed.length, lessThan(before.length), reason: '毎週数人は入れ替わる');
+
+    final restored = SaveGame.fromJson(gameState.save!.toJson());
+    expect(restored.transferMarketPlayers.map((p) => p.id).toSet(), after,
+        reason: '市場の顔ぶれはセーブに保存され、ロードしても維持される');
+  });
+
+  test(
+      'GameState.makeTransferOffer always accepts a full-price offer, always '
+      'rejects offers at or below 55% of market value, and locks that player '
+      'out of further negotiation for the week after a rejection', () async {
+    final gameState = GameState();
+    await gameState.startNewGame('テストFC');
+    gameState.save!.budget = 1000000;
+
+    final target = gameState.transferMarket.first;
+    final res =
+        await gameState.makeTransferOffer(target.id, target.marketValue);
+    expect(res.attempted, isTrue);
+    expect(res.accepted, isTrue, reason: '満額オファーは必ず成立する');
+    expect(gameState.userTeam.players.any((p) => p.id == target.id), isTrue);
+
+    final target2 = gameState.transferMarket.first;
+    final low = (target2.marketValue * 0.5).floor();
+    final res2 = await gameState.makeTransferOffer(target2.id, low);
+    expect(res2.attempted, isTrue);
+    expect(res2.accepted, isFalse, reason: '55%以下のオファーは必ず断られる');
+    expect(
+      gameState.transferOffersRejectedThisWeek.contains(target2.id),
+      isTrue,
+    );
+
+    final res3 =
+        await gameState.makeTransferOffer(target2.id, target2.marketValue);
+    expect(res3.attempted, isFalse, reason: '断られた週は同じ選手に再交渉できない');
+    expect(
+      gameState.transferMarket.any((p) => p.id == target2.id),
+      isTrue,
+      reason: '交渉が成立していない選手は市場に残る',
+    );
+  });
+
+  test(
+      'GameState.sellPlayer moves the sold player to another club in the '
+      'league instead of deleting them, reporting the destination via '
+      'lastSaleNews', () async {
+    final gameState = GameState();
+    await gameState.startNewGame('テストFC');
+    final team = gameState.userTeam;
+    final player = team.players.firstWhere((p) => !p.isLoan && !p.isLoanedOut);
+
+    expect(await gameState.sellPlayer(player.id), isTrue);
+    expect(team.players.any((p) => p.id == player.id), isFalse);
+
+    final newClub = gameState.save!.league.teams
+        .firstWhere((t) => t.players.any((p) => p.id == player.id));
+    expect(newClub.id, isNot(team.id), reason: '放出選手は消滅せず他クラブへ移籍する');
+    expect(gameState.lastSaleNews, isNotNull);
+    expect(gameState.lastSaleNews, contains(newClub.name));
   });
 }

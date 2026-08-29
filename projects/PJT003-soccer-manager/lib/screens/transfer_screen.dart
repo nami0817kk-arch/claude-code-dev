@@ -331,6 +331,79 @@ class _TransferScreenState extends State<TransferScreen>
     }
   }
 
+  /// 移籍金の値切り交渉ダイアログ。提示割合をスライダーで選び、成立見込みを
+  /// 事前に示した上でオファーを出す。断られるとその週は再交渉できない。
+  Future<void> _showNegotiationDialog(
+    BuildContext context,
+    Player player,
+  ) async {
+    final gameState = context.read<GameState>();
+    final total = player.marketValue;
+    double ratio = 0.85;
+    final submitted = await showDialog<int>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          final offer = (total * ratio).round();
+          final chance = gameState.transferOfferAcceptChance(total, offer);
+          return AlertDialog(
+            title: Text('${player.name}への移籍金オファー'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('市場価値: $total万円'),
+                Text('提示額: $offer万円(${(ratio * 100).round()}%)'),
+                Slider(
+                  value: ratio,
+                  min: 0.6,
+                  max: 1.0,
+                  divisions: 8,
+                  label: '${(ratio * 100).round()}%',
+                  onChanged: (v) => setState(() => ratio = v),
+                ),
+                Text('成立見込み: ${(chance * 100).round()}%'),
+                const Text(
+                  '断られるとこの週は再交渉できない(満額での獲得は可能)。',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('やめる'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, offer),
+                child: const Text('オファーを出す'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (submitted == null || !context.mounted) return;
+    final result = await gameState.makeTransferOffer(player.id, submitted);
+    if (!context.mounted) return;
+    if (result.accepted) {
+      FeedbackService.success();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${player.name}を$submitted万円で獲得しました!')),
+      );
+    } else if (result.attempted) {
+      FeedbackService.error();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('オファーは断られた。この週は再交渉できない。')),
+      );
+    } else {
+      FeedbackService.error();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('交渉できませんでした(資金・スカッド枠・ウィンドウを確認)')),
+      );
+    }
+  }
+
   void _showAcquireSheet(BuildContext context, Player player) {
     final gameState = context.read<GameState>();
     final save = gameState.save!;
@@ -365,6 +438,21 @@ class _TransferScreenState extends State<TransferScreen>
                     () => gameState.buyPlayer(player.id),
                     player.name,
                   );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.handshake),
+                title: const Text('値切り交渉で獲得'),
+                subtitle: Text(
+                  gameState.transferOffersRejectedThisWeek.contains(player.id)
+                      ? '今週は既に断られている(来週また交渉できる)'
+                      : '市場価値より安い移籍金を提示する(安いほど断られやすい)',
+                ),
+                enabled: !gameState.transferOffersRejectedThisWeek
+                    .contains(player.id),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showNegotiationDialog(context, player);
                 },
               ),
               ListTile(
