@@ -20,7 +20,12 @@ FIELDS = [
     ("deadline_months", "目標達成までの期間", "int", 6,   "ヶ月"),
     ("public_face",   "顔出し・実名の可否", "str", "不可", "可 / 不可"),
     ("ng",            "やりたくないこと", "list", [],  "カンマ区切り: 例) 電話営業, 長時間の対面"),
+    ("cost_mode",     "AIの課金形態",     "str",  "定額", "定額（サブスク） / 従量（API従量課金）"),
+    ("monthly_fee",   "AIの月額(円)",     "int",  0,   "定額の場合の月額。従量なら0"),
 ]
+
+# 定額なら1件作るごとの追加費用は発生しない。この違いは原価の考え方を根本から変える。
+SUBSCRIPTION = "定額"
 
 DEFAULTS = {key: default for key, _, _, default, _ in FIELDS}
 
@@ -94,6 +99,17 @@ def summary_text(data: dict) -> str:
         f"- 顔出し・実名: {data['public_face']}",
         f"- やりたくないこと: {j(data['ng']) or '特になし'}",
     ])
+
+
+def is_subscription(data: dict = None) -> bool:
+    """AI の課金が定額制かどうか。原価計算の分岐に使う。"""
+    data = data or load()
+    return data.get("cost_mode", SUBSCRIPTION) == SUBSCRIPTION
+
+
+def monthly_fee(data: dict = None) -> int:
+    data = data or load()
+    return data.get("monthly_fee", 0) if is_subscription(data) else 0
 
 
 def print_profile(data: dict):

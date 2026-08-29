@@ -4,6 +4,7 @@ AI で自動化する副業は「1件いくらの原価で作れて、いくら�
 トークン単価から実測の原価を出し、粗利率と実質時給まで落とす。
 """
 from .. import llm
+from .. import profile as profile_mod
 from . import jobs as jobs_mod
 from . import services
 
@@ -91,6 +92,49 @@ def estimate(service_key: str, input_chars: int = 3000) -> dict:
     }
 
 
+def units_to_cover(monthly_fee: int, price: int) -> int:
+    """月額を回収するのに必要な件数。定額制での損益分岐点。"""
+    if price <= 0:
+        return 0
+    return -(-monthly_fee // price)
+
+
+def print_subscription_estimates(prof: dict, target_income: int = 0):
+    """定額制のときの表。1件あたりの追加費用は発生しないので、
+    見るべきは「月額を回収するのに何件必要か」だけになる。"""
+    fee = profile_mod.monthly_fee(prof)
+    print(f"\n{'='*74}")
+    print(f"  1件あたりの原価  ——  定額制（月額 {fee:,}円）")
+    print(f"{'='*74}")
+    print("  定額制なので、1件作るごとの追加費用は発生しません。")
+    print("  作る量を絞る理由は費用面には無く、回収すべきは月額だけです。")
+    print(f"\n  {'サービス':<14}{'想定単価':>20}{'月額回収に必要':>16}", end="")
+    if target_income:
+        print(f"{'目標必要件数':>14}")
+    else:
+        print()
+    print(f"{'-'*74}")
+    for key in services.keys():
+        service = services.get(key)
+        need_fee = units_to_cover(fee, service.price_min)
+        line = (f"  {service.name:<14}"
+                f"{service.price_min:>11,}〜{service.price_max:,}円"
+                f"{(str(need_fee) + ' 件/月') if fee else '—':>16}")
+        if target_income:
+            need = -(-target_income // service.price_min)
+            line += f"{need:>12} 件/月"
+        print(line)
+    print(f"{'-'*74}")
+    if fee:
+        print(f"  月額 {fee:,}円 は、いちばん単価の低いサービスでも "
+              f"{units_to_cover(fee, min(s.price_min for s in services.SERVICES))} 件で回収できます。")
+    else:
+        print("  月額が未設定です: python main.py profile --set monthly_fee=3000")
+    print("  ※ 従量課金（API）に切り替える場合は "
+          "profile --set cost_mode=従量 としてください")
+    print(f"{'='*74}")
+
+
 def print_estimates(target_income: int = 0):
     print(f"\n{'='*74}")
     print(f"  1件あたりの原価見積もり（モデル: {llm.DEFAULT_MODEL} / "
@@ -118,7 +162,10 @@ def print_estimates(target_income: int = 0):
     print(f"{'='*74}")
 
 
-def print_summary():
+def print_summary(prof: dict = None):
+    prof = prof or profile_mod.load()
+    subscription = profile_mod.is_subscription(prof)
+    fee = profile_mod.monthly_fee(prof)
     s = summary()
     if not s["count"]:
         print("実行済みの案件がありません。まず `python main.py auto` を実行してください。")
@@ -129,10 +176,17 @@ def print_summary():
     print(f"  原価・利益レポート（実測 {s['count']} 件）")
     print(f"{'='*74}")
     print(f"  売上   {s['sales']:>12,} 円")
-    print(f"  原価   {s['cost']:>12,.0f} 円（API利用料）")
-    print(f"  ─────────────────────")
-    print(f"  粗利   {s['profit']:>12,.0f} 円   粗利率 {s['margin']}%")
-    print(f"\n  1件あたり: 売価 {s['avg_price']:,}円 / 原価 {s['avg_cost']:.0f}円")
+    if subscription:
+        print(f"  原価   {fee:>12,} 円（定額制の月額。件数を増やしても増えません）")
+        print(f"  ─────────────────────")
+        print(f"  粗利   {s['sales'] - fee:>12,} 円")
+        print(f"\n  ※ 従量課金なら {s['cost']:,.0f} 円かかっていた計算です（参考値）")
+        print(f"  1件あたり: 売価 {s['avg_price']:,}円 / 追加費用 0円")
+    else:
+        print(f"  原価   {s['cost']:>12,.0f} 円（API利用料）")
+        print(f"  ─────────────────────")
+        print(f"  粗利   {s['profit']:>12,.0f} 円   粗利率 {s['margin']}%")
+        print(f"\n  1件あたり: 売価 {s['avg_price']:,}円 / 原価 {s['avg_cost']:.0f}円")
     print(f"  実行時間 : 合計 {s['auto_hours']}時間  → 実質時給 {s['hourly']:,} 円")
     print(f"  手作業なら {s['manual_hours']:g}時間かかる内容（{s['saved_hours']}時間の削減）")
 

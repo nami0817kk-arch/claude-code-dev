@@ -254,15 +254,28 @@ copy .env.example .env
 
 ## 使い方（ダッシュボード）
 
-### まず支出を登録する
+### まず課金形態と支出を登録する
 
-収益より先に出ていく額を入れておかないと、「いくら回収すればいいのか」が
-分からないままになる。継続課金は開始月を指定すれば一括で埋まる。
+**AIの課金が定額（サブスク）か従量（API）かで、原価の考え方が根本から変わる。**
 
 ```powershell
+python main.py profile --set cost_mode=定額 monthly_fee=3000
 python main.py expense add 3000 --item "Claude利用料" --from 2026-05
-python main.py expense add 1200 --item "ドメイン" --category infra --month 2026-05
 python main.py expense                                    # 一覧
+```
+
+| | 定額（サブスク） | 従量（API） |
+|---|---|---|
+| 1件あたりの追加費用 | **0円** | トークン数に応じて発生 |
+| 作る量を絞る理由 | 費用面には無い | 増やすほど原価が増える |
+| 回収すべき額 | 月額のみ | 月々の従量課金の合計 |
+
+既定は定額。`cost`・`media simulate`・ダッシュボードはこの設定に従って計算を変える。
+従量課金なら `profile --set cost_mode=従量` としてください。
+
+```powershell
+python main.py cost --estimate         # 定額なら「月額を回収するのに何件必要か」
+python main.py cost --estimate --api   # 従量だった場合の試算も見られる
 ```
 
 ### 画面を開く
@@ -792,7 +805,7 @@ python main.py report --idea 1
 
 ## テスト
 
-外部 API を呼ばない部分は単体テスト済み（219件）。Claude の応答はモックに差し替えて、
+外部 API を呼ばない部分は単体テスト済み（226件）。Claude の応答はモックに差し替えて、
 生成 → 検品 → 修正 → 納品 → 売上計上 → 原価集計まで通しで検証している。
 
 ```powershell
@@ -806,11 +819,13 @@ python -m unittest discover -s tests
 | `tests/test_media.py` | 収益モデルの計算式・逆算・成長シミュレーション・キーワード優先度・ジャンル評価・ステマ規制チェック・リライト判定 |
 | `tests/test_portfolio.py` | 継続率曲線・DAU/ARPDAU・LTV/CPI・プロジェクト状態判定・時間配分・実績集計 |
 | `tests/test_screen.py` | ダッシュボードの描画・軸スケール・HTMLエスケープ・自己完結性 |
-| `tests/test_expenses.py` | 経費の記録・固定費の一括登録・投資フェーズの判定と表示 |
+| `tests/test_expenses.py` | 経費の記録・固定費の一括登録・投資フェーズの判定と表示・課金形態による原価計算の分岐 |
 
 ## データの扱い
 
 - プロフィール・タスク・売上・案件は `data/` 配下の JSON に保存される
+- メディアの固定費（`media params` の `fixed_monthly`）は既定でドメイン・サーバー代
+  1,500円/月を仮定している。使っていなければ `media params --set fixed_monthly=0` で外すこと
 - **`deliverables/`（納品物）・`articles/`（記事）・`logs/`・`dashboard.html` は
   顧客情報や収益実績が入るため `.gitignore` 済み**
 - `data/*.json` と `data/reports/` も `.gitignore` 済み（個人情報を push しない）
@@ -818,7 +833,12 @@ python -m unittest discover -s tests
 
 ### モデルと原価
 
-既定は `claude-opus-5`（入力 $5 / 出力 $25 per 1M トークン）。
+**定額（サブスク）で使っている場合、以下のトークン単価は原価に影響しない。**
+1件作るごとの追加費用は発生せず、回収すべきは月額のみ。
+`profile --set cost_mode=定額 monthly_fee=<月額>` を設定しておくこと。
+
+以下は従量課金（API）の場合の話。既定モデルは `claude-opus-5`
+（入力 $5 / 出力 $25 per 1M トークン）。
 費用を抑えたい場合は `.env` の `CLAUDE_MODEL` で変更できる。
 
 ```
@@ -880,6 +900,7 @@ CLAUDE_MODEL=claude-sonnet-5     # 入力 $2 / 出力 $10 — 原価が約6割�
 - [x] 複数プロジェクトの横断管理と時間配分
 - [x] ダッシュボード画面（ローカル完結・オフライン）
 - [x] 経費記録と投資フェーズ表示
+- [x] 定額制／従量課金に応じた原価計算
 - [ ] 実運用での検証（初報酬まで）
 - [ ] 案件検索の自動化（クラウドソーシングの新着チェック）
 - [ ] Batches API での夜間一括処理（原価が半額になる）

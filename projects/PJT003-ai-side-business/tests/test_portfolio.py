@@ -334,9 +334,8 @@ class TestPortfolioTotals(PortfolioTestBase):
 
 
 class TestServiceSync(PortfolioTestBase):
-    def test_only_booked_jobs_count_as_revenue(self):
+    def seed_jobs(self):
         from src.auto import jobs as jobs_mod
-        from src.portfolio import dashboard
 
         month = store.today()[:7]
         run_at = f"{month}-15 10:00"
@@ -353,10 +352,33 @@ class TestServiceSync(PortfolioTestBase):
         ])
         pjt.add("受託", kind="service", status="運用")
 
+    def test_only_booked_jobs_count_as_revenue(self):
+        from src import profile as profile_mod
+        from src.portfolio import dashboard
+
+        self.seed_jobs()
+        profile_mod.save(dict(profile_mod.DEFAULTS, cost_mode="従量"))
+
         result = dashboard.sync_service_revenue(1)
         self.assertEqual(result["revenue"], 6000)      # 計上済みの1件のみ
         self.assertEqual(result["cost"], 70)           # 当月に走った2件ぶんの原価
         self.assertEqual(pjt.find(1)["records"][0]["revenue"], 6000)
+
+    def test_subscription_does_not_book_per_job_cost(self):
+        """定額制では案件ごとの原価は参考値なので、実費として計上しない。
+
+        月額は expense 側に1本で入っているため、ここでも載せると二重計上になる。
+        """
+        from src import profile as profile_mod
+        from src.portfolio import dashboard
+
+        self.seed_jobs()
+        profile_mod.save(dict(profile_mod.DEFAULTS, cost_mode="定額", monthly_fee=3000))
+
+        result = dashboard.sync_service_revenue(1)
+        self.assertEqual(result["revenue"], 6000)
+        self.assertEqual(result["cost"], 0)
+        self.assertTrue(result["subscription"])
 
 
 if __name__ == "__main__":

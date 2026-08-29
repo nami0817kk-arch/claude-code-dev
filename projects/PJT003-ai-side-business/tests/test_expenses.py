@@ -197,3 +197,47 @@ class TestNiceStep(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBillingMode(ExpenseTestBase):
+    """定額制と従量課金で、原価の考え方が変わることを確かめる。"""
+
+    def test_default_is_subscription(self):
+        from src import profile as profile_mod
+        self.assertTrue(profile_mod.is_subscription(profile_mod.load()))
+
+    def test_monthly_fee_is_zero_when_metered(self):
+        from src import profile as profile_mod
+        metered = dict(profile_mod.DEFAULTS, cost_mode="従量", monthly_fee=3000)
+        self.assertFalse(profile_mod.is_subscription(metered))
+        self.assertEqual(profile_mod.monthly_fee(metered), 0)
+
+    def test_units_to_cover_the_monthly_fee(self):
+        from src.auto import cost
+        self.assertEqual(cost.units_to_cover(3000, 3000), 1)
+        self.assertEqual(cost.units_to_cover(3000, 2000), 2)   # 端数は切り上げ
+        self.assertEqual(cost.units_to_cover(3000, 0), 0)
+        self.assertEqual(cost.units_to_cover(0, 5000), 0)
+
+    def test_dashboard_notes_that_volume_is_free(self):
+        from src import profile as profile_mod, screen
+
+        profile_mod.save(dict(profile_mod.DEFAULTS, cost_mode="定額", monthly_fee=3000))
+        expenses.add(3000, "Claude利用料", month="2026-08")
+        page = screen.render(screen.collect())
+        self.assertIn("作る量を増やしても支出は増えません", page)
+
+    def test_metered_mode_omits_that_note(self):
+        from src import profile as profile_mod, screen
+
+        profile_mod.save(dict(profile_mod.DEFAULTS, cost_mode="従量"))
+        expenses.add(3000, "API利用料", month="2026-08")
+        page = screen.render(screen.collect())
+        self.assertNotIn("作る量を増やしても支出は増えません", page)
+
+    def test_empty_expense_prompt_uses_the_known_fee(self):
+        from src import profile as profile_mod, screen
+
+        profile_mod.save(dict(profile_mod.DEFAULTS, cost_mode="定額", monthly_fee=4500))
+        page = screen.render(screen.collect())
+        self.assertIn("expense add 4500", page)

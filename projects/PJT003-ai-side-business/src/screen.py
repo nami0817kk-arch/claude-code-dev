@@ -747,13 +747,22 @@ def render_first_yen(d: dict) -> str:
 
 
 def render_expenses(d: dict) -> str:
+    from . import profile as profile_mod
+
     exp = d["expenses"]
     if not exp["records"]:
-        return ('<section><h2>経費</h2><p class="empty">'
-                '経費が未登録です。'
-                '<code>python main.py expense add 3000 --item "Claude利用料" '
-                '--from 2026-05</code> のように登録すると、'
-                '投資額と回収ラインが出ます。</p></section>')
+        fee = profile_mod.monthly_fee(d["profile"])
+        amount = fee or 3000
+        return (f'<section><h2>経費</h2><p class="empty">'
+                f'経費が未登録です。'
+                f'<code>python main.py expense add {amount} --item "Claude利用料" '
+                f'--from 2026-05</code> のように登録すると、'
+                f'投資額と回収ラインが出ます。</p></section>')
+
+    subscription_note = ""
+    if profile_mod.is_subscription(d["profile"]):
+        subscription_note = ("　定額制なので、作る量を増やしても支出は増えません"
+                             "（費用面で量を絞る理由はありません）。")
 
     rows = "".join(
         f'<tr><td>{esc(name)}</td>'
@@ -772,7 +781,7 @@ def render_expenses(d: dict) -> str:
       <tbody>{rows}</tbody>
     </table>
     <p class="note-line">合計 {yen(exp["total"])} 円。
-      これがそのまま「回収しなければならない額」です。</p>
+      これがそのまま「回収しなければならない額」です。{subscription_note}</p>
   </section>"""
 
 

@@ -174,15 +174,25 @@ def print_review(target_income: int = 0):
 
 
 def sync_service_revenue(project_id: int, month: str = "") -> dict:
-    """受託案件（src/auto）の実績を、指定プロジェクトの月次記録に取り込む。"""
+    """受託案件（src/auto）の実績を、指定プロジェクトの月次記録に取り込む。
+
+    定額制の場合、案件ごとに記録されている原価は「従量だったら」の参考値なので
+    実費として計上しない。月額は expense 側で1本に計上されており、
+    ここでも載せると二重計上になる。
+    """
+    from .. import profile as profile_mod
+
     month = month or store.today()[:7]
+    subscription = profile_mod.is_subscription()
     revenue = cost = 0
     for job in jobs_mod.load():
         if not job.get("run_at", "").startswith(month):
             continue
         if job.get("revenue_recorded"):
             revenue += job.get("price", 0) or 0
-        cost += job.get("cost_jpy", 0) or 0
+        if not subscription:
+            cost += job.get("cost_jpy", 0) or 0
 
     pjt.record(project_id, month=month, revenue=revenue, cost=round(cost))
-    return {"month": month, "revenue": revenue, "cost": round(cost)}
+    return {"month": month, "revenue": revenue, "cost": round(cost),
+            "subscription": subscription}

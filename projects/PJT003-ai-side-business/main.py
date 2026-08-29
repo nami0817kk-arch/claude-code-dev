@@ -442,10 +442,13 @@ def cmd_media(args):
     elif action == "simulate":
         target = args.target or (profile_mod.load()["target_income"]
                                  if profile_mod.exists() else 0)
-        # 記事1本あたりのAPI原価を、実測があればそれを使う
-        written = media_articles.load()
-        article_cost = (sum(a["cost_jpy"] for a in written) / len(written)
-                        if written else args.article_cost)
+        # 定額制なら記事を増やしても費用は増えないので、1本あたりは0円
+        if profile_mod.is_subscription():
+            article_cost = 0
+        else:
+            written = media_articles.load()
+            article_cost = (sum(a["cost_jpy"] for a in written) / len(written)
+                            if written else args.article_cost)
         sim = media_model.simulate(
             months=args.months, articles_per_month=args.per_month,
             avg_volume=args.volume, target=target, model=args.model,
@@ -630,11 +633,16 @@ def cmd_auto(args):
 
 
 def cmd_cost(args):
+    prof = profile_mod.load()
+    target = prof["target_income"] if profile_mod.exists() else 0
     if args.estimate:
-        target = profile_mod.load()["target_income"] if profile_mod.exists() else 0
-        cost_mod.print_estimates(target_income=target)
+        # 定額制なら1件あたりの追加費用は発生しないので、表の意味が変わる
+        if profile_mod.is_subscription(prof) and not args.api:
+            cost_mod.print_subscription_estimates(prof, target_income=target)
+        else:
+            cost_mod.print_estimates(target_income=target)
     else:
-        cost_mod.print_summary()
+        cost_mod.print_summary(prof)
 
 
 # ---------------------------------------------------------------- CLI
@@ -957,6 +965,8 @@ def build_parser():
     p_cost = sub.add_parser("cost", help="原価・粗利のレポート")
     p_cost.add_argument("--estimate", action="store_true",
                         help="実行前の概算（サービス別の想定原価と粗利率）")
+    p_cost.add_argument("--api", action="store_true",
+                        help="定額制でも、従量課金だった場合の試算を表示する")
 
     return parser
 
