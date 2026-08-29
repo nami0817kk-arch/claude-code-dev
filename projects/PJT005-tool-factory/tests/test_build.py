@@ -261,3 +261,87 @@ class TestRealTools(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestStaticPages(unittest.TestCase):
+    """ASP・広告配信の審査で見られる固定ページ。"""
+
+    def setUp(self):
+        from theme import pages as static_pages
+        self.pages = static_pages.PAGES
+        self.tool = sample(affiliate=Affiliate(
+            heading="h", body="b", cta="c", url="https://example.com/ad"))
+
+    def render(self, slug, site=None, has_affiliate=True):
+        page = next(p for p in self.pages if p["slug"] == slug)
+        return base.render_page(page, site or SITE, 10, has_affiliate)
+
+    def test_all_three_pages_exist(self):
+        self.assertEqual({p["slug"] for p in self.pages},
+                         {"about", "privacy", "contact"})
+
+    def test_pages_render_as_full_documents(self):
+        for page in self.pages:
+            with self.subTest(page["slug"]):
+                html = self.render(page["slug"])
+                self.assertTrue(html.startswith("<!doctype html>"))
+                self.assertIn(page["title"], html)
+                self.assertIn('<link rel="canonical" '
+                              f'href="https://example.com/{page["slug"]}/">', html)
+
+    def test_privacy_always_covers_the_basics(self):
+        html = self.render("privacy")
+        for heading in ("入力された数値の取り扱い", "免責事項", "著作権について"):
+            self.assertIn(heading, html)
+
+    def test_privacy_omits_analytics_when_not_used(self):
+        """使っていない解析ツールについて書かない。"""
+        html = self.render("privacy", SITE)
+        self.assertNotIn("Google アナリティクス", html)
+
+    def test_privacy_mentions_analytics_when_configured(self):
+        html = self.render("privacy", dict(SITE, ga_id="G-XXX"))
+        self.assertIn("Google アナリティクス", html)
+
+    def test_privacy_omits_ads_when_not_configured(self):
+        self.assertNotIn("広告の配信について", self.render("privacy", SITE))
+
+    def test_privacy_mentions_ads_when_configured(self):
+        html = self.render("privacy", dict(SITE, adsense_client="ca-pub-1"))
+        self.assertIn("広告の配信について", html)
+
+    def test_privacy_mentions_affiliate_only_when_present(self):
+        self.assertIn("アフィリエイトプログラム", self.render("privacy", has_affiliate=True))
+        self.assertNotIn("アフィリエイトプログラム",
+                         self.render("privacy", has_affiliate=False))
+
+    def test_about_shows_the_owner_and_tool_count(self):
+        html = self.render("about", dict(SITE, owner="山田 太郎"))
+        self.assertIn("山田 太郎", html)
+        self.assertIn("10 のツール", html)
+
+    def test_about_flags_a_missing_owner(self):
+        self.assertIn("site.json に設定してください", self.render("about", SITE))
+
+    def test_contact_obfuscates_the_email(self):
+        html = self.render("contact", dict(SITE, contact_email="info@example.com"))
+        self.assertNotIn("info@example.com", html)
+        self.assertIn("[at]", html)
+        self.assertIn("info", html)
+
+    def test_contact_prefers_a_form_url(self):
+        html = self.render("contact", dict(SITE, contact_email="info@example.com",
+                                           contact_form_url="https://forms.example/x"))
+        self.assertIn("https://forms.example/x", html)
+        self.assertNotIn("[at]", html)
+
+    def test_footer_links_to_every_page(self):
+        html = base.render_tool(self.tool, SITE, [self.tool])
+        for page in self.pages:
+            with self.subTest(page["slug"]):
+                self.assertIn(f'href="../{page["slug"]}/"', html)
+
+    def test_sitemap_includes_the_static_pages(self):
+        xml = build.sitemap(SITE, [sample(slug="a")])
+        for page in self.pages:
+            self.assertIn(f"<loc>https://example.com/{page['slug']}/</loc>", xml)

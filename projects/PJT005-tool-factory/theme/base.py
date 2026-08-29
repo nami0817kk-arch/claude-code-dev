@@ -258,10 +258,14 @@ def head(title: str, description: str, canonical: str, site: dict,
 </header>"""
 
 
-def foot(site: dict) -> str:
+def foot(site: dict, prefix: str = "") -> str:
     year = datetime.now().year
+    from .pages import PAGES
+    links = "".join(
+        f'<a href="{prefix}{page["slug"]}/">{esc(page["nav"])}</a>' for page in PAGES)
     return f"""<footer class="site-foot">
   <div class="wrap">
+    <nav class="foot-nav">{links}</nav>
     計算はすべてお使いのブラウザ内で完結し、入力値が送信されることはありません。<br>
     結果は目安です。実際の運用にあたっては各社の条件・自社の実績値をご確認ください。<br>
     © {year} {esc(site['name'])}
@@ -332,7 +336,7 @@ def render_tool(tool, site: dict, all_tools: list) -> str:
 </main>
 {render_spec_script(tool)}
 <script src="../app.js" defer></script>
-{foot(site)}"""
+{foot(site, "../")}"""
 
 
 def render_index(site: dict, all_tools: list) -> str:
@@ -358,3 +362,21 @@ def render_index(site: dict, all_tools: list) -> str:
 {ad_slot(site, "bottom")}
 </main>
 {foot(site)}"""
+
+
+def render_page(page: dict, site: dict, tool_count: int, has_affiliate: bool) -> str:
+    """プライバシーポリシーなどの固定ページ。"""
+    from .pages import body_for
+
+    base = site["base_url"].rstrip("/")
+    canonical = f"{base}/{page['slug']}/"
+    return f"""{head(f"{page['title']}｜{site['name']}", page["description"],
+                     canonical, site, prefix="../")}
+<main class="wrap">
+  <nav class="crumbs"><a href="../">ツール一覧</a></nav>
+  <h1>{esc(page['title'])}</h1>
+  <div class="prose">
+{body_for(page["slug"], site, tool_count, has_affiliate)}
+  </div>
+</main>
+{foot(site, "../")}"""

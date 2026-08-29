@@ -281,6 +281,20 @@ details .body { color: var(--ink-2); font-size: 14.5px; padding: 6px 0 0 24px; }
 }
 .site-foot .wrap { padding: 22px 18px 30px; }
 .site-foot a { color: var(--ink-2); }
+.foot-nav { margin-bottom: 12px; display: flex; gap: 18px; flex-wrap: wrap; }
+.foot-nav a { text-decoration: none; }
+.foot-nav a:hover { color: var(--accent); text-decoration: underline; }
+table.info { width: auto; margin: 8px 0 0; }
+table.info th {
+  text-align: left; font-weight: 600; color: var(--ink-2);
+  padding: 8px 24px 8px 0; vertical-align: top; white-space: nowrap;
+  font-size: 14px; letter-spacing: 0; text-transform: none;
+  border-bottom: 1px solid var(--line-soft);
+}
+table.info td { padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+.contact-value { font-size: 17px; font-weight: 700; }
+.mail .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.prose .note { font-size: 13px; color: var(--ink-3); }
 
 @media (max-width: 560px) {
   .result.primary .value { font-size: 27px; }

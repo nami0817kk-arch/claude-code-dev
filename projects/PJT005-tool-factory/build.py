@@ -20,6 +20,7 @@ DIST = ROOT / "dist"
 sys.path.insert(0, str(ROOT))
 
 from theme import base  # noqa: E402
+from theme import pages as static_pages  # noqa: E402
 from tools._spec import Tool  # noqa: E402
 
 
@@ -64,6 +65,7 @@ def sitemap(site: dict, all_tools: list) -> str:
     today = datetime.now().strftime("%Y-%m-%d")
     urls = [(base_url + "/", today)]
     urls += [(base_url + t.url_path, t.updated or today) for t in all_tools]
+    urls += [(f"{base_url}/{p['slug']}/", today) for p in static_pages.PAGES]
     body = "".join(
         f"  <url><loc>{loc}</loc><lastmod>{mod}</lastmod></url>\n"
         for loc, mod in urls)
@@ -88,6 +90,11 @@ def build() -> dict:
     for tool in all_tools:
         write(DIST / tool.slug / "index.html",
               base.render_tool(tool, site, all_tools))
+
+    has_affiliate = any(t.has_affiliate for t in all_tools)
+    for page in static_pages.PAGES:
+        write(DIST / page["slug"] / "index.html",
+              base.render_page(page, site, len(all_tools), has_affiliate))
 
     write(DIST / "index.html", base.render_index(site, all_tools))
     write(DIST / "sitemap.xml", sitemap(site, all_tools))
@@ -121,6 +128,17 @@ def main():
             print(f"\n■ {current}")
         mark = "PR" if t.has_affiliate else "  "
         print(f"  [{mark}] {t.url_path:<24} {t.title}")
+    site = result["site"]
+    missing = [key for key in ("owner", "contact_email") if not site.get(key)]
+    if not site.get("contact_email") and site.get("contact_form_url"):
+        missing.remove("contact_email")
+    if missing:
+        print(f"\n  site.json の未設定: {', '.join(missing)}")
+        print("  運営者名と連絡先が空だと、ASP・広告配信の審査で不利になります。")
+    if "example" in site.get("base_url", ""):
+        print(f"\n  base_url が仮の値です: {site['base_url']}")
+        print("  公開URLに変えてからビルドしてください（canonical と sitemap に使われます）。")
+
     without = [t for t in tools if not t.has_affiliate]
     print(f"\n{'-'*62}")
     if without:
