@@ -27,6 +27,9 @@ from src.media import articles as media_articles
 from src.media import genre as media_genre
 from src.media import keywords as media_keywords
 from src.media import model as media_model
+from src.apps import model as app_model
+from src.portfolio import dashboard as pjt_dashboard
+from src.portfolio import projects as pjt_mod
 from src import profile as profile_mod
 from src import report as report_mod
 
@@ -237,6 +240,145 @@ def cmd_report(args):
     print(f"レポートを出力しました: {path}")
 
 
+# ------------------------------------------------------- ポートフォリオ
+
+def _set_numeric_params(current: dict, defaults: dict, pairs: list, save) -> dict:
+    """--set KEY=VALUE を数値パラメータに反映する（media / app 共通）。"""
+    for pair in pairs:
+        if "=" not in pair:
+            print(f"書式が不正です: {pair}  （例: cvr=0.03）")
+            sys.exit(1)
+        key, raw = pair.split("=", 1)
+        key = key.strip()
+        if key not in defaults:
+            print(f"不明な項目です: {key}")
+            print(f"指定できる項目: {', '.join(defaults)}")
+            sys.exit(1)
+        try:
+            value = float(raw)
+        except ValueError:
+            print(f"数値で指定してください: {pair}")
+            sys.exit(1)
+        current[key] = int(value) if isinstance(defaults[key], int) else value
+    save(current)
+    print("更新しました。")
+    return current
+
+
+def cmd_pjt(args):
+    action = args.pjt_command or "list"
+    prof = profile_mod.load() if profile_mod.exists() else profile_mod.DEFAULTS
+
+    if action == "add":
+        name = " ".join(args.name)
+        project = pjt_mod.add(name, kind=args.type, status=args.status, url=args.url,
+                              note=args.note, started=args.started, released=args.released)
+        print(f"登録しました: [{project['id']}] {project['name']}  "
+              f"<{pjt_mod.TYPES[project['type']]} / {project['status']}>")
+        print(f"  実績を記録: python main.py pjt record {project['id']} "
+              "--revenue 3000 --hours 12")
+
+    elif action == "show":
+        project = pjt_mod.find(args.id)
+        if not project:
+            print(f"プロジェクト {args.id} が見つかりません。")
+            sys.exit(1)
+        pjt_dashboard.print_project(project)
+
+    elif action == "set":
+        fields = {}
+        for key in ("status", "url", "note", "released", "type"):
+            value = getattr(args, key, None)
+            if value:
+                fields["released_at" if key == "released" else key] = value
+        if not fields:
+            print("変更する項目を指定してください。 例) --status 公開 --released 2026-09-01")
+            sys.exit(1)
+        project = pjt_mod.update(args.id, **fields)
+        if not project:
+            print(f"プロジェクト {args.id} が見つかりません。")
+            sys.exit(1)
+        print("更新しました。")
+        pjt_dashboard.print_project(project)
+
+    elif action == "record":
+        project = pjt_mod.record(args.id, month=args.month, revenue=args.revenue,
+                                 cost=args.cost, hours=args.hours)
+        if not project:
+            print(f"プロジェクト {args.id} が見つかりません。")
+            sys.exit(1)
+        print(f"記録しました: {project['name']}")
+        pjt_dashboard.print_project(project)
+
+    elif action == "sync":
+        project = pjt_mod.find(args.id)
+        if not project:
+            print(f"プロジェクト {args.id} が見つかりません。")
+            sys.exit(1)
+        r = pjt_dashboard.sync_service_revenue(args.id, month=args.month)
+        print(f"受託案件の実績を取り込みました: {r['month']}  "
+              f"収益 {r['revenue']:,}円 / 原価 {r['cost']:,}円")
+        print("  ※ 作業時間は自動で取れないので、--hours で別途記録してください")
+
+    elif action == "allocate":
+        pjt_dashboard.print_allocation(args.hours or prof["hours_per_week"])
+
+    elif action == "review":
+        pjt_dashboard.print_review(prof["target_income"])
+
+    elif action == "forecast":
+        project = pjt_mod.find(args.id)
+        if not project:
+            print(f"プロジェクト {args.id} が見つかりません。")
+            sys.exit(1)
+        target = args.target or prof["target_income"]
+        print(f"\n  [{project['id']}] {project['name']} の収益見通し")
+        if project["type"] == "app":
+            app_model.print_plan(target)
+            app_model.print_simulation(
+                app_model.simulate(args.months, args.installs, target=target), target)
+        elif project["type"] == "media":
+            media_model.print_plan(media_model.plan(
+                target=target, avg_volume=args.volume, articles_per_month=args.per_month))
+            media_model.print_simulation(media_model.simulate(
+                months=args.months, articles_per_month=args.per_month,
+                avg_volume=args.volume, target=target), target)
+        else:
+            print(f"  種別「{pjt_mod.TYPES.get(project['type'])}」には"
+                  "収益モデルが用意されていません。")
+            print("  app（アプリ）か media（メディア）に設定すると見通しを出せます。")
+
+    elif action == "rm":
+        print("削除しました。" if pjt_mod.remove(args.id)
+              else f"プロジェクト {args.id} が見つかりません。")
+
+    else:
+        pjt_dashboard.print_projects(prof["target_income"])
+
+
+def cmd_app(args):
+    action = args.app_command or "params"
+
+    if action == "params":
+        params = app_model.load_params()
+        if args.set:
+            params = _set_numeric_params(params, app_model.DEFAULTS, args.set,
+                                         app_model.save_params)
+        app_model.print_params(params)
+
+    elif action == "plan":
+        target = args.target or (profile_mod.load()["target_income"]
+                                 if profile_mod.exists() else 50000)
+        app_model.print_plan(target, model=args.model)
+
+    elif action == "simulate":
+        target = args.target or (profile_mod.load()["target_income"]
+                                 if profile_mod.exists() else 0)
+        sim = app_model.simulate(args.months, args.installs, model=args.model,
+                                 target=target, growth=args.growth)
+        app_model.print_simulation(sim, target=target)
+
+
 # ------------------------------------------------------- メディア運営
 
 def cmd_media(args):
@@ -245,25 +387,8 @@ def cmd_media(args):
     if action == "params":
         params = media_model.load_params()
         if args.set:
-            for pair in args.set:
-                if "=" not in pair:
-                    print(f"書式が不正です: {pair}  （例: cvr=0.03）")
-                    sys.exit(1)
-                key, raw = pair.split("=", 1)
-                key = key.strip()
-                if key not in media_model.DEFAULTS:
-                    print(f"不明な項目です: {key}")
-                    print(f"指定できる項目: {', '.join(media_model.DEFAULTS)}")
-                    sys.exit(1)
-                current = media_model.DEFAULTS[key]
-                try:
-                    params[key] = type(current)(float(raw)) if isinstance(current, int) \
-                        else float(raw)
-                except ValueError:
-                    print(f"数値で指定してください: {pair}")
-                    sys.exit(1)
-            media_model.save_params(params)
-            print("更新しました。")
+            params = _set_numeric_params(params, media_model.DEFAULTS, args.set,
+                                         media_model.save_params)
         media_model.print_params(params)
 
     elif action == "plan":
@@ -484,6 +609,19 @@ def build_parser():
   5. task/revenue  実行して結果を記録する
   6. status / review  数字で確認し、毎週やり方を直す
 
+複数のプロジェクトを並行して回す場合:
+  pjt add       プロジェクトを登録する
+  pjt record    月次の収益・原価・投下時間を記録する
+  pjt           横断ダッシュボード（今どれが稼いでいるか）
+  pjt allocate  週の時間をどこに割くかの目安
+  pjt review    伸ばす / てこ入れ / 撤退検討 の判定
+  pjt forecast  種別に応じた収益見通し
+
+アプリで収益化する場合:
+  app params    継続率・eCPM・課金率を実測に合わせる
+  app plan      目標月収に必要なDAU・インストール数を逆算
+  app simulate  月ごとのDAU・収益の推移
+
 アフィリエイト・広告収入（ストック型）の場合:
   media genre     ジャンル候補を到達月数で比較する
   media plan      目標月収から必要なPV・記事数を逆算する
@@ -603,6 +741,86 @@ def build_parser():
     p_auto.add_argument("--retry", action="store_true",
                         help="前回失敗した案件も再実行する")
 
+    # ---- ポートフォリオ（複数プロジェクトの横断管理） ----
+    p_pjt = sub.add_parser("pjt", help="複数プロジェクトの横断管理",
+                           description="収益源を横に並べて比較し、時間配分と撤退を判断する")
+    psub = p_pjt.add_subparsers(dest="pjt_command")
+
+    j_add = psub.add_parser("add", help="プロジェクトを登録する")
+    j_add.add_argument("name", nargs="+", help="プロジェクト名")
+    j_add.add_argument("--type", default="other", choices=list(pjt_mod.TYPES),
+                       help="種別 (既定:other)")
+    j_add.add_argument("--status", default="企画", choices=pjt_mod.STATUSES,
+                       help="状態 (既定:企画)")
+    j_add.add_argument("--url", default="", help="公開URL・ストアURL")
+    j_add.add_argument("--note", default="", help="メモ（収益化の方針など）")
+    j_add.add_argument("--started", default="", help="着手日 YYYY-MM-DD (既定:今日)")
+    j_add.add_argument("--released", default="", help="公開日 YYYY-MM-DD")
+
+    j_show = psub.add_parser("show", help="プロジェクトの詳細と月次推移")
+    j_show.add_argument("id", type=int)
+
+    j_set = psub.add_parser("set", help="プロジェクトの情報を更新する")
+    j_set.add_argument("id", type=int)
+    j_set.add_argument("--status", choices=pjt_mod.STATUSES)
+    j_set.add_argument("--type", choices=list(pjt_mod.TYPES))
+    j_set.add_argument("--url")
+    j_set.add_argument("--note")
+    j_set.add_argument("--released", help="公開日 YYYY-MM-DD")
+
+    j_rec = psub.add_parser("record", help="月次の実績を記録する")
+    j_rec.add_argument("id", type=int)
+    j_rec.add_argument("--month", default="", help="対象月 YYYY-MM (既定:今月)")
+    j_rec.add_argument("--revenue", type=int, help="収益(円)")
+    j_rec.add_argument("--cost", type=int, help="原価・経費(円)")
+    j_rec.add_argument("--hours", type=float, help="投下時間")
+
+    j_sync = psub.add_parser("sync", help="受託案件の実績を月次記録に取り込む")
+    j_sync.add_argument("id", type=int)
+    j_sync.add_argument("--month", default="", help="対象月 YYYY-MM (既定:今月)")
+
+    j_alloc = psub.add_parser("allocate", help="週の時間をどこに割くかの目安")
+    j_alloc.add_argument("--hours", type=float, help="週の稼働時間（既定:プロフィールの値）")
+
+    psub.add_parser("review", help="判定ごとにまとめて次の一手を出す")
+
+    j_fc = psub.add_parser("forecast", help="種別に応じた収益見通しを出す")
+    j_fc.add_argument("id", type=int)
+    j_fc.add_argument("--target", type=int, help="目標月収（既定:プロフィールの値）")
+    j_fc.add_argument("--months", type=int, default=18, help="期間 (既定:18ヶ月)")
+    j_fc.add_argument("--installs", type=float, default=20,
+                      help="アプリ: 日次インストール数 (既定:20)")
+    j_fc.add_argument("--volume", type=int, default=1000,
+                      help="メディア: 想定検索数 (既定:1000)")
+    j_fc.add_argument("--per-month", type=int, default=8, dest="per_month",
+                      help="メディア: 月に書く記事数 (既定:8)")
+
+    j_rm = psub.add_parser("rm", help="プロジェクトを削除する")
+    j_rm.add_argument("id", type=int)
+
+    # ---- アプリ収益 ----
+    p_app = sub.add_parser("app", help="アプリ（ゲーム・ツール）の収益設計",
+                           description="DAU × ARPDAU の構造で、必要インストール数を逆算する")
+    asub = p_app.add_subparsers(dest="app_command")
+
+    a_params = asub.add_parser("params", help="継続率・eCPM・課金率などを確認・変更")
+    a_params.add_argument("--set", nargs="+", metavar="KEY=VALUE",
+                          help="例) --set d1=0.42 ecpm=800 paying_rate=0.02")
+
+    a_plan = asub.add_parser("plan", help="目標月収から必要DAU・インストール数を逆算")
+    a_plan.add_argument("--target", type=int, help="目標月収（既定:プロフィールの値）")
+    a_plan.add_argument("--model", default="both", choices=["both", "ad", "iap"],
+                        help="収益モデル (既定:both)")
+
+    a_sim = asub.add_parser("simulate", help="月ごとのDAU・収益をシミュレーション")
+    a_sim.add_argument("--months", type=int, default=18, help="期間 (既定:18ヶ月)")
+    a_sim.add_argument("--installs", type=float, default=20,
+                       help="日次インストール数 (既定:20)")
+    a_sim.add_argument("--growth", type=float, default=0.0,
+                       help="インストール数の月次成長率 例) 0.1 で毎月10%%増")
+    a_sim.add_argument("--target", type=int, help="目標月収（既定:プロフィールの値）")
+    a_sim.add_argument("--model", default="both", choices=["both", "ad", "iap"])
+
     # ---- メディア運営（アフィリエイト・広告収入） ----
     p_media = sub.add_parser(
         "media", help="アフィリエイト・広告収入のメディア運営",
@@ -683,7 +901,7 @@ COMMANDS = {
     "proposal": cmd_proposal, "review": cmd_review, "ask": cmd_ask,
     "report": cmd_report,
     "service": cmd_service, "job": cmd_job, "auto": cmd_auto, "cost": cmd_cost,
-    "media": cmd_media,
+    "media": cmd_media, "pjt": cmd_pjt, "app": cmd_app,
 }
 
 
