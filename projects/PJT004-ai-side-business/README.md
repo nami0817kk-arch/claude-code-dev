@@ -1,4 +1,4 @@
-# [PJT003] ai-side-business
+# [PJT004] ai-side-business
 
 ## 概要
 
@@ -196,7 +196,7 @@ python main.py screen --open
 ## 構成
 
 ```
-PJT003-ai-side-business/
+PJT004-ai-side-business/
 ├── main.py             CLI エントリポイント
 ├── run-auto.ps1        タスクスケジューラ用の定期実行スクリプト
 ├── dashboard.html      生成されるダッシュボード（git 除外）
@@ -242,7 +242,7 @@ PJT003-ai-side-business/
 ## セットアップ
 
 ```powershell
-cd projects\PJT003-ai-side-business
+cd projects\PJT004-ai-side-business
 
 python -m venv .venv
 .venv\Scripts\Activate.ps1
