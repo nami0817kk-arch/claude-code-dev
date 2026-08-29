@@ -115,7 +115,7 @@ class TestRendering(ScreenTestBase):
         self.seed()
         page = screen.render(screen.collect())
         self.assertIn("株式ランキング", page)
-        self.assertIn("月次の収益推移", page)
+        self.assertIn("月次の収支と累積損益", page)
         self.assertIn("<svg", page)
 
     def test_page_is_self_contained(self):
@@ -157,7 +157,7 @@ class TestRendering(ScreenTestBase):
     def test_bar_heights_stay_inside_the_plot(self):
         """棒が描画領域からはみ出さないこと。"""
         self.seed()
-        svg = screen.stacked_chart(screen.collect())
+        svg = screen.flow_chart(screen.collect())
         ys = [float(m) for m in re.findall(r'M[\d.]+,([\d.]+)', svg)]
         self.assertTrue(ys)
         self.assertTrue(all(0 <= y <= 300 for y in ys), f"範囲外の座標: {ys}")

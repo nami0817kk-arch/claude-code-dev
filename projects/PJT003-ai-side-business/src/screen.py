@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import profile as profile_mod
+from . import expenses as expense_mod
 from . import store, tracker
 from .auto import jobs as jobs_mod
 from .media import analytics as media_analytics
@@ -76,11 +77,25 @@ def collect() -> dict:
             "by_month": {r["month"]: r for r in p.get("records", [])},
         })
 
-    all_months = month_range([r["month"] for p in projects for r in p.get("records", [])])
     totals = pjt.totals(projects) if projects else {
         "count": 0, "revenue": 0, "cost": 0, "profit": 0, "hours": 0,
         "hourly": 0, "this_month": 0, "states": {},
     }
+
+    month_hours = sum(r["by_month"].get(this_month, {}).get("hours", 0) for r in rows)
+    month_cost = sum(r["by_month"].get(this_month, {}).get("cost", 0) for r in rows)
+
+    # 共通経費（利用料など）とプロジェクト原価を合わせたものが実際の投資額
+    exp_records = expense_mod.load()
+    exp_by_month = expense_mod.by_month(exp_records)
+    all_months = month_range(
+        [r["month"] for p in projects for r in p.get("records", [])]
+        + list(exp_by_month))
+
+    project_cost = totals["cost"]
+    investment = expense_mod.total(exp_records) + project_cost
+    revenue_total = totals["revenue"]
+    run_rate = expense_mod.monthly_run_rate(exp_records) + month_cost
 
     # 前月比（今月がまだ途中でも、伸びの向きは見たい）
     previous = 0
@@ -88,10 +103,31 @@ def collect() -> dict:
         prev_key = all_months[-2] if all_months[-1] == this_month else all_months[-1]
         previous = sum(r["by_month"].get(prev_key, {}).get("revenue", 0) for r in rows)
 
-    month_hours = sum(r["by_month"].get(this_month, {}).get("hours", 0) for r in rows)
-    month_cost = sum(r["by_month"].get(this_month, {}).get("cost", 0) for r in rows)
+    # 月ごとの収支
+    flow = []
+    cumulative = 0
+    for month in all_months:
+        income = sum(r["by_month"].get(month, {}).get("revenue", 0) for r in rows)
+        spend = (exp_by_month.get(month, 0)
+                 + sum(r["by_month"].get(month, {}).get("cost", 0) for r in rows))
+        cumulative += income - spend
+        flow.append({"month": month, "income": income, "spend": spend,
+                     "cumulative": cumulative})
 
     return {
+        "expenses": {
+            "records": exp_records,
+            "by_item": expense_mod.by_item(exp_records),
+            "total": expense_mod.total(exp_records),
+            "this_month": expense_mod.this_month(exp_records),
+            "months": expense_mod.months_elapsed(exp_records),
+        },
+        "flow": flow,
+        "investment": investment,
+        "revenue_total": revenue_total,
+        "net": revenue_total - investment,
+        "run_rate": run_rate,
+        "phase": "investment" if revenue_total == 0 else "growth",
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "profile": prof,
         "rows": rows,
@@ -184,111 +220,156 @@ def rounded_top(x: float, y: float, w: float, h: float, r: float = 4) -> str:
             f"V{y + h:.1f} Z")
 
 
-def stacked_chart(data: dict) -> str:
-    """月次収益の積み上げ棒グラフ。系列はプロジェクト。"""
-    months, rows = data["months"], data["rows"]
-    if not months:
-        return ('<p class="empty">月次の記録がまだありません。'
-                '<code>pjt record</code> で登録すると、ここに推移が出ます。</p>')
+def rounded_bottom(x: float, y: float, w: float, h: float, r: float = 4) -> str:
+    """下端だけ角丸。ゼロ線から下に伸びる棒（支出）用。"""
+    r = min(r, w / 2, h)
+    return (f"M{x:.1f},{y:.1f} H{x + w:.1f} V{y + h - r:.1f} "
+            f"Q{x + w:.1f},{y + h:.1f} {x + w - r:.1f},{y + h:.1f} "
+            f"H{x + r:.1f} Q{x:.1f},{y + h:.1f} {x:.1f},{y + h - r:.1f} Z")
 
-    W, H = 760, 300
-    pad = {"t": 16, "r": 16, "b": 44, "l": 64}
+
+def nice_step(span: float, divisions: int = 4) -> int:
+    """目盛りの刻み幅を、切りのいい数にする。"""
+    if span <= 0:
+        return 1000
+    raw = span / divisions
+    step = 10 ** (len(str(int(raw))) - 1) if raw >= 1 else 1
+    for mult in (1, 2, 2.5, 5, 10):
+        if step * mult >= raw:
+            return int(step * mult)
+    return int(step * 10)
+
+
+def flow_chart(data: dict) -> str:
+    """月次の収支。収益を上、支出を下に出し、累積損益を線で重ねる。
+
+    収益がまだ無い時期は棒が下にしか出ないが、それが実態なので隠さない。
+    累積線が下がり続けているのか、底を打ったのかが一目で分かることを優先する。
+    """
+    flow = data["flow"]
+    if not flow:
+        return ('<p class="empty">まだ記録がありません。'
+                '<code>expense add</code> で経費を、<code>pjt record</code> で'
+                '収益を登録すると、ここに収支の推移が出ます。</p>')
+
+    W, H = 760, 320
+    pad = {"t": 22, "r": 20, "b": 46, "l": 72}
     plot_w = W - pad["l"] - pad["r"]
     plot_h = H - pad["t"] - pad["b"]
 
-    series = rows[:len(SERIES_LIGHT)]
-    other = rows[len(SERIES_LIGHT):]
+    series = data["rows"][:len(SERIES_LIGHT)]
+    other = data["rows"][len(SERIES_LIGHT):]
 
-    def month_total(month):
-        total = sum(r["by_month"].get(month, {}).get("revenue", 0) for r in rows)
-        return total
+    max_income = max([f["income"] for f in flow] + [0])
+    max_spend = max([f["spend"] for f in flow] + [0])
+    cums = [f["cumulative"] for f in flow]
+    top = max(max_income, max(cums), 0)
+    bottom = min(-max_spend, min(cums), 0)
+    if top == bottom:
+        top, bottom = 1000, 0
 
-    # 目標が実績よりはるかに高いときに軸を目標へ合わせると棒が潰れるので、
-    # 実績の3倍までを目標線の表示上限とする。
-    target = data["profile"]["target_income"]
-    data_max = max([month_total(m) for m in months]) or 1
-    ceiling_source = data_max * 1.15
-    if target:
-        ceiling_source = max(ceiling_source, min(target * 1.05, data_max * 3))
-    top = nice_ceiling(ceiling_source)
-    band = plot_w / len(months)
-    bar_w = min(24, band * 0.6)
+    step = nice_step(top - bottom)
+    top = (int(top / step) + (1 if top % step else 0)) * step or step
+    bottom = -((int(-bottom / step) + (1 if (-bottom) % step else 0)) * step) \
+        if bottom < 0 else 0
+
+    span = top - bottom
+    band = plot_w / len(flow)
+    bar_w = min(24, band * 0.5)
 
     def y_of(value):
-        return pad["t"] + plot_h - (value / top * plot_h)
+        return pad["t"] + plot_h - ((value - bottom) / span * plot_h)
 
     parts = [f'<svg viewBox="0 0 {W} {H}" role="img" '
-             f'aria-label="プロジェクト別の月次収益推移">']
+             f'aria-label="月次の収益・支出と累積損益の推移">']
 
-    # グリッド（ヘアライン・実線）と目盛り
-    for i in range(5):
-        value = top * i / 4
+    value = bottom
+    while value <= top + 1:
         y = y_of(value)
-        parts.append(f'<line class="grid" x1="{pad["l"]}" y1="{y:.1f}" '
+        cls = "zero" if value == 0 else "grid"
+        parts.append(f'<line class="{cls}" x1="{pad["l"]}" y1="{y:.1f}" '
                      f'x2="{W - pad["r"]}" y2="{y:.1f}"/>')
         parts.append(f'<text class="tick" x="{pad["l"] - 10}" y="{y + 4:.1f}" '
                      f'text-anchor="end">{yen(value)}</text>')
+        value += step
 
-    # 目標ライン
-    if target and target <= top:
-        ty = y_of(target)
-        parts.append(f'<line class="target" x1="{pad["l"]}" y1="{ty:.1f}" '
-                     f'x2="{W - pad["r"]}" y2="{ty:.1f}"/>')
-        parts.append(f'<text class="target-label" x="{W - pad["r"]}" '
-                     f'y="{ty - 8:.1f}" text-anchor="end">目標 {yen(target)}円</text>')
+    zero_y = y_of(0)
+    line_points = []
 
-    # 積み上げ棒。セグメント間は 2px の面色ギャップで分ける。
-    for mi, month in enumerate(months):
-        cx = pad["l"] + band * (mi + 0.5)
+    for fi, f in enumerate(flow):
+        cx = pad["l"] + band * (fi + 0.5)
         x = cx - bar_w / 2
-        cursor = pad["t"] + plot_h
+
+        # 収益（上向き・プロジェクト別の積み上げ）
+        cursor = zero_y
         stack = []
         for si, row in enumerate(series):
-            value = row["by_month"].get(month, {}).get("revenue", 0)
-            if value > 0:
-                stack.append((si, row["project"]["name"], value))
+            v = row["by_month"].get(f["month"], {}).get("revenue", 0)
+            if v > 0:
+                stack.append((si, row["project"]["name"], v))
         if other:
-            rest = sum(r["by_month"].get(month, {}).get("revenue", 0) for r in other)
+            rest = sum(r["by_month"].get(f["month"], {}).get("revenue", 0)
+                       for r in other)
             if rest > 0:
                 stack.append((len(SERIES_LIGHT) - 1, "その他", rest))
 
-        for idx, (si, name, value) in enumerate(stack):
-            h = value / top * plot_h
+        for idx, (si, name, v) in enumerate(stack):
+            h = v / span * plot_h
             gap = 2 if idx < len(stack) - 1 else 0
             h_draw = max(1.0, h - gap)
             y = cursor - h
-            tip = f"{month}｜{name}｜{yen(value)}円"
-            shape = (rounded_top(x, y, bar_w, h_draw)
-                     if idx == len(stack) - 1
+            tip = f"{f['month']}｜収益 {name}｜{yen(v)}円"
+            shape = (rounded_top(x, y, bar_w, h_draw) if idx == len(stack) - 1
                      else f"M{x:.1f},{y:.1f} h{bar_w:.1f} v{h_draw:.1f} h-{bar_w:.1f} Z")
-            parts.append(f'<path class="seg s{si + 1}" d="{shape}" '
-                         f'tabindex="0" data-tip="{esc(tip)}"><title>{esc(tip)}</title></path>')
+            parts.append(f'<path class="seg s{si + 1}" d="{shape}" tabindex="0" '
+                         f'data-tip="{esc(tip)}"><title>{esc(tip)}</title></path>')
             cursor = y
 
-        total = month_total(month)
-        if total > 0:
-            parts.append(f'<text class="bar-value" x="{cx:.1f}" '
-                         f'y="{y_of(total) - 10:.1f}" text-anchor="middle">'
-                         f'{yen(total)}</text>')
-        label = month[5:7] + "月" if mi and month[:4] == months[mi - 1][:4] else month
+        # 支出（下向き・単色）
+        if f["spend"] > 0:
+            h = f["spend"] / span * plot_h
+            tip = f"{f['month']}｜支出｜{yen(f['spend'])}円"
+            parts.append(f'<path class="seg spend" '
+                         f'd="{rounded_bottom(x, zero_y, bar_w, max(1.0, h))}" '
+                         f'tabindex="0" data-tip="{esc(tip)}">'
+                         f'<title>{esc(tip)}</title></path>')
+
+        line_points.append((cx, y_of(f["cumulative"])))
+
+    # 累積損益（サマリーの線なので、系列色ではなく中立色にする）
+    if len(line_points) >= 2:
+        d = " ".join(f"{'M' if i == 0 else 'L'}{x:.1f},{y:.1f}"
+                     for i, (x, y) in enumerate(line_points))
+        parts.append(f'<path class="cum-line" d="{d}"/>')
+    ex, ey = line_points[-1]
+    parts.append(f'<circle class="cum-dot" cx="{ex:.1f}" cy="{ey:.1f}" r="4.5"/>')
+    last = flow[-1]["cumulative"]
+    anchor = "end" if len(flow) > 1 else "middle"
+    parts.append(f'<text class="cum-label" x="{ex - 8:.1f}" '
+                 f'y="{ey + (16 if last < 0 else -12):.1f}" text-anchor="{anchor}">'
+                 f'累積 {yen(last)}円</text>')
+
+    for fi, f in enumerate(flow):
+        cx = pad["l"] + band * (fi + 0.5)
+        label = (f["month"][5:7] + "月"
+                 if fi and f["month"][:4] == flow[fi - 1]["month"][:4]
+                 else f["month"])
         parts.append(f'<text class="tick" x="{cx:.1f}" y="{H - 22}" '
                      f'text-anchor="middle">{esc(label)}</text>')
 
-    parts.append(f'<line class="axis" x1="{pad["l"]}" y1="{pad["t"] + plot_h}" '
-                 f'x2="{W - pad["r"]}" y2="{pad["t"] + plot_h}"/>')
     parts.append("</svg>")
 
-    # 凡例（2系列以上では必ず出す。色だけに頼らせないため）
-    legend = []
-    for si, row in enumerate(series):
-        legend.append(f'<span class="key"><i class="dot s{si + 1}"></i>'
-                      f'{esc(row["project"]["name"])}</span>')
-    if other:
-        legend.append(f'<span class="key"><i class="dot s{len(SERIES_LIGHT)}"></i>'
-                      f'その他 {len(other)}件</span>')
-    legend_html = f'<div class="legend">{"".join(legend)}</div>' if len(legend) > 1 else ""
+    keys = []
+    if max_income > 0:
+        for si, row in enumerate(series):
+            if row["stats"]["revenue"]:
+                keys.append(f'<span class="key"><i class="dot s{si + 1}"></i>'
+                            f'{esc(row["project"]["name"])}</span>')
+    keys.append('<span class="key"><i class="dot spend-dot"></i>支出</span>')
+    keys.append('<span class="key"><i class="line-key"></i>累積損益</span>')
 
-    return f'<div class="chart">{"".join(parts)}</div>{legend_html}'
+    return (f'<div class="chart">{"".join(parts)}</div>'
+            f'<div class="legend">{"".join(keys)}</div>')
 
 
 def sparkline(values: list, slot: int) -> str:
@@ -391,9 +472,7 @@ h2{font-size:13px; margin:0 0 16px; color:var(--ink-2); font-weight:600;
 svg{display:block; width:100%; height:auto; max-width:100%}
 .grid{stroke:var(--grid); stroke-width:1}
 .axis{stroke:var(--axis); stroke-width:1}
-.target{stroke:var(--axis); stroke-width:1}
-.target-label,.tick{fill:var(--muted); font-size:11px}
-.bar-value{fill:var(--ink-2); font-size:11px; font-weight:600}
+.tick{fill:var(--muted); font-size:11px}
 .seg{outline:none}
 .seg:hover,.seg:focus{opacity:.82}
 .s1{--c:var(--s1)} .s2{--c:var(--s2)} .s3{--c:var(--s3)}
@@ -407,6 +486,15 @@ path.seg{fill:var(--c)}
             stroke-linecap:round}
 .spark-dot{fill:var(--c); stroke:var(--surface); stroke-width:2}
 .spark-empty{color:var(--muted)}
+.zero{stroke:var(--axis); stroke-width:1.5}
+path.seg.spend{fill:var(--muted); opacity:.55}
+.spend-dot{background:var(--muted); opacity:.55}
+.cum-line{fill:none; stroke:var(--ink-2); stroke-width:2; stroke-linejoin:round;
+          stroke-linecap:round}
+.cum-dot{fill:var(--ink-2); stroke:var(--surface); stroke-width:2}
+.cum-label{fill:var(--ink-2); font-size:11px; font-weight:600}
+.line-key{width:14px; height:2px; background:var(--ink-2); display:inline-block;
+          border-radius:2px}
 table{width:100%; border-collapse:collapse; font-size:13px}
 th{text-align:left; color:var(--muted); font-weight:600; font-size:11.5px;
    letter-spacing:.03em; padding:0 10px 9px; border-bottom:1px solid var(--border)}
@@ -437,6 +525,10 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
 .empty{color:var(--muted); font-size:13px; margin:0}
 .empty code{background:var(--track); padding:1px 6px; border-radius:4px; font-size:12px}
 .note-line{color:var(--muted); font-size:12px; margin:14px 0 0}
+.note-line code{background:var(--track); padding:1px 6px; border-radius:4px}
+.hero-num.minus{color:var(--critical)}
+.list.steps li{display:block; padding:12px 0}
+.list.steps b{font-weight:600}
 #tip{
   position:fixed; pointer-events:none; opacity:0; transition:opacity .12s;
   background:var(--ink); color:var(--surface); font-size:12px; padding:6px 10px;
@@ -482,12 +574,42 @@ SCRIPT = """
 
 
 def render_hero(d: dict) -> str:
+    """収益が出ていない時期は、目標達成率ではなく投資額と回収ラインを主役にする。"""
     t, prof = d["totals"], d["profile"]
     target = prof["target_income"]
     current = t["this_month"]
+
+    if d["phase"] == "investment":
+        run_rate = d["run_rate"]
+        months = len(d["months"])
+        period = f"{months}ヶ月" if months else "記録なし"
+        goal = ""
+        if run_rate:
+            goal = f"""
+      <div class="hero-goal">
+        <div class="goal-row"><span>まず目指す線：支出と同額</span>
+          <span>0 / {yen(run_rate)} 円　<b>0%</b></span></div>
+        {meter(0)}
+        <div class="goal-row" style="margin:8px 0 0">
+          <span>ここを超えると、続けるほど損をする状態ではなくなります</span></div>
+        <div class="goal-row" style="margin:14px 0 0">
+          <span>その先の目標</span><span>月 {yen(target)} 円</span></div>
+        {meter(0)}
+      </div>"""
+        return f"""
+  <section>
+    <div class="hero">
+      <div>
+        <div class="stamp">まだ回収していない額（投資フェーズ）</div>
+        <div class="hero-num minus">−{yen(d["investment"])}<small>円</small></div>
+        <div class="delta down">収益はまだ発生していません<span class="sub">
+          （{esc(period)}継続・毎月 {yen(run_rate)}円 の支出）</span></div>
+      </div>{goal}
+    </div>
+  </section>"""
+
     rate = round(current / target * 100) if target else 0
     prev = d["previous_month_revenue"]
-
     delta = ""
     if prev:
         change = round((current - prev) / prev * 100)
@@ -500,6 +622,8 @@ def render_hero(d: dict) -> str:
     goal = ""
     if target:
         remain = max(0, target - current)
+        recovered = (round(d["revenue_total"] / d["investment"] * 100)
+                     if d["investment"] else 100)
         goal = f"""
       <div class="hero-goal">
         <div class="goal-row"><span>月間目標</span>
@@ -507,7 +631,7 @@ def render_hero(d: dict) -> str:
         {meter(rate, "good" if rate >= 100 else "")}
         <div class="goal-row" style="margin:8px 0 0">
           <span>{'目標を達成しています' if remain == 0 else f'あと {yen(remain)} 円'}</span>
-          <span>粗利 {yen(current - d["month_cost"])} 円</span></div>
+          <span>投資 {yen(d["investment"])}円 の回収 {recovered}%</span></div>
       </div>"""
 
     return f"""
@@ -525,25 +649,131 @@ def render_hero(d: dict) -> str:
 def render_kpis(d: dict) -> str:
     t = d["totals"]
     hours = d["month_hours"]
-    month_profit = t["this_month"] - d["month_cost"]
-    month_hourly = round(month_profit / hours) if hours else 0
+    exp = d["expenses"]
 
-    tiles = [
-        ("累計の粗利", f'{yen(t["profit"])}<small>円</small>',
-         f'収益 {yen(t["revenue"])} － 原価 {yen(t["cost"])}'),
-        ("実績時給（累計）", f'{yen(t["hourly"])}<small>円</small>' if t["hourly"] else "—",
-         f'投下 {t["hours"]:g} 時間'),
-        ("今月の稼働", f'{hours:g}<small>時間</small>',
-         f'今月の時給 {yen(month_hourly)} 円' if month_hourly else "時間の記録がありません"),
-        ("プロジェクト", f'{t["count"]}<small>件</small>',
-         "　".join(f'{pjt.STATE[k][0]} {v}' for k, v in sorted(t["states"].items()))
-         or "未登録"),
-    ]
+    if d["phase"] == "investment":
+        items = "　".join(f'{name} {v["monthly"]:,}円/月'
+                          for name, v in list(exp["by_item"].items())[:2])
+        tiles = [
+            ("毎月の支出", f'{yen(d["run_rate"])}<small>円</small>',
+             items or "経費が未登録です"),
+            ("累計の投資額", f'{yen(d["investment"])}<small>円</small>',
+             f'経費 {yen(exp["total"])} ＋ 制作原価 {yen(t["cost"])}'),
+            ("投資期間", f'{len(d["months"])}<small>ヶ月</small>',
+             f'投下 {t["hours"]:g} 時間' if t["hours"] else "作業時間の記録がありません"),
+            ("プロジェクト", f'{t["count"]}<small>件</small>',
+             "　".join(f'{pjt.STATE[k][0]} {v}' for k, v in sorted(t["states"].items()))
+             or "未登録"),
+        ]
+    else:
+        month_profit = t["this_month"] - d["month_cost"] - exp["this_month"]
+        month_hourly = round(month_profit / hours) if hours else 0
+        tiles = [
+            ("累計の損益", f'{yen(d["net"])}<small>円</small>',
+             f'収益 {yen(d["revenue_total"])} － 投資 {yen(d["investment"])}'),
+            ("実績時給（累計）", f'{yen(t["hourly"])}<small>円</small>' if t["hourly"] else "—",
+             f'投下 {t["hours"]:g} 時間'),
+            ("今月の稼働", f'{hours:g}<small>時間</small>',
+             f'今月の時給 {yen(month_hourly)} 円' if month_hourly
+             else "時間の記録がありません"),
+            ("プロジェクト", f'{t["count"]}<small>件</small>',
+             "　".join(f'{pjt.STATE[k][0]} {v}' for k, v in sorted(t["states"].items()))
+             or "未登録"),
+        ]
+
     cards = "".join(
         f'<div class="kpi"><div class="label">{esc(label)}</div>'
         f'<div class="value">{value}</div><div class="note">{esc(note)}</div></div>'
         for label, value, note in tiles)
     return f'<section><h2>サマリー</h2><div class="kpis">{cards}</div></section>'
+
+
+def render_first_yen(d: dict) -> str:
+    """最初の1円までに何が要るかを、プロジェクトごとに具体的に出す。"""
+    if d["phase"] != "investment" or not d["rows"]:
+        return ""
+
+    from .apps import model as app_model
+    from .media import model as media_model
+
+    target = d["profile"]["target_income"]
+    items = []
+    for r in d["rows"]:
+        p, s = r["project"], r["stats"]
+        released = bool(p.get("released_at"))
+        age = round(pjt.months_since(p.get("started_at")), 1)
+
+        if not released:
+            step = "まず世に出すこと。公開しないかぎり収益は1円も発生しません"
+            status = f"未公開・着手から {age}ヶ月"
+        else:
+            since = s["since_release"] or 0
+            left = max(0, pjt.GIVEUP_MONTHS - since)
+            step = ("検索評価やストア掲載が付くまでの期間です。"
+                    "まだ判断しません"
+                    if since < pjt.GRACE_MONTHS else
+                    f"収益ゼロが続いています。撤退基準まで残り {left:.0f}ヶ月")
+            status = f"公開から {since}ヶ月・収益 0円"
+
+        if p["type"] == "app":
+            need = app_model.required_installs(target)
+            reference = (f'目標 月{yen(target)}円 には DAU {need["dau"]:,}人'
+                         f'（日次インストール {need["daily_installs"]:,}件）が必要')
+        elif p["type"] == "media":
+            plan = media_model.plan(target)
+            reference = (f'目標 月{yen(target)}円 には {plan["required_articles"]:,}記事'
+                         f'（{plan["params"]["avg_rank"]}位想定・'
+                         f'月間{plan["required_pv"]:,}PV）が必要')
+        else:
+            reference = ""
+
+        items.append(f"""
+      <li>
+        <div>
+          <b>{esc(p["name"])}</b>
+          <span class="sub">　{esc(status)}</span>
+          <div class="sub" style="margin-top:3px">→ {esc(step)}</div>
+          {f'<div class="sub">参考: {esc(reference)}</div>' if reference else ""}
+        </div>
+      </li>""")
+
+    return f"""
+  <section>
+    <h2>最初の1円までの距離</h2>
+    <ul class="list steps">{"".join(items)}</ul>
+    <p class="note-line">参考値は既定パラメータでの計算です。実測が出たら
+      <code>app params</code> / <code>media params</code> で置き換えてください。</p>
+  </section>"""
+
+
+def render_expenses(d: dict) -> str:
+    exp = d["expenses"]
+    if not exp["records"]:
+        return ('<section><h2>経費</h2><p class="empty">'
+                '経費が未登録です。'
+                '<code>python main.py expense add 3000 --item "Claude利用料" '
+                '--from 2026-05</code> のように登録すると、'
+                '投資額と回収ラインが出ます。</p></section>')
+
+    rows = "".join(
+        f'<tr><td>{esc(name)}</td>'
+        f'<td class="sub">{esc(expense_mod.CATEGORIES.get(v["category"], v["category"]))}</td>'
+        f'<td class="num">{yen(v["monthly"])} 円</td>'
+        f'<td class="num">{yen(v["total"])} 円</td>'
+        f'<td class="num">{v["months"]} ヶ月</td></tr>'
+        for name, v in exp["by_item"].items())
+
+    return f"""
+  <section>
+    <h2>経費</h2>
+    <table>
+      <thead><tr><th>項目</th><th>種別</th><th class="num">月あたり</th>
+        <th class="num">累計</th><th class="num">期間</th></tr></thead>
+      <tbody>{rows}</tbody>
+    </table>
+    <p class="note-line">合計 {yen(exp["total"])} 円。
+      これがそのまま「回収しなければならない額」です。</p>
+  </section>"""
 
 
 def render_table(d: dict) -> str:
@@ -676,7 +906,7 @@ def render_actions(d: dict) -> str:
 
 def render(d: dict) -> str:
     name = d["profile"].get("experience") or ""
-    chart = stacked_chart(d)
+    chart = flow_chart(d)
     return f"""<!doctype html>
 <html lang="ja">
 <head>
@@ -695,10 +925,12 @@ def render(d: dict) -> str:
 {render_hero(d)}
 {render_kpis(d)}
   <section>
-    <h2>月次の収益推移</h2>
+    <h2>月次の収支と累積損益</h2>
     {chart}
   </section>
 {render_table(d)}
+{render_first_yen(d)}
+{render_expenses(d)}
 {render_allocation(d)}
 {render_actions(d)}
   <p class="note-line">このファイルは <code>python main.py screen</code> で再生成されます。

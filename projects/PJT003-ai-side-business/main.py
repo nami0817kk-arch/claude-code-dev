@@ -30,6 +30,7 @@ from src.media import model as media_model
 from src.apps import model as app_model
 from src.portfolio import dashboard as pjt_dashboard
 from src.portfolio import projects as pjt_mod
+from src import expenses as expense_mod
 from src import screen as screen_mod
 from src import profile as profile_mod
 from src import report as report_mod
@@ -239,6 +240,35 @@ def cmd_report(args):
     prof = _require_profile()
     path = report_mod.export_markdown(prof, idea_id=args.idea)
     print(f"レポートを出力しました: {path}")
+
+
+def cmd_expense(args):
+    if args.action == "add":
+        if args.amount is None:
+            print("金額を指定してください。")
+            print('  例) python main.py expense add 3000 --item "Claude利用料" --from 2026-05')
+            sys.exit(1)
+        if args.since:
+            added = expense_mod.add_monthly(args.amount, args.item,
+                                            category=args.category, start=args.since,
+                                            end=args.until, note=args.note)
+            print(f"{len(added)}ヶ月分を記録しました: {args.item} "
+                  f"{args.amount:,}円/月（{added[0]['month']}〜{added[-1]['month']}）")
+        else:
+            rec = expense_mod.add(args.amount, args.item, category=args.category,
+                                  month=args.month, note=args.note)
+            print(f"記録しました: {rec['month']}  {rec['item']}  {rec['amount']:,}円")
+        expense_mod.print_expenses()
+
+    elif args.action == "rm":
+        if args.id is None:
+            print("削除する番号を指定してください。")
+            sys.exit(1)
+        print("削除しました。" if expense_mod.remove(args.id)
+              else f"経費 {args.id} が見つかりません。")
+
+    else:
+        expense_mod.print_expenses()
 
 
 def cmd_screen(args):
@@ -621,6 +651,9 @@ def build_parser():
   5. task/revenue  実行して結果を記録する
   6. status / review  数字で確認し、毎週やり方を直す
 
+支出を記録する（収益より先に出ていくもの）:
+  expense add 3000 --item "Claude利用料" --from 2026-05
+
 結果を画面で確認する:
   screen --open   ブラウザで開けるダッシュボードを生成する
 
@@ -755,6 +788,21 @@ def build_parser():
                         help="AI検品をスキップする（機械チェックのみ）")
     p_auto.add_argument("--retry", action="store_true",
                         help="前回失敗した案件も再実行する")
+
+    p_exp = sub.add_parser("expense", help="経費（利用料・サーバー代など）の記録",
+                           description="収益より先に出ていく支出を記録し、"
+                                       "回収すべき額をはっきりさせる")
+    p_exp.add_argument("action", nargs="?", default="list", choices=["list", "add", "rm"])
+    p_exp.add_argument("amount", nargs="?", type=int, help="add のときの金額(円)")
+    p_exp.add_argument("--item", default="経費", help="項目名 例) Claude利用料")
+    p_exp.add_argument("--category", default="tool", choices=list(expense_mod.CATEGORIES),
+                       help="種別 (既定:tool)")
+    p_exp.add_argument("--month", default="", help="対象月 YYYY-MM (既定:今月)")
+    p_exp.add_argument("--from", dest="since", default="",
+                       help="毎月かかる固定費として、この月から今月まで一括登録する")
+    p_exp.add_argument("--until", default="", help="--from と併用。既定は今月")
+    p_exp.add_argument("--note", default="", help="メモ")
+    p_exp.add_argument("--id", type=int, help="rm の対象番号")
 
     p_screen = sub.add_parser("screen", help="結果を確認するダッシュボード画面を生成する")
     p_screen.add_argument("--open", action="store_true", help="生成後にブラウザで開く")
@@ -921,6 +969,7 @@ COMMANDS = {
     "report": cmd_report,
     "service": cmd_service, "job": cmd_job, "auto": cmd_auto, "cost": cmd_cost,
     "media": cmd_media, "pjt": cmd_pjt, "app": cmd_app, "screen": cmd_screen,
+    "expense": cmd_expense,
 }
 
 
