@@ -8,5 +8,8 @@
   "hits_per_genre": 90,
   "drop_threshold": 0.05,
   "near_low_threshold": 0.02,
-  "history_tail_days": 90
+  "history_tail_days": 90,
+  "commission_rate": 0.02,
+  "monthly_cost": 15000,
+  "assumed_order_rate": 0.005
 }

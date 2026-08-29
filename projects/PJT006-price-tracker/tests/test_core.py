@@ -218,3 +218,38 @@ class AnalyzeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class RevenueTest(unittest.TestCase):
+    """楽天の報酬規則そのものを固定する。ここを間違えると狙う価格帯を誤る。"""
+
+    def test_reward_is_capped_per_item(self):
+        from src import revenue
+        self.assertEqual(revenue.reward(30000, 0.02), 600)
+        self.assertEqual(revenue.reward(50000, 0.02), 1000)
+        self.assertEqual(revenue.reward(80000, 0.02), 1000)   # 上限で頭打ち
+
+    def test_effective_rate_falls_above_the_cap(self):
+        from src import revenue
+        self.assertAlmostEqual(revenue.effective_rate(30000, 0.02), 0.02)
+        self.assertAlmostEqual(revenue.effective_rate(100000, 0.02), 0.01)
+
+    def test_cap_price_moves_with_the_rate(self):
+        from src import revenue
+        self.assertEqual(revenue.cap_price(0.02), 50000)
+        self.assertEqual(revenue.cap_price(0.04), 25000)
+
+    def test_break_even_pv(self):
+        from src import revenue
+        # 3万円の商品・料率2%・注文率0.5% → 1PVあたり3円 → 15,000円には5,000PV
+        self.assertEqual(revenue.break_even_pv(15000, 30000, 0.02, 0.005), 5000)
+
+    def test_margin_rises_with_revenue_because_there_is_no_variable_cost(self):
+        from src import revenue
+        self.assertAlmostEqual(revenue.margin(15000, 15000), 0.0)
+        self.assertAlmostEqual(revenue.margin(30000, 15000), 0.5)
+        self.assertAlmostEqual(revenue.margin(150000, 15000), 0.9)
+
+    def test_margin_is_negative_below_break_even(self):
+        from src import revenue
+        self.assertLess(revenue.margin(5000, 15000), 0)
