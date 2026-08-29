@@ -232,6 +232,15 @@ class PlayerGenerator {
     Position.st: [Position.amc],
   };
 
+  static AttributeCategory _categoryOfKey(String key) {
+    if (AttributeKeys.technical.contains(key)) {
+      return AttributeCategory.technical;
+    }
+    if (AttributeKeys.mental.contains(key)) return AttributeCategory.mental;
+    if (AttributeKeys.physical.contains(key)) return AttributeCategory.physical;
+    return AttributeCategory.goalkeeping;
+  }
+
   static int _positionBonus(String key, Position position) {
     if (position == Position.gk) {
       if (_gkStrong.contains(key)) return 25;
@@ -281,10 +290,23 @@ class PlayerGenerator {
     }
     final baseAbility = (potential * ageFactor).round().clamp(25, 99);
 
+    // カテゴリ(技術/メンタル/フィジカル/GK)ごとに共通のバイアスを1回だけ
+    // ロールする。個々の属性を完全に独立乱数にすると「技術は高いのに
+    // メンタルは低い」といった一貫性のない選手ばかりになるため、同じ
+    // カテゴリの属性はある程度連動して高め/低めに振れるようにし、
+    // 「技術系がまとまって高い選手」「フィジカルが弱い選手」のような
+    // 一貫した個性が出るようにする。
+    final categoryBias = {
+      for (final category in AttributeCategory.values)
+        category: _rng.nextInt(9) - 4, // -4 〜 +4
+    };
+
     final attributes = <String, int>{};
     for (final key in AttributeKeys.all) {
-      final variance = _rng.nextInt(17) - 8; // -8 〜 +8
-      final value = baseAbility + _positionBonus(key, position) + variance;
+      final variance = _rng.nextInt(11) - 5; // -5 〜 +5(カテゴリバイアス分、個別ノイズは縮小)
+      final bias = categoryBias[_categoryOfKey(key)]!;
+      final value =
+          baseAbility + _positionBonus(key, position) + bias + variance;
       // ポテンシャルは成長の上限のはずなので、生成直後の能力値がそれを
       // 超えてしまわないようにする(ポジションボーナス・分散を足した後の
       // 値がpotentialを上回るケースがあったため)。

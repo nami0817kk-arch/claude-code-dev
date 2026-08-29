@@ -646,13 +646,14 @@ class MatchEngine {
     return candidates.first;
   }
 
-  /// サイドでの1対1(スピード・ドリブル・ひらめき vs スピード・対応・
-  /// ポジショニング)の突破成功率。対面の守備者がいなければ数的優位として
-  /// 高確率で突破できる。
+  /// サイドでの1対1(スピード・ドリブル・敏捷性・ひらめき vs スピード・
+  /// 対応・ポジショニング)の突破成功率。対面の守備者がいなければ数的優位
+  /// として高確率で突破できる。
   static double _wideDuelWinProb(Player attacker, Player? defender) {
-    final attackSkill = attacker.attributeValue(AttributeKeys.pace) * 0.4 +
-        attacker.attributeValue(AttributeKeys.dribbling) * 0.4 +
-        attacker.attributeValue(AttributeKeys.flair) * 0.2;
+    final attackSkill = attacker.attributeValue(AttributeKeys.pace) * 0.35 +
+        attacker.attributeValue(AttributeKeys.dribbling) * 0.35 +
+        attacker.attributeValue(AttributeKeys.agility) * 0.15 +
+        attacker.attributeValue(AttributeKeys.flair) * 0.15;
     if (defender == null) return 0.85;
     final defendSkill = defender.attributeValue(AttributeKeys.pace) * 0.35 +
         defender.attributeValue(AttributeKeys.tackling) * 0.4 +
@@ -1726,13 +1727,15 @@ class MatchEngine {
   }
 
   /// 守備側の決定機で、対応する自チーム守備者と相手選手の突破力を
-  /// タックル・ポジショニング・積極性 vs ドリブル・スピード・閃きで
+  /// タックル・ポジショニング・積極性 vs ドリブル・スピード・敏捷性・閃きで
   /// 比較し、相手の得点成功率への倍率(0.7〜1.3)として返す。対応できる
   /// 守備者がいない(数的不利)場合は相手に有利な倍率を返す。
   static double _defenderVsAttackerFactor(Player? defender, Player attacker) {
-    final attackSkill = attacker.attributeValue(AttributeKeys.dribbling) * 0.4 +
-        attacker.attributeValue(AttributeKeys.pace) * 0.3 +
-        attacker.attributeValue(AttributeKeys.flair) * 0.3;
+    final attackSkill =
+        attacker.attributeValue(AttributeKeys.dribbling) * 0.35 +
+            attacker.attributeValue(AttributeKeys.pace) * 0.25 +
+            attacker.attributeValue(AttributeKeys.agility) * 0.15 +
+            attacker.attributeValue(AttributeKeys.flair) * 0.25;
     if (defender == null) return 1.15;
     final defendSkill = defender.attributeValue(AttributeKeys.tackling) * 0.45 +
         defender.attributeValue(AttributeKeys.positioning) * 0.35 +

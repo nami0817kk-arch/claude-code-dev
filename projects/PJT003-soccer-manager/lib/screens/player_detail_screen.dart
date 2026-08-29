@@ -539,6 +539,8 @@ class PlayerDetailScreen extends StatelessWidget {
           StatBar(label: '守備', value: p.defense),
           StatBar(label: '技術', value: p.technique),
           StatBar(label: 'スタミナ', value: p.stamina),
+          if (p.position == Position.gk)
+            StatBar(label: 'ゴールキーピング', value: p.goalkeeping),
           const Divider(height: 32),
           StatBar(label: '潜在能力', value: p.potential, color: Colors.purple),
           StatBar(

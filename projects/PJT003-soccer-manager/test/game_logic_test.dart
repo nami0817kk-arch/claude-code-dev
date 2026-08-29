@@ -1897,6 +1897,115 @@ void main() {
   });
 
   test(
+      'PlayerGenerator.generate correlates attributes within the same '
+      'category (technical/mental/physical/goalkeeping) more tightly than '
+      'across categories, via a shared per-category generation bias', () {
+    // corners/crossing(技術)・aggression(メンタル)はPosition.mcの
+    // strong/weak補正のどちらにも該当せず、ポジション補正が常に0になるため、
+    // カテゴリ相関バイアスの効果だけを切り出して比較できる。
+    const trials = 300;
+    var sameCategoryDiffSum = 0;
+    var crossCategoryDiffSum = 0;
+    for (int i = 0; i < trials; i++) {
+      final p =
+          PlayerGenerator.generate(position: Position.mc, strengthTier: 60);
+      sameCategoryDiffSum += (p.attributeValue(AttributeKeys.corners) -
+              p.attributeValue(AttributeKeys.crossing))
+          .abs();
+      crossCategoryDiffSum += (p.attributeValue(AttributeKeys.corners) -
+              p.attributeValue(AttributeKeys.aggression))
+          .abs();
+    }
+    expect(
+      sameCategoryDiffSum / trials,
+      lessThan(crossCategoryDiffSum / trials),
+    );
+  });
+
+  test(
+      'TrainingEngine growth chance for an attribute diminishes as it '
+      'nears the potential ceiling, compared to when far from it', () {
+    const potential = 90;
+    const trials = 1500;
+
+    int successesFor(int startingValue) {
+      var successes = 0;
+      for (int i = 0; i < trials; i++) {
+        final p = Player(
+          id: 'gp',
+          name: 'gp',
+          age: 24,
+          position: Position.st,
+          potential: potential,
+        );
+        for (final key in AttributeKeys.all) {
+          p.setAttributeValue(key, 50);
+        }
+        p.setAttributeValue(AttributeKeys.stamina, startingValue);
+        final team = Team(id: 'gt', name: 'gt', players: [p]);
+        team.defaultTrainingFocus = TrainingFocus.fitness;
+        TrainingEngine.applyWeeklyTraining(team);
+        if (p.attributeValue(AttributeKeys.stamina) > startingValue) {
+          successes++;
+        }
+      }
+      return successes;
+    }
+
+    final closeSuccesses = successesFor(potential - 3);
+    final farSuccesses = successesFor(potential - 30);
+    expect(closeSuccesses, lessThan(farSuccesses));
+  });
+
+  test(
+      'MatchEngine wires the previously-unused agility attribute into the '
+      "attacker side of the defender-vs-attacker duel: a higher-agility "
+      'attacking side yields a higher average aggressiveChanceAgainst for '
+      'the defending team', () {
+    final home = PlayerGenerator.generateSquad(
+        id: 'agih', name: 'Agility Home FC', strengthTier: 60);
+    final away = PlayerGenerator.generateSquad(
+        id: 'agia', name: 'Agility Away FC', strengthTier: 60);
+    LineupUtils.autoFill(home);
+    LineupUtils.autoFill(away);
+
+    double averageAggressiveChanceAgainst(int attackerAgility) {
+      for (final p in MatchEngine.lineupOf(home)) {
+        if (p.position.group == PositionGroup.att) {
+          p.setAttributeValue(AttributeKeys.agility, attackerAgility);
+        }
+      }
+      var sum = 0.0;
+      var count = 0;
+      for (int i = 0; i < 60; i++) {
+        final state = MatchEngine.beginInteractiveHalf(
+          home: home,
+          away: away,
+          startMinute: 1,
+          endMinute: 45,
+          interactiveTeamId: away.id,
+        );
+        while (!state.isFinished) {
+          final pending = state.pending!;
+          if (pending.context == ChanceContext.defense) {
+            sum += pending.aggressiveChanceAgainst!;
+            count++;
+            MatchEngine.resolvePendingChance(state, ChanceDecision.coverSpace);
+          } else {
+            MatchEngine.resolvePendingChance(state, ChanceDecision.shoot);
+          }
+        }
+      }
+      expect(count, greaterThan(0));
+      return sum / count;
+    }
+
+    final agileAvg = averageAggressiveChanceAgainst(95);
+    final dullAvg = averageAggressiveChanceAgainst(20);
+    expect(agileAvg, greaterThan(dullAvg));
+  });
+
+  test(
       'GameState.playNextMatchday stops at half-time for the user fixture; playSecondHalf finalizes it',
       () async {
     final gameState = GameState();

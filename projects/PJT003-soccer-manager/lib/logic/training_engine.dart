@@ -655,6 +655,8 @@ class TrainingEngine {
   }
 
   static void _grow(Player p, String key, double chance) {
+    final current = p.attributeValue(key);
+    if (current >= p.potential) return;
     var c = chance * _growthAgeFactor(p);
     // 闘志(determination)が高い選手ほど伸びやすく、低い選手は伸びにくい。
     c *= 0.7 + p.attributeValue(AttributeKeys.determination) / 165;
@@ -662,9 +664,13 @@ class TrainingEngine {
     c *= p.personality.growthFactor;
     // 出場機会が乏しく実戦感覚(マッチシャープネス)が低い選手は伸び悩む。
     if (p.matchSharpness < 40) c *= 0.7;
+    // ポテンシャルに近づくほど伸びしろが少なくなり、成長は緩やかになる
+    // (残り10未満から徐々に減衰する。それまでは全く減衰しない)。
+    final gapToPotential = p.potential - current;
+    if (gapToPotential < 10) {
+      c *= (0.2 + 0.8 * gapToPotential / 10).clamp(0.2, 1.0);
+    }
     if (_rng.nextDouble() > c) return;
-    final current = p.attributeValue(key);
-    if (current >= p.potential) return;
     p.setAttributeValue(key, (current + 1).clamp(1, p.potential));
   }
 
