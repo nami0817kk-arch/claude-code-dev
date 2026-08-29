@@ -115,8 +115,10 @@ def update_prices(_wb=None):
     for t in tickers:
         try:
             prices[t] = round(float(yf.Ticker(t).fast_info.last_price), 2)
-        except Exception:
-            pass
+        except Exception as e:
+            # 1銘柄の失敗で全体を止めない。ただし、どの銘柄の値が
+            # 更新されなかったのかは分かるようにしておく。
+            print(f"  [WARN] {t}: 現在値の取得に失敗しました: {e}")
 
     today = str(date.today())
     with _connect() as con:

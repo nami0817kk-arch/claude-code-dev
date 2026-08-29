@@ -1,4 +1,4 @@
-﻿# [PJT002] ai-blog
+# [PJT002] ai-blog
 
 ## 概要
 
