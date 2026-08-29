@@ -353,6 +353,48 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
     return '$label(相手$pct)→ 攻撃を防いだ!';
   }
 
+  /// AppBarに表示する試合中交代ボタン。残り交代枠を表示し、タップで
+  /// 出場中イレブンの一覧シートを開く(枠切れ時は無効化)。
+  Widget _buildSubstitutionAction(GameState gameState) {
+    final remaining =
+        GameState.maxSubstitutionsPerMatch - gameState.substitutionsUsed;
+    return TextButton.icon(
+      onPressed: remaining > 0 ? () => _showLiveSubstitutionSheet() : null,
+      icon: Icon(
+        Icons.swap_horiz,
+        color: remaining > 0 ? Colors.white : Colors.white38,
+      ),
+      label: Text(
+        '交代$remaining',
+        style: TextStyle(color: remaining > 0 ? Colors.white : Colors.white38),
+      ),
+    );
+  }
+
+  void _showLiveSubstitutionSheet() {
+    final gameState = context.read<GameState>();
+    final team = gameState.userTeam;
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                '試合中の交代(交代する選手を選択)',
+                style: Theme.of(ctx).textTheme.titleMedium,
+              ),
+            ),
+            for (final id in team.startingXI)
+              _StartingPlayerTile(playerId: id, team: team, isLive: true),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// AppBarに表示する采配方針ボタン。現在の方針をラベル表示し、タップで
   /// 変更ダイアログを開く(通常/リスクを取る/安全に下がる)。
   Widget _buildInstructionAction(GameState gameState) {
@@ -444,7 +486,10 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
         title: Text('第$matchday節'),
         automaticallyImplyLeading: false,
         actions: (_phase == _Phase.firstHalf || _phase == _Phase.secondHalf)
-            ? [_buildInstructionAction(gameState)]
+            ? [
+                _buildSubstitutionAction(gameState),
+                _buildInstructionAction(gameState),
+              ]
             : null,
       ),
       body: _phase == _Phase.halfTime
@@ -507,6 +552,11 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
                 ],
               ),
             ),
+            if (!finished)
+              _MomentumBar(
+                valueForHome:
+                    context.read<GameState>().liveMomentumForHome ?? 0,
+              ),
             if (finished)
               FullTimeBanner(userTeamId: _userTeamId, result: _finalResult),
             if (finished)
@@ -701,6 +751,54 @@ class _GoalFlashBanner extends StatelessWidget {
   }
 }
 
+/// 「試合の流れ」(モメンタム)をホーム/アウェイの綱引きバーとして表示する。
+/// [valueForHome]はホーム視点で-1.0〜+1.0(正ならホーム側が優勢)。
+/// 直近の得点で流れをつかんだ側のバーが伸び、時間経過で中央へ戻っていく。
+class _MomentumBar extends StatelessWidget {
+  final double valueForHome;
+
+  const _MomentumBar({required this.valueForHome});
+
+  @override
+  Widget build(BuildContext context) {
+    // 完全に0/100になると帯そのものが見えなくなるため5〜95%に留める。
+    final homeShare = (((valueForHome + 1) / 2) * 100).round().clamp(5, 95);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Semantics(
+        label: '試合の流れ: ホーム側$homeShare%',
+        child: Column(
+          children: [
+            const Text(
+              '試合の流れ',
+              style: TextStyle(fontSize: 10, color: Colors.grey),
+            ),
+            const SizedBox(height: 2),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: SizedBox(
+                height: 6,
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: homeShare,
+                      child: Container(color: Colors.indigo),
+                    ),
+                    Expanded(
+                      flex: 100 - homeShare,
+                      child: Container(color: Colors.deepOrange),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _HalfTimePanel extends StatelessWidget {
   final Team home;
   final Team away;
@@ -864,7 +962,15 @@ class _StartingPlayerTile extends StatelessWidget {
   final String playerId;
   final Team team;
 
-  const _StartingPlayerTile({required this.playerId, required this.team});
+  /// trueなら試合進行中のライブ交代([GameState.makeLiveSubstitution])、
+  /// falseならハーフタイム交代として扱う。
+  final bool isLive;
+
+  const _StartingPlayerTile({
+    required this.playerId,
+    required this.team,
+    this.isLive = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -932,10 +1038,24 @@ class _StartingPlayerTile extends StatelessWidget {
                 subtitle: Text('${p.position.label} / 総合 ${p.overall}'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  gameState.makeHalfTimeSubstitution(
-                    outPlayerId: out.id,
-                    inPlayerId: p.id,
-                  );
+                  if (isLive) {
+                    final ok = gameState.makeLiveSubstitution(
+                      outPlayerId: out.id,
+                      inPlayerId: p.id,
+                    );
+                    if (!ok) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('今は交代できません(目前の決定機に関わる選手か、交代枠切れ)'),
+                        ),
+                      );
+                    }
+                  } else {
+                    gameState.makeHalfTimeSubstitution(
+                      outPlayerId: out.id,
+                      inPlayerId: p.id,
+                    );
+                  }
                 },
               ),
             if (candidates.isEmpty)

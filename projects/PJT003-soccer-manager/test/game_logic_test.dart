@@ -1696,6 +1696,164 @@ void main() {
   });
 
   test(
+      'MatchEngine.applyInteractiveSubstitution swaps in an eligible bench '
+      'player mid-half, raises the recomputed defense base when the incoming '
+      'defender is far stronger, and rejects injured or decision-involved '
+      'players', () {
+    InteractiveHalfState? found;
+    Team? homeTeam;
+    // 稀にハーフ内で自チームの決定機が一度も発生しない(=pendingなしで
+    // 即完了する)ことがあるため、pendingを持つ状態が得られるまで再試行。
+    for (int attempt = 0; attempt < 30 && found == null; attempt++) {
+      final home = PlayerGenerator.generateSquad(
+          id: 'sub-h$attempt', name: 'Sub Home FC', strengthTier: 60);
+      final away = PlayerGenerator.generateSquad(
+          id: 'sub-a$attempt', name: 'Sub Away FC', strengthTier: 60);
+      LineupUtils.autoFill(home);
+      LineupUtils.autoFill(away);
+      final state = MatchEngine.beginInteractiveHalf(
+        home: home,
+        away: away,
+        startMinute: 1,
+        endMinute: 45,
+        interactiveTeamId: home.id,
+      );
+      if (state.pending != null) {
+        found = state;
+        homeTeam = home;
+      }
+    }
+    final state = found!;
+    final home = homeTeam!;
+    final pending = state.pending!;
+    final involved = {
+      pending.shooter?.id,
+      pending.passTarget?.id,
+      pending.keeper?.id,
+      pending.attacker?.id,
+      pending.defender?.id,
+    };
+
+    bool onPitch(Player p) => state.homeLineup.any((l) => l.id == p.id);
+    bool eligible(Player p) =>
+        !p.isInjured &&
+        !p.isSuspended &&
+        !p.isOnInternationalDuty &&
+        !p.isLoanedOut;
+
+    final incoming = home.players.firstWhere((p) =>
+        !onPitch(p) && p.position.group == PositionGroup.def && eligible(p));
+    for (final key in AttributeKeys.all) {
+      incoming.setAttributeValue(key, 99);
+    }
+    incoming.trait = null;
+
+    final outDefender = state.homeLineup.firstWhere((p) =>
+        p.position.group == PositionGroup.def && !involved.contains(p.id));
+
+    final injuredBench = home.players
+        .firstWhere((p) => p.id != incoming.id && !onPitch(p) && eligible(p));
+    injuredBench.injuryWeeks = 2;
+    expect(
+      MatchEngine.applyInteractiveSubstitution(
+        state,
+        teamId: home.id,
+        outPlayerId: outDefender.id,
+        inPlayerId: injuredBench.id,
+      ),
+      isFalse,
+      reason: '負傷中のベンチ選手は投入できない',
+    );
+
+    final involvedOnPitch =
+        state.homeLineup.where((p) => involved.contains(p.id)).toList();
+    if (involvedOnPitch.isNotEmpty) {
+      expect(
+        MatchEngine.applyInteractiveSubstitution(
+          state,
+          teamId: home.id,
+          outPlayerId: involvedOnPitch.first.id,
+          inPlayerId: incoming.id,
+        ),
+        isFalse,
+        reason: '目前の決定機に関与している選手は交代できない',
+      );
+    }
+
+    final before = state.homeDefenseBase;
+    expect(
+      MatchEngine.applyInteractiveSubstitution(
+        state,
+        teamId: home.id,
+        outPlayerId: outDefender.id,
+        inPlayerId: incoming.id,
+      ),
+      isTrue,
+    );
+    expect(state.homeLineup.any((p) => p.id == incoming.id), isTrue);
+    expect(state.homeLineup.any((p) => p.id == outDefender.id), isFalse);
+    expect(state.homeDefenseBase, greaterThan(before),
+        reason: '全能力99の守備者投入で守備力が再計算されて上がるはず');
+    expect(incoming.matchFormRolledThisMatch, isTrue);
+
+    // 交代後もハーフの進行は通常通り最後まで解決できる。
+    while (!state.isFinished) {
+      final p2 = state.pending!;
+      MatchEngine.resolvePendingChance(
+          state,
+          p2.context == ChanceContext.attack
+              ? ChanceDecision.shoot
+              : ChanceDecision.coverSpace);
+    }
+  });
+
+  test(
+      'GameState.makeLiveSubstitution consumes a substitution slot mid-half '
+      'and keeps startingXI in sync with the on-pitch lineup', () async {
+    final gameState = GameState();
+    await gameState.startNewGame('テストFC');
+    for (int matchdayAttempt = 0; matchdayAttempt < 5; matchdayAttempt++) {
+      await gameState.playNextMatchday(interactive: true);
+      if (gameState.pendingChanceDecision == null) {
+        // 稀に前半に自クラブの決定機が発生しないことがあるため、その試合は
+        // 消化して次の節で再試行する。
+        await gameState.playSecondHalf(interactive: false);
+        continue;
+      }
+      final team = gameState.userTeam;
+      final pending = gameState.pendingChanceDecision;
+      final involved = {
+        pending?.shooter?.id,
+        pending?.passTarget?.id,
+        pending?.keeper?.id,
+        pending?.attacker?.id,
+        pending?.defender?.id,
+      };
+      final outId = team.startingXI.firstWhere((id) => !involved.contains(id));
+      final bench = team.players.firstWhere((p) =>
+          !team.startingXI.contains(p.id) &&
+          !p.isInjured &&
+          !p.isSuspended &&
+          !p.isOnInternationalDuty &&
+          !p.isLoanedOut);
+      expect(
+        gameState.makeLiveSubstitution(
+            outPlayerId: outId, inPlayerId: bench.id),
+        isTrue,
+      );
+      expect(gameState.substitutionsUsed, 1);
+      expect(team.startingXI.contains(bench.id), isTrue);
+      expect(team.startingXI.contains(outId), isFalse);
+
+      while (gameState.pendingChanceDecision != null) {
+        await gameState.resolveChanceDecision(ChanceDecision.shoot);
+      }
+      return;
+    }
+    fail('5節試しても前半に自クラブの決定機が発生しなかった');
+  });
+
+  test(
       'GameState.resolveChanceDecision returns the produced MatchEvent as '
       'decisionEvent, matching MatchEngine.resolvePendingChance', () async {
     final gameState = GameState();
@@ -6230,6 +6388,107 @@ void main() {
     final highAdvantage = totalHomeGoals(1.09);
     final lowAdvantage = totalHomeGoals(1.03);
     expect(highAdvantage, greaterThan(lowAdvantage));
+  });
+
+  test(
+      'MatchEngine.simulate produces realistic league-level aggregates: '
+      'average total goals in a real-football range, a meaningful share of '
+      'draws, a visible home advantage, and favorites beating clear '
+      'underdogs most of the time', () {
+    Team buildTeam(String id, int tier) {
+      final t = PlayerGenerator.generateSquad(
+          id: id, name: 'T$id', strengthTier: tier);
+      LineupUtils.autoFill(t);
+      return t;
+    }
+
+    const n = 500;
+    int homeWins = 0, draws = 0, awayWins = 0, totalGoals = 0;
+    for (int i = 0; i < n; i++) {
+      final r = MatchEngine.simulate(
+          home: buildTeam('bal-h$i', 60),
+          away: buildTeam('bal-a$i', 60),
+          matchday: 1);
+      totalGoals += r.homeGoals + r.awayGoals;
+      if (r.homeGoals > r.awayGoals) {
+        homeWins++;
+      } else if (r.homeGoals < r.awayGoals) {
+        awayWins++;
+      } else {
+        draws++;
+      }
+    }
+    // 実測の中心値: 平均総ゴール約2.6、引き分け約24%、勝率はホーム44%対
+    // アウェイ32%。乱数ノイズに対して十分な余裕を持った境界で検証する。
+    expect(totalGoals / n, inInclusiveRange(2.0, 3.3));
+    expect(draws, greaterThanOrEqualTo((n * 0.12).round()));
+    expect(homeWins, greaterThan(awayWins));
+
+    const gapTrials = 120;
+    int favoriteWins = 0;
+    for (int i = 0; i < gapTrials; i++) {
+      final r = MatchEngine.simulate(
+          home: buildTeam('fav$i', 75),
+          away: buildTeam('dog$i', 55),
+          matchday: 1);
+      if (r.homeGoals > r.awayGoals) favoriteWins++;
+    }
+    expect(favoriteWins, greaterThan((gapTrials * 0.6).round()));
+  });
+
+  test(
+      'watching a match live (interactive engine with neutral choices) '
+      'yields the same average goals for and against as the automatic '
+      'simulate path, so live play is neither systematically rewarded nor '
+      'punished', () {
+    Team buildTeam(String id) {
+      final t =
+          PlayerGenerator.generateSquad(id: id, name: 'T$id', strengthTier: 60);
+      LineupUtils.autoFill(t);
+      return t;
+    }
+
+    const n = 400;
+    int simFor = 0, simAgainst = 0, intFor = 0, intAgainst = 0;
+    for (int i = 0; i < n; i++) {
+      final r = MatchEngine.simulate(
+          home: buildTeam('par-sh$i'),
+          away: buildTeam('par-sa$i'),
+          matchday: 1);
+      simFor += r.homeGoals;
+      simAgainst += r.awayGoals;
+
+      final home = buildTeam('par-ih$i');
+      final away = buildTeam('par-ia$i');
+      for (final half in [
+        (start: 1, end: 45),
+        (start: 46, end: 90),
+      ]) {
+        final state = MatchEngine.beginInteractiveHalf(
+          home: home,
+          away: away,
+          startMinute: half.start,
+          endMinute: half.end,
+          interactiveTeamId: home.id,
+        );
+        while (!state.isFinished) {
+          final pending = state.pending!;
+          MatchEngine.resolvePendingChance(
+              state,
+              pending.context == ChanceContext.attack
+                  ? ChanceDecision.shoot
+                  : ChanceDecision.coverSpace);
+        }
+        intFor += state.homeGoals;
+        intAgainst += state.awayGoals;
+      }
+    }
+    // 事前計測(n=1500)では自動1.44/1.19に対しライブ1.42/1.18とほぼ一致。
+    // 平均の差が±0.4ゴール以内(実測ノイズの4倍以上のマージン)に
+    // 収まることを検証し、ライブ観戦だけで系統的に有利/不利になる
+    // 回帰(例: 中立守備選択への割引の復活)を検出する。
+    expect((intFor - simFor).abs() / n, lessThan(0.4));
+    expect((intAgainst - simAgainst).abs() / n, lessThan(0.4));
   });
 
   test('ScoutReportEngine.generateFor exposes the key player\'s ID', () {

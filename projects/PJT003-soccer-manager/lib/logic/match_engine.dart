@@ -135,10 +135,18 @@ class InteractiveHalfState {
   final String interactiveTeamId;
   final List<Player> homeLineup;
   final List<Player> awayLineup;
-  final double homeAttackBase;
-  final double awayAttackBase;
-  final double homeDefenseBase;
-  final double awayDefenseBase;
+
+  /// このハーフの天候とホームアドバンテージ。試合中の交代で攻守力を
+  /// 再計算する際に、ハーフ開始時と同じ条件を再現するために保持する。
+  final Weather weather;
+  final double homeAdvantageFactor;
+
+  // 攻守力は試合中の交代([MatchEngine.applyInteractiveSubstitution])で
+  // 再計算されるため可変にしている。
+  double homeAttackBase;
+  double awayAttackBase;
+  double homeDefenseBase;
+  double awayDefenseBase;
   final List<int> chanceMinutes;
   final List<MatchEvent> events;
 
@@ -178,6 +186,8 @@ class InteractiveHalfState {
     required this.interactiveTeamId,
     required this.homeLineup,
     required this.awayLineup,
+    this.weather = Weather.clear,
+    this.homeAdvantageFactor = MatchEngine.defaultHomeAdvantageFactor,
     required this.homeAttackBase,
     required this.awayAttackBase,
     required this.homeDefenseBase,
@@ -209,6 +219,16 @@ class InteractiveHalfState {
 
 class MatchEngine {
   static final Random _rng = Random();
+
+  /// チャンス1回あたりの基礎得点確率。実測で互角対戦の平均総ゴール数が
+  /// 約2.6〜2.9(現実のリーグ戦相当)、引き分け率が2割台前半〜半ばに
+  /// 収まるよう調整した値。simulate系とインタラクティブ系の両方で
+  /// 同じ値を使い、ライブ観戦と自動消化の結果が乖離しないようにする。
+  static const double _baseScoreProb = 0.22;
+
+  /// ホームアドバンテージの既定倍率。実測でホーム勝率と平均得点差が
+  /// 現実(勝率でホーム約45%対アウェイ約29%)に近づくよう調整した値。
+  static const double defaultHomeAdvantageFactor = 1.10;
 
   static double _condition(Player p) =>
       (1 - p.fatigue / 250) *
@@ -979,7 +999,7 @@ class MatchEngine {
     required int startMinute,
     required int endMinute,
     Weather weather = Weather.clear,
-    double homeAdvantageFactor = 1.06,
+    double homeAdvantageFactor = defaultHomeAdvantageFactor,
   }) {
     // 前半開始時に全選手のフラグをリセットして先発の倍率を算出する。
     // 後半開始時は、前半に出場せず後半で初めて起用された選手(途中出場の
@@ -1162,7 +1182,8 @@ class MatchEngine {
       final momentum = isHomeChance ? homeMomentum : awayMomentum;
 
       final diff = attackingPower - defendingDefense;
-      var scoreProb = (0.30 + diff / 220 + momentum).clamp(0.05, 0.75);
+      var scoreProb =
+          (_baseScoreProb + diff / 220 + momentum).clamp(0.05, 0.75);
       Player? scorer;
       Player? forcedAssist;
       bool isPenalty = false;
@@ -1663,8 +1684,12 @@ class MatchEngine {
   static const double _aggressiveTackleReduction = 0.72;
 
   /// 守備側が「カバーリングに専念」を選んだ場合の、相手の得点成功率への
-  /// 倍率。下げ幅は控えめだが警告/退場のリスクを負わない安全な選択肢。
-  static const double _coverSpaceReduction = 0.90;
+  /// 倍率。警告/退場のリスクを負わない安全な選択肢。CPU同士の試合
+  /// (simulate)には守備側の決定機判断が存在しないため、この中立選択を
+  /// 1.0未満にすると「自クラブだけが恒常的に失点を割り引かれる」不公平が
+  /// 生じる(実測で約9%の失点減を確認)。よって中立=1.0とし、リスクを
+  /// 取ってタックルに行く場合のみ成功率が動くようにする。
+  static const double _coverSpaceReduction = 1.0;
 
   /// 積極的にタックルへ行った際に警告(まれに退場)を受ける基礎確率。
   static const double _aggressiveTackleCardChance = 0.16;
@@ -1704,6 +1729,93 @@ class MatchEngine {
     MatchInstruction instruction,
   ) {
     state.instruction = instruction;
+  }
+
+  /// ライブ観戦中(インタラクティブ進行中)の交代を適用する。ハーフタイム
+  /// を待たず試合中に選手を入れ替えられる。交代枠の消費とstartingXIの
+  /// 更新は呼び出し側(GameState)の責務で、ここでは進行中ハーフの状態
+  /// (出場中ラインナップと攻守力)だけを交代後の内容へ再計算する。
+  ///
+  /// 未終了の状態は常に次の決定機([InteractiveHalfState.pending])で
+  /// 停止しているため、pendingが立っていても交代は許可する。ただし、
+  /// その決定機に関与している選手(シューター/パス先/GK/攻撃者/守備者)
+  /// を出入りさせると、提示済みの成功率や得点者の帰属が実態と食い違う
+  /// ため拒否する。成功時true、適用できない場合は何もせずfalse。
+  static bool applyInteractiveSubstitution(
+    InteractiveHalfState state, {
+    required String teamId,
+    required String outPlayerId,
+    required String inPlayerId,
+  }) {
+    if (state.isFinished) return false;
+    final isHome = teamId == state.home.id;
+    if (!isHome && teamId != state.away.id) return false;
+    final pending = state.pending;
+    if (pending != null) {
+      final involvedIds = {
+        pending.shooter?.id,
+        pending.passTarget?.id,
+        pending.keeper?.id,
+        pending.attacker?.id,
+        pending.defender?.id,
+      };
+      if (involvedIds.contains(outPlayerId) ||
+          involvedIds.contains(inPlayerId)) {
+        return false;
+      }
+    }
+    final team = isHome ? state.home : state.away;
+    final lineup = isHome ? state.homeLineup : state.awayLineup;
+    final outIndex = lineup.indexWhere((p) => p.id == outPlayerId);
+    if (outIndex < 0) return false;
+    if (lineup.any((p) => p.id == inPlayerId)) return false;
+    Player? incoming;
+    for (final p in team.players) {
+      if (p.id == inPlayerId) incoming = p;
+    }
+    if (incoming == null) return false;
+    if (incoming.isInjured ||
+        incoming.isSuspended ||
+        incoming.isOnInternationalDuty ||
+        incoming.isLoanedOut) {
+      return false;
+    }
+
+    lineup[outIndex] = incoming;
+    // 途中出場の選手に、この試合分の特性由来パフォーマンス倍率をまだ
+    // 持っていなければ割り当てる(前半に出場済みなら同じ値を使い続ける)。
+    if (!incoming.matchFormRolledThisMatch) {
+      final homeAvg = _avgOverall(state.homeLineup);
+      final awayAvg = _avgOverall(state.awayLineup);
+      incoming.matchFormMultiplier = _traitFormMultiplier(
+        incoming,
+        selfAvg: isHome ? homeAvg : awayAvg,
+        oppAvg: isHome ? awayAvg : homeAvg,
+        isHome: isHome,
+        weather: state.weather,
+      );
+      incoming.matchFormRolledThisMatch = true;
+    }
+    _recomputeInteractiveBases(state);
+    return true;
+  }
+
+  /// 交代でラインナップが変わった後、このハーフの残りのチャンス評価に
+  /// 使う攻守力をハーフ開始時と同じ算出条件で計算し直す。
+  static void _recomputeInteractiveBases(InteractiveHalfState s) {
+    final homeMarkedId = markedTargetId(s.away, s.awayLineup, s.homeLineup);
+    final awayMarkedId = markedTargetId(s.home, s.homeLineup, s.awayLineup);
+    s.homeAttackBase =
+        _attackPower(s.home, s.homeLineup, suppressedId: homeMarkedId) *
+            s.homeAdvantageFactor *
+            s.weather.attackMultiplier;
+    s.awayAttackBase =
+        _attackPower(s.away, s.awayLineup, suppressedId: awayMarkedId) *
+            s.weather.attackMultiplier;
+    s.homeDefenseBase =
+        _defensePower(s.home, s.homeLineup) * s.weather.defenseMultiplier;
+    s.awayDefenseBase =
+        _defensePower(s.away, s.awayLineup) * s.weather.defenseMultiplier;
   }
 
   /// [lineup]からゴールキーパーを探す(見つからなければnull)。
@@ -1773,7 +1885,7 @@ class MatchEngine {
     required int endMinute,
     required String interactiveTeamId,
     Weather weather = Weather.clear,
-    double homeAdvantageFactor = 1.06,
+    double homeAdvantageFactor = defaultHomeAdvantageFactor,
   }) {
     if (startMinute == 1) {
       _rollMatchForm(home, away, weather);
@@ -1906,6 +2018,8 @@ class MatchEngine {
       interactiveTeamId: interactiveTeamId,
       homeLineup: homeLineup,
       awayLineup: awayLineup,
+      weather: weather,
+      homeAdvantageFactor: homeAdvantageFactor,
       homeAttackBase: homeAttackBase,
       awayAttackBase: awayAttackBase,
       homeDefenseBase: homeDefenseBase,
@@ -1948,7 +2062,8 @@ class MatchEngine {
       final momentum = isHomeChance ? s.homeMomentum : s.awayMomentum;
 
       final diff = attackingPower - defendingDefense;
-      var scoreProb = (0.30 + diff / 220 + momentum).clamp(0.05, 0.75);
+      var scoreProb =
+          (_baseScoreProb + diff / 220 + momentum).clamp(0.05, 0.75);
       Player? scorer;
       Player? forcedAssist;
       bool isPenalty = false;
@@ -2241,7 +2356,7 @@ class MatchEngine {
     double homeInjuryFactor = 1.0,
     double awayInjuryFactor = 1.0,
     Weather weather = Weather.clear,
-    double homeAdvantageFactor = 1.06,
+    double homeAdvantageFactor = defaultHomeAdvantageFactor,
   }) {
     _maybeAutoAssignManMarker(home, lineupOf(away));
     _maybeAutoAssignManMarker(away, lineupOf(home));

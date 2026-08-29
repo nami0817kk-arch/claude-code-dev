@@ -2290,11 +2290,14 @@ class GameState extends ChangeNotifier {
   /// (収容人数に対する割合)に応じて変動する(満員に近いほど大きい)。
   /// 他クラブの主催試合は観客動員を管理していないため既定値のまま。
   double _homeAdvantageFor(String homeTeamId) {
-    if (_save == null || homeTeamId != _save!.userTeamId) return 1.06;
+    if (_save == null || homeTeamId != _save!.userTeamId) {
+      return MatchEngine.defaultHomeAdvantageFactor;
+    }
     final capacity = stadiumCapacity;
     final ratio =
         capacity <= 0 ? 0.0 : (expectedAttendance / capacity).clamp(0.0, 1.0);
-    return 1.03 + 0.06 * ratio;
+    // 満員ならCPU既定値を上回り、ガラガラなら下回る(中央値≒既定値)。
+    return MatchEngine.defaultHomeAdvantageFactor - 0.04 + 0.08 * ratio;
   }
 
   // ---- ハーフタイム対応の試合進行(自クラブの試合のみ) ----
@@ -2335,6 +2338,17 @@ class GameState extends ChangeNotifier {
       (_liveSecondHalfState ?? _liveFirstHalfState)?.instruction ??
       MatchInstruction.balanced;
 
+  /// ライブ観戦中の「試合の流れ」(モメンタム)。ホーム視点で-1.0〜+1.0に
+  /// 正規化して返す(正の値はホームに、負の値はアウェイに流れがある)。
+  /// 進行中のハーフがなければnull。エンジン内部のモメンタムは
+  /// ±0.08にクランプされるため、その差(最大0.16)で正規化する。
+  double? get liveMomentumForHome {
+    final state = _liveSecondHalfState ?? _liveFirstHalfState;
+    if (state == null) return null;
+    final diff = state.homeMomentum - state.awayMomentum;
+    return (diff / 0.16).clamp(-1.0, 1.0);
+  }
+
   /// 自クラブの試合中の采配方針を変更する。試合中いつでも呼べ、以降に
   /// 生成される決定機の成功率へ反映される(ハーフタイム待ち・試合終了後は
   /// 進行中のハーフが存在しないため何もしない)。
@@ -2355,6 +2369,31 @@ class GameState extends ChangeNotifier {
     required String inPlayerId,
   }) {
     if (!canMakeSubstitution) return false;
+    swapStartingPlayer(outPlayerId: outPlayerId, inPlayerId: inPlayerId);
+    _liveSubstitutionsUsed++;
+    notifyListeners();
+    return true;
+  }
+
+  /// ライブ観戦中(前半・後半の進行中)の交代操作。ハーフタイムを待たずに
+  /// 交代枠を1つ消費して実施し、進行中ハーフの攻守力へ即座に反映される。
+  /// 進行中のハーフが存在しない場合、交代枠を使い切っている場合、
+  /// 目前の決定機に関与している選手を出入りさせようとした場合などは
+  /// 何もせずfalseを返す。
+  bool makeLiveSubstitution({
+    required String outPlayerId,
+    required String inPlayerId,
+  }) {
+    if (!canMakeSubstitution) return false;
+    final state = _liveSecondHalfState ?? _liveFirstHalfState;
+    if (state == null || state.isFinished) return false;
+    final applied = MatchEngine.applyInteractiveSubstitution(
+      state,
+      teamId: userTeam.id,
+      outPlayerId: outPlayerId,
+      inPlayerId: inPlayerId,
+    );
+    if (!applied) return false;
     swapStartingPlayer(outPlayerId: outPlayerId, inPlayerId: inPlayerId);
     _liveSubstitutionsUsed++;
     notifyListeners();
