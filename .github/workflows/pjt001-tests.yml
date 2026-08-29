@@ -1,0 +1,35 @@
+name: PJT001 stock-investment tests
+
+# projects/PJT001-stock-investment を触ったときだけ走らせる。
+# モノレポなので、無関係な変更でCIが回らないようにパスで絞っている。
+on:
+  push:
+    paths:
+      - "projects/PJT001-stock-investment/**"
+      - ".github/workflows/pjt001-tests.yml"
+  pull_request:
+    paths:
+      - "projects/PJT001-stock-investment/**"
+      - ".github/workflows/pjt001-tests.yml"
+  workflow_dispatch: {}
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projects/PJT001-stock-investment
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 本体の requirements.txt は Windows 前提のパッケージを含むため、
+      # Linux ランナーでは requirements-test.txt（テスト用の最小セット）を使う。
+      - name: Install test dependencies
+        run: pip install -r requirements-test.txt
+
+      - name: Run tests
+        run: pytest
