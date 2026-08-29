@@ -1,0 +1,26 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# エディタ
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 環境変数・秘密情報
+.env
+.env.local
+*.key
+*.pem
+
+# 個人データ（プロフィール・売上・タスク）は共有しない
+data/*.json
+data/reports/
+
+# ログ
+*.log
