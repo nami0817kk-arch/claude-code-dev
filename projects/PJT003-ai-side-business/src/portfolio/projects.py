@@ -213,10 +213,21 @@ def allocate(hours_per_week: float, projects: list = None) -> list:
                      "weight": WEIGHT[state]})
 
     total = sum(r["weight"] for r in rows)
+    # 0.5時間刻みに丸める。各行を個別に丸めると合計が週の時間とずれるので、
+    # いったん切り捨ててから、端数の大きい行に余りを配る。
+    budget = int(round(hours_per_week * 2))
     for r in rows:
-        share = r["weight"] / total if total else 0
-        # 0.5時間刻みに丸める
-        r["hours"] = round(hours_per_week * share * 2) / 2
+        exact = hours_per_week * (r["weight"] / total) * 2 if total else 0
+        r["_units"] = int(exact)
+        r["_frac"] = exact - int(exact)
+
+    remainder = budget - sum(r["_units"] for r in rows)
+    for r in sorted(rows, key=lambda r: -r["_frac"])[:max(0, remainder)]:
+        r["_units"] += 1
+
+    for r in rows:
+        r["hours"] = r.pop("_units") / 2
+        r.pop("_frac")
     return sorted(rows, key=lambda r: -r["hours"])
 
 

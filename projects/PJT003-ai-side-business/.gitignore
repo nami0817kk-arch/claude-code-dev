@@ -27,5 +27,8 @@ deliverables/
 articles/
 logs/
 
+# 生成されるダッシュボード（収益の実績が埋め込まれるため共有しない）
+dashboard.html
+
 # ログ
 *.log

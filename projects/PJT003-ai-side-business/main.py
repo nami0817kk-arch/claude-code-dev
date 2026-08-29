@@ -30,6 +30,7 @@ from src.media import model as media_model
 from src.apps import model as app_model
 from src.portfolio import dashboard as pjt_dashboard
 from src.portfolio import projects as pjt_mod
+from src import screen as screen_mod
 from src import profile as profile_mod
 from src import report as report_mod
 
@@ -238,6 +239,17 @@ def cmd_report(args):
     prof = _require_profile()
     path = report_mod.export_markdown(prof, idea_id=args.idea)
     print(f"レポートを出力しました: {path}")
+
+
+def cmd_screen(args):
+    path = screen_mod.build(args.output)
+    print(f"ダッシュボードを生成しました: {path}")
+    if args.open:
+        import webbrowser
+        webbrowser.open(path.resolve().as_uri())
+        print("  ブラウザで開きました。")
+    else:
+        print("  ブラウザで開くには --open を付けてください。")
 
 
 # ------------------------------------------------------- ポートフォリオ
@@ -609,6 +621,9 @@ def build_parser():
   5. task/revenue  実行して結果を記録する
   6. status / review  数字で確認し、毎週やり方を直す
 
+結果を画面で確認する:
+  screen --open   ブラウザで開けるダッシュボードを生成する
+
 複数のプロジェクトを並行して回す場合:
   pjt add       プロジェクトを登録する
   pjt record    月次の収益・原価・投下時間を記録する
@@ -740,6 +755,10 @@ def build_parser():
                         help="AI検品をスキップする（機械チェックのみ）")
     p_auto.add_argument("--retry", action="store_true",
                         help="前回失敗した案件も再実行する")
+
+    p_screen = sub.add_parser("screen", help="結果を確認するダッシュボード画面を生成する")
+    p_screen.add_argument("--open", action="store_true", help="生成後にブラウザで開く")
+    p_screen.add_argument("--output", help="出力先（既定: dashboard.html）")
 
     # ---- ポートフォリオ（複数プロジェクトの横断管理） ----
     p_pjt = sub.add_parser("pjt", help="複数プロジェクトの横断管理",
@@ -901,7 +920,7 @@ COMMANDS = {
     "proposal": cmd_proposal, "review": cmd_review, "ask": cmd_ask,
     "report": cmd_report,
     "service": cmd_service, "job": cmd_job, "auto": cmd_auto, "cost": cmd_cost,
-    "media": cmd_media, "pjt": cmd_pjt, "app": cmd_app,
+    "media": cmd_media, "pjt": cmd_pjt, "app": cmd_app, "screen": cmd_screen,
 }
 
 
