@@ -24,11 +24,18 @@ class Achievement {
   final String description;
   final bool Function(SaveGame save, Team userTeam) isUnlocked;
 
+  /// 閾値型の実績の進捗(現在値, 目標値)。実績画面が未達成カードに
+  /// プログレスバーを表示するために使う。単純な数値の積み上げで表現
+  /// できない実績(連覇・無敗優勝など)はnullのままにする。
+  final (int current, int target) Function(SaveGame save, Team userTeam)?
+      progress;
+
   const Achievement({
     required this.id,
     required this.category,
     required this.name,
     required this.description,
     required this.isUnlocked,
+    this.progress,
   });
 }

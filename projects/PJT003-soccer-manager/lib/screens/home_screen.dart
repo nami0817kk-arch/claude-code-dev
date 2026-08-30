@@ -8,6 +8,7 @@ import '../models/formation.dart';
 import '../models/incoming_offer.dart';
 import '../models/league.dart';
 import '../models/match_result.dart';
+import '../models/player.dart';
 import '../models/team.dart';
 import '../state/game_state.dart';
 import '../services/feedback_service.dart';
@@ -21,6 +22,7 @@ import '../widgets/responsive_body.dart';
 import 'calendar_screen.dart';
 import 'cup_screen.dart';
 import 'finance_screen.dart';
+import 'lineup_screen.dart';
 import 'live_match_screen.dart';
 import 'match_screen.dart';
 import 'player_detail_screen.dart';
@@ -350,6 +352,47 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+              // スタメンに出場できない選手が混ざっていると、試合では無言で
+              // 除外されて人数の足りない布陣で戦うことになるため、事前に
+              // 警告して編成画面へ誘導する。
+              if (!seasonComplete)
+                Builder(builder: (context) {
+                  final byId = {for (final p in userTeam.players) p.id: p};
+                  final unavailable = [
+                    for (final id in userTeam.startingXI)
+                      if (byId[id] != null &&
+                          (byId[id]!.isInjured ||
+                              byId[id]!.isSuspended ||
+                              byId[id]!.isOnInternationalDuty ||
+                              byId[id]!.isLoanedOut))
+                        byId[id]!,
+                  ];
+                  if (unavailable.isEmpty) return const SizedBox.shrink();
+                  String reasonOf(Player p) => p.isInjured
+                      ? '負傷'
+                      : p.isSuspended
+                          ? '出場停止'
+                          : p.isOnInternationalDuty
+                              ? '代表召集'
+                              : 'ローン中';
+                  return Card(
+                    color: scheme.errorContainer,
+                    child: ListTile(
+                      leading: const Icon(Icons.personal_injury),
+                      title: Text('スタメンに出場できない選手が${unavailable.length}人います'),
+                      subtitle: Text(
+                        '${unavailable.map((p) => '${p.name}(${reasonOf(p)})').join('、')}'
+                        '。このままでは人数の欠けた布陣で試合に臨みます。',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const LineupScreen(),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
               // スポンサー未契約のまま気づかず収入を取りこぼすことが多いため、
               // オファーが届いている間はホームに警告カードを常設する。
               if (save.sponsorDeal == null &&
@@ -926,6 +969,106 @@ class HomeScreen extends StatelessWidget {
     }
   }
 
+  /// シーズン開始時の通知(昇降格・報奨金・引退・契約満了・契約警告・
+  /// 緊急補強・年間監督賞・スーパーカップ)をまとめて表示する。従来は
+  /// SnackBarを最大8件連続表示しており(1件5秒のキューで長時間流れ続け、
+  /// 途中のものを見落としやすかった)、複数件あるときは1つのレポート
+  /// ダイアログへ集約する。1件だけなら従来通りSnackBarで軽く流す。
+  Future<void> _showSeasonStartReport(
+    BuildContext context,
+    GameState gameState,
+  ) async {
+    final messages = <(String text, bool isHighlight)>[];
+
+    final message = gameState.lastDivisionChangeMessage;
+    if (message != null) {
+      messages.add((message, true));
+      gameState.lastDivisionChangeMessage = null;
+    }
+    final boardBonus = gameState.lastBoardBonusNote;
+    if (boardBonus != null) {
+      messages.add((boardBonus, true));
+      gameState.lastBoardBonusNote = null;
+    }
+    if (gameState.lastSeasonManagerAwardWon) {
+      messages.add(('年間最優秀監督賞を受賞しました！', true));
+      gameState.lastSeasonManagerAwardWon = false;
+    }
+    final superCupNews = gameState.lastSuperCupNews;
+    if (superCupNews != null) {
+      messages.add((superCupNews, true));
+      gameState.lastSuperCupNews = null;
+    }
+    final retirees = gameState.lastRetirements;
+    if (retirees.isNotEmpty) {
+      messages.add(('引退: ${retirees.join('、')}', false));
+      gameState.lastRetirements = [];
+    }
+    final contractExpired = gameState.lastContractExpirations;
+    if (contractExpired.isNotEmpty) {
+      messages.add(('契約満了で退団: ${contractExpired.join('、')}', false));
+      gameState.lastContractExpirations = [];
+    }
+    final contractWarnings = gameState.lastContractWarnings;
+    if (contractWarnings.isNotEmpty) {
+      messages.add(('契約最終年に突入: ${contractWarnings.join('、')}', false));
+      gameState.lastContractWarnings = [];
+    }
+    final emergencySignings = gameState.lastEmergencySignings;
+    if (emergencySignings.isNotEmpty) {
+      messages.add(('緊急補強: ${emergencySignings.join('、')}', false));
+      gameState.lastEmergencySignings = [];
+    }
+
+    if (messages.isEmpty) return;
+    if (messages.length == 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(messages.first.$1),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('シーズン開始レポート'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final (text, isHighlight) in messages)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        isHighlight ? Icons.celebration : Icons.info_outline,
+                        size: 18,
+                        color:
+                            isHighlight ? Colors.amber.shade700 : Colors.grey,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(text)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _startNextSeason(BuildContext context) async {
     final gameState = context.read<GameState>();
     try {
@@ -934,81 +1077,8 @@ class HomeScreen extends StatelessWidget {
       if (context.mounted) _showProgressFailedSnackBar(context, e);
       return;
     }
-    final message = gameState.lastDivisionChangeMessage;
-    if (context.mounted && message != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), duration: const Duration(seconds: 5)),
-      );
-      gameState.lastDivisionChangeMessage = null;
-    }
-    final boardBonus = gameState.lastBoardBonusNote;
-    if (context.mounted && boardBonus != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(boardBonus),
-          duration: const Duration(seconds: 5),
-        ),
-      );
-      gameState.lastBoardBonusNote = null;
-    }
-    final retirees = gameState.lastRetirements;
-    if (context.mounted && retirees.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('引退: ${retirees.join('、')}'),
-          duration: const Duration(seconds: 5),
-        ),
-      );
-      gameState.lastRetirements = [];
-    }
-    final contractExpired = gameState.lastContractExpirations;
-    if (context.mounted && contractExpired.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('契約満了で退団: ${contractExpired.join('、')}'),
-          duration: const Duration(seconds: 5),
-        ),
-      );
-      gameState.lastContractExpirations = [];
-    }
-    final contractWarnings = gameState.lastContractWarnings;
-    if (context.mounted && contractWarnings.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('契約最終年に突入: ${contractWarnings.join('、')}'),
-          duration: const Duration(seconds: 5),
-        ),
-      );
-      gameState.lastContractWarnings = [];
-    }
-    final emergencySignings = gameState.lastEmergencySignings;
-    if (context.mounted && emergencySignings.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('緊急補強: ${emergencySignings.join('、')}'),
-          duration: const Duration(seconds: 5),
-        ),
-      );
-      gameState.lastEmergencySignings = [];
-    }
-    if (context.mounted && gameState.lastSeasonManagerAwardWon) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('年間最優秀監督賞を受賞しました！'),
-          duration: Duration(seconds: 5),
-        ),
-      );
-      gameState.lastSeasonManagerAwardWon = false;
-    }
-    final superCupNews = gameState.lastSuperCupNews;
-    if (context.mounted && superCupNews != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(superCupNews),
-          duration: const Duration(seconds: 5),
-        ),
-      );
-      gameState.lastSuperCupNews = null;
+    if (context.mounted) {
+      await _showSeasonStartReport(context, gameState);
     }
     if (context.mounted &&
         gameState.userInvolvedInLastPromotionPlayoff &&

@@ -9,6 +9,7 @@ import 'incoming_offer.dart';
 import 'installment.dart';
 import 'investment.dart';
 import 'league.dart';
+import 'news_item.dart';
 import 'player.dart';
 import 'press_question.dart';
 import 'season_award.dart';
@@ -132,6 +133,11 @@ class SaveGame {
   int careerCupPrize; // カップ戦で獲得した賞金・優勝報酬の通算(万円)
   int pkShootoutWins; // ライブ観戦のPK戦を制した回数
 
+  /// クラブニュース(お知らせ履歴)。新しいものが先頭。SnackBar等で
+  /// 一度流れて消える通知を、あとから見返せるように保存する。件数は
+  /// GameState側で上限管理する。旧セーブには存在しないため空で補完する。
+  List<NewsItem> newsLog;
+
   /// 獲得したタイトルの履歴(リーグ優勝・カップ優勝など)。
   List<String> trophyHistory;
 
@@ -226,6 +232,7 @@ class SaveGame {
     this.liveWins = 0,
     this.careerCupPrize = 0,
     this.pkShootoutWins = 0,
+    List<NewsItem>? newsLog,
     List<String>? trophyHistory,
     List<String>? clubHistory,
     List<Player>? freeAgents,
@@ -243,6 +250,7 @@ class SaveGame {
     Map<String, int>? seasonStartOverallByPlayerId,
   })  : unlockedAchievements = unlockedAchievements ?? {},
         seasonStartOverallByPlayerId = seasonStartOverallByPlayerId ?? {},
+        newsLog = newsLog ?? [],
         trophyHistory = trophyHistory ?? [],
         clubHistory = clubHistory ?? [],
         freeAgents = freeAgents ?? [],
@@ -323,6 +331,7 @@ class SaveGame {
         'liveWins': liveWins,
         'careerCupPrize': careerCupPrize,
         'pkShootoutWins': pkShootoutWins,
+        'newsLog': newsLog.map((n) => n.toJson()).toList(),
         'trophyHistory': trophyHistory,
         'clubHistory': clubHistory,
         'freeAgents': freeAgents.map((p) => p.toJson()).toList(),
@@ -446,6 +455,9 @@ class SaveGame {
         liveWins: json['liveWins'] as int? ?? 0,
         careerCupPrize: json['careerCupPrize'] as int? ?? 0,
         pkShootoutWins: json['pkShootoutWins'] as int? ?? 0,
+        newsLog: (json['newsLog'] as List?)
+            ?.map((e) => NewsItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
         trophyHistory: (json['trophyHistory'] as List?)
                 ?.map((e) => e as String)
                 .toList() ??

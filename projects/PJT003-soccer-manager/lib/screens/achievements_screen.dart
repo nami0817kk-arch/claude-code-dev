@@ -149,6 +149,12 @@ class _AchievementTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final unlocked = gameState.isAchievementUnlocked(achievement.id);
     final season = gameState.achievementUnlockedSeason(achievement.id);
+    // 未達成の閾値型実績には「現在値/目標」のプログレスバーを添えて、
+    // あとどれくらいで達成できるのかを一目で分かるようにする。
+    (int, int)? progress;
+    if (!unlocked && achievement.progress != null && gameState.save != null) {
+      progress = achievement.progress!(gameState.save!, gameState.userTeam);
+    }
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: unlocked ? null : Theme.of(context).colorScheme.surfaceContainer,
@@ -169,13 +175,42 @@ class _AchievementTile extends StatelessWidget {
             color: unlocked ? null : Colors.grey.shade600,
           ),
         ),
-        subtitle: Text(
-          unlocked && season != null
-              ? '${achievement.description}(シーズン$season達成)'
-              : achievement.description,
-          style: TextStyle(
-            color: unlocked ? Colors.grey.shade700 : Colors.grey,
-          ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              unlocked && season != null
+                  ? '${achievement.description}(シーズン$season達成)'
+                  : achievement.description,
+              style: TextStyle(
+                color: unlocked ? Colors.grey.shade700 : Colors.grey,
+              ),
+            ),
+            if (progress != null) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: progress.$2 <= 0
+                            ? 0
+                            : (progress.$1 / progress.$2).clamp(0.0, 1.0),
+                        minHeight: 6,
+                        backgroundColor: Colors.grey.shade300,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${progress.$1.clamp(0, progress.$2)} / ${progress.$2}',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ],
+          ],
         ),
       ),
     );

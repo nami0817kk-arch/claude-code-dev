@@ -75,6 +75,13 @@ class AchievementEngine {
             (s, r) => s + (r.wonLeague ? 1 : 0) + r.cupsWon.length,
           ) >=
           5,
+      progress: (save, team) => (
+        save.seasonHistory.fold<int>(
+          0,
+          (s, r) => s + (r.wonLeague ? 1 : 0) + r.cupsWon.length,
+        ),
+        5
+      ),
     ),
 
     // --- 通算記録 ---
@@ -84,6 +91,7 @@ class AchievementEngine {
       name: '通算50勝',
       description: '監督として通算50勝を挙げる',
       isUnlocked: (save, team) => save.careerWins >= 50,
+      progress: (save, team) => (save.careerWins, 50),
     ),
     Achievement(
       id: 'wins_100',
@@ -91,6 +99,7 @@ class AchievementEngine {
       name: '通算100勝',
       description: '監督として通算100勝を挙げる',
       isUnlocked: (save, team) => save.careerWins >= 100,
+      progress: (save, team) => (save.careerWins, 100),
     ),
     Achievement(
       id: 'wins_200',
@@ -98,6 +107,7 @@ class AchievementEngine {
       name: '通算200勝',
       description: '監督として通算200勝を挙げる',
       isUnlocked: (save, team) => save.careerWins >= 200,
+      progress: (save, team) => (save.careerWins, 200),
     ),
     Achievement(
       id: 'seasons_5',
@@ -105,6 +115,7 @@ class AchievementEngine {
       name: '監督歴5シーズン',
       description: '同一クラブで5シーズンを指揮する',
       isUnlocked: (save, team) => save.careerSeasons >= 5,
+      progress: (save, team) => (save.careerSeasons, 5),
     ),
     Achievement(
       id: 'seasons_10',
@@ -112,6 +123,7 @@ class AchievementEngine {
       name: '監督歴10シーズン',
       description: '同一クラブで10シーズンを指揮する',
       isUnlocked: (save, team) => save.careerSeasons >= 10,
+      progress: (save, team) => (save.careerSeasons, 10),
     ),
     Achievement(
       id: 'win_rate_60',
@@ -146,6 +158,7 @@ class AchievementEngine {
       name: '潤沢な資金',
       description: 'クラブ資金が3万(万円)に到達する',
       isUnlocked: (save, team) => save.budget >= 30000,
+      progress: (save, team) => (save.budget, 30000),
     ),
     Achievement(
       id: 'facilities_maxed',
@@ -170,6 +183,7 @@ class AchievementEngine {
       name: '理事会からの絶大な信頼',
       description: '理事会の信頼度が90に到達する',
       isUnlocked: (save, team) => save.confidence >= 90,
+      progress: (save, team) => (save.confidence, 90),
     ),
     Achievement(
       id: 'bargain_hunter',
@@ -177,6 +191,7 @@ class AchievementEngine {
       name: '腕利きの交渉人',
       description: '値切り交渉(市場価値未満のオファー)での獲得を成立させる',
       isUnlocked: (save, team) => save.negotiationSignings >= 1,
+      progress: (save, team) => (save.negotiationSignings, 1),
     ),
     Achievement(
       id: 'cup_prize_1000',
@@ -184,6 +199,7 @@ class AchievementEngine {
       name: '賞金ハンター',
       description: 'カップ戦の賞金を通算1000万円獲得する',
       isUnlocked: (save, team) => save.careerCupPrize >= 1000,
+      progress: (save, team) => (save.careerCupPrize, 1000),
     ),
 
     // --- 選手・育成 ---
@@ -201,6 +217,8 @@ class AchievementEngine {
       description: '総合力80以上の選手を5人以上保有する',
       isUnlocked: (save, team) =>
           team.players.where((p) => p.overall >= 80).length >= 5,
+      progress: (save, team) =>
+          (team.players.where((p) => p.overall >= 80).length, 5),
     ),
     Achievement(
       id: 'best_eleven_selection',
@@ -217,6 +235,7 @@ class AchievementEngine {
       name: '初の殿堂入り',
       description: '選手を1人殿堂入り(引退)させる',
       isUnlocked: (save, team) => save.retiredLegends.isNotEmpty,
+      progress: (save, team) => (save.retiredLegends.length, 1),
     ),
     Achievement(
       id: 'legend_collector',
@@ -224,6 +243,7 @@ class AchievementEngine {
       name: 'レジェンドの系譜',
       description: '5人の選手を殿堂入りさせる',
       isUnlocked: (save, team) => save.retiredLegends.length >= 5,
+      progress: (save, team) => (save.retiredLegends.length, 5),
     ),
     Achievement(
       id: 'breakthrough_10',
@@ -231,6 +251,7 @@ class AchievementEngine {
       name: '才能の開花請負人',
       description: '週次トレーニングで才能開花を通算10回発生させる',
       isUnlocked: (save, team) => save.breakthroughCount >= 10,
+      progress: (save, team) => (save.breakthroughCount, 10),
     ),
     Achievement(
       id: 'trait_teacher',
@@ -238,6 +259,7 @@ class AchievementEngine {
       name: '特性の伝道師',
       description: '特訓・伝授で選手に特性を通算3回習得させる',
       isUnlocked: (save, team) => save.traitsAcquired >= 3,
+      progress: (save, team) => (save.traitsAcquired, 3),
     ),
 
     // --- 監督キャリア ---
@@ -247,6 +269,7 @@ class AchievementEngine {
       name: '百戦錬磨',
       description: '同一クラブで15シーズンを指揮する',
       isUnlocked: (save, team) => save.careerSeasons >= 15,
+      progress: (save, team) => (save.careerSeasons, 15),
     ),
     Achievement(
       id: 'reputation_elite',
@@ -254,6 +277,7 @@ class AchievementEngine {
       name: '世界的名将',
       description: '世間の評価が90に到達する',
       isUnlocked: (save, team) => save.managerReputation >= 90,
+      progress: (save, team) => (save.managerReputation, 90),
     ),
     Achievement(
       id: 'live_wins_10',
@@ -261,6 +285,7 @@ class AchievementEngine {
       name: '采配の妙',
       description: 'ライブ観戦(決定機の判断あり)で通算10勝する',
       isUnlocked: (save, team) => save.liveWins >= 10,
+      progress: (save, team) => (save.liveWins, 10),
     ),
     Achievement(
       id: 'shootout_winner',
@@ -268,6 +293,7 @@ class AchievementEngine {
       name: 'PK戦を制す',
       description: 'ライブ観戦のカップ戦でPK戦を制する',
       isUnlocked: (save, team) => save.pkShootoutWins >= 1,
+      progress: (save, team) => (save.pkShootoutWins, 1),
     ),
   ];
 

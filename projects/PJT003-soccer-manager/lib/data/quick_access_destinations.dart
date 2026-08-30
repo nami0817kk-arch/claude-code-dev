@@ -11,6 +11,7 @@ import '../screens/glossary_screen.dart';
 import '../screens/guide_screen.dart';
 import '../screens/hall_of_fame_screen.dart';
 import '../screens/manager_career_screen.dart';
+import '../screens/news_screen.dart';
 import '../screens/season_history_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/training_screen.dart';
@@ -58,6 +59,12 @@ final List<QuickAccessDestination> quickAccessDestinations = [
     label: 'クラブ経営',
     color: Colors.brown.shade400,
     builder: (_) => const FinanceScreen(),
+  ),
+  QuickAccessDestination(
+    icon: Icons.newspaper,
+    label: 'クラブニュース',
+    color: Colors.deepPurple.shade400,
+    builder: (_) => const NewsScreen(),
   ),
   QuickAccessDestination(
     icon: Icons.apartment,

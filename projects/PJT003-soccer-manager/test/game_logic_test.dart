@@ -40,6 +40,7 @@ import 'package:soccer_manager/models/incoming_offer.dart';
 import 'package:soccer_manager/models/league.dart';
 import 'package:soccer_manager/models/league_theme.dart';
 import 'package:soccer_manager/models/match_result.dart';
+import 'package:soccer_manager/models/news_item.dart';
 import 'package:soccer_manager/models/player.dart';
 import 'package:soccer_manager/models/save_game.dart';
 import 'package:soccer_manager/models/season_award.dart';
@@ -9111,5 +9112,76 @@ void main() {
     save.liveWins = 10;
     save.pkShootoutWins = 1;
     expect(unlockedIds(), containsAll(counterIds));
+  });
+
+  test(
+      'Achievement.progress reports (current, target) for threshold '
+      'achievements and stays null for non-numeric ones', () {
+    final team = Team(id: 'a', name: 'A', players: []);
+    final league = League(teams: [team], fixtures: [], season: 1);
+    final save = SaveGame(clubName: 'テストFC', userTeamId: 'a', league: league)
+      ..careerWins = 23;
+
+    final wins50 = AchievementEngine.all.firstWhere((a) => a.id == 'wins_50');
+    expect(wins50.progress, isNotNull);
+    expect(wins50.progress!(save, team), (23, 50));
+
+    final firstTitle =
+        AchievementEngine.all.firstWhere((a) => a.id == 'first_title');
+    expect(firstTitle.progress, isNull,
+        reason: '数値の積み上げで表現できない実績にはプログレスバーを出さない');
+  });
+
+  test(
+      'SaveGame round-trips the club news log through JSON and defaults it '
+      'to empty for older saves without the key', () {
+    final team = Team(id: 'a', name: 'A', players: []);
+    final league = League(teams: [team], fixtures: [], season: 2);
+    final save = SaveGame(clubName: 'テストFC', userTeamId: 'a', league: league);
+    save.newsLog.addAll(const [
+      NewsItem(season: 2, context: '第3節', text: '代表召集: 選手A'),
+      NewsItem(season: 1, context: 'シーズン開始', text: '引退: 選手B'),
+    ]);
+
+    final restored = SaveGame.fromJson(save.toJson());
+    expect(restored.newsLog.length, 2);
+    expect(restored.newsLog.first.season, 2);
+    expect(restored.newsLog.first.context, '第3節');
+    expect(restored.newsLog.first.text, '代表召集: 選手A');
+
+    final legacy = save.toJson()..remove('newsLog');
+    expect(SaveGame.fromJson(legacy).newsLog, isEmpty);
+  });
+
+  test(
+      'GameState logs unlocked achievements into the club news log and '
+      'trims the log to the retention limit', () async {
+    SharedPreferences.setMockInitialValues({});
+    final gameState = GameState();
+    await gameState.startNewGame('テストFC');
+
+    // 上限を超える古いニュースを事前に詰めておき、新規記録時に上限まで
+    // 刈り込まれることを確認する。
+    final save = gameState.save!;
+    for (int i = 0; i < GameState.newsLogLimit + 80; i++) {
+      save.newsLog.add(
+        NewsItem(season: 1, context: '第1節', text: '古いニュース$i'),
+      );
+    }
+
+    // 実績の閾値を満たした状態で週次トレーニングを実施すると、実績判定が
+    // 走り、解除がニュースとして記録される。
+    save.careerWins = 50;
+    final trained = await gameState.runWeeklyTraining();
+    expect(trained, isTrue);
+
+    expect(save.newsLog.length, lessThanOrEqualTo(GameState.newsLogLimit));
+    expect(
+      save.newsLog.any((n) => n.context == '実績' && n.text.contains('通算50勝')),
+      isTrue,
+      reason: '実績解除はニュース履歴にも記録される',
+    );
+    expect(save.newsLog.first.text, isNot(startsWith('古いニュース')),
+        reason: '新しいニュースが先頭に来る');
   });
 }
