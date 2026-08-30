@@ -325,8 +325,14 @@ class _TransferScreenState extends State<TransferScreen>
     final ok = await gameState.signFreeAgent(player.id);
     ok ? FeedbackService.success() : FeedbackService.error();
     if (context.mounted) {
+      final reason = gameState.lastSigningBlockReason;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ok ? '${player.name}と契約しました' : '契約できませんでした')),
+        SnackBar(
+          content: Text(
+            ok ? '${player.name}と契約しました' : (reason ?? '契約できませんでした'),
+          ),
+          duration: Duration(seconds: reason != null && !ok ? 6 : 4),
+        ),
       );
     }
   }
@@ -398,8 +404,12 @@ class _TransferScreenState extends State<TransferScreen>
       );
     } else {
       FeedbackService.error();
+      final reason = gameState.lastSigningBlockReason;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('交渉できませんでした(資金・スカッド枠・ウィンドウを確認)')),
+        SnackBar(
+          content: Text(reason ?? '交渉できませんでした(資金・スカッド枠・ウィンドウを確認)'),
+          duration: Duration(seconds: reason != null ? 6 : 4),
+        ),
       );
     }
   }
@@ -516,11 +526,16 @@ class _TransferScreenState extends State<TransferScreen>
     Future<bool> Function() action,
     String name,
   ) async {
+    final gameState = context.read<GameState>();
     final ok = await action();
     ok ? FeedbackService.success() : FeedbackService.error();
     if (context.mounted) {
+      final reason = gameState.lastSigningBlockReason;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ok ? '$nameを獲得しました' : '獲得できませんでした')),
+        SnackBar(
+          content: Text(ok ? '$nameを獲得しました' : (reason ?? '獲得できませんでした')),
+          duration: Duration(seconds: reason != null && !ok ? 6 : 4),
+        ),
       );
     }
   }

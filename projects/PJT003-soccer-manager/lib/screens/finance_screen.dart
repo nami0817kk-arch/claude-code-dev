@@ -74,6 +74,43 @@ class FinanceScreen extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    // 理事会が設定する週給予算。上限を超える新規獲得は
+                    // ブロックされるため、残り枠を常に確認できるようにする。
+                    Builder(builder: (context) {
+                      final cap = gameState.wageBudgetCap;
+                      final usage =
+                          cap > 0 ? (wageBill / cap).clamp(0.0, 1.0) : 0.0;
+                      final over = wageBill > cap;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '週給予算(理事会設定): $wageBill / $cap万円'
+                            '${over ? '(超過中: 新規獲得は不可)' : ''}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: over
+                                  ? SemanticColors.negative(context)
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: LinearProgressIndicator(
+                              value: usage,
+                              minHeight: 6,
+                              color: over
+                                  ? SemanticColors.negative(context)
+                                  : null,
+                              backgroundColor: Colors.grey.shade300,
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
                   ],
                 ),
               ),

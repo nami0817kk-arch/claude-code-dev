@@ -9,6 +9,8 @@ import 'package:soccer_manager/logic/awards_engine.dart';
 import 'package:soccer_manager/logic/best_eleven_engine.dart';
 import 'package:soccer_manager/logic/board_engine.dart';
 import 'package:soccer_manager/logic/contract_engine.dart';
+import 'package:soccer_manager/logic/dynamics_engine.dart';
+import 'package:soccer_manager/logic/player_search.dart';
 import 'package:soccer_manager/logic/continental_cup_engine.dart';
 import 'package:soccer_manager/logic/cup_engine.dart';
 import 'package:soccer_manager/logic/happiness_engine.dart';
@@ -6881,6 +6883,8 @@ void main() {
     final expectedFee =
         (target.marketValue * GameState.loanBuyOptionRatio).round();
     gameState.save!.budget = target.marketValue + expectedFee;
+    // このテストの主題は週俸の復元。週給予算には影響されないよう広げる。
+    gameState.save!.wageBudget = 999999;
 
     await gameState.signLoanPlayer(target.id, withBuyOption: true);
     final player =
@@ -8691,6 +8695,9 @@ void main() {
     final gameState = GameState();
     await gameState.startNewGame('テストFC');
     gameState.save!.budget = 1000000;
+    // このテストの主題は値切り交渉の成立確率。週給予算には影響されない
+    // よう広げる(予算ブロック自体は専用テストで検証している)。
+    gameState.save!.wageBudget = 999999;
 
     final target = gameState.transferMarket.first;
     final res =
@@ -9346,5 +9353,161 @@ void main() {
     final legacyTeam = mentalTeam.toJson()..remove('mentality');
     expect(Team.fromJson(legacyTeam).mentality, TeamMentality.balanced,
         reason: 'メンタリティキーのない旧セーブはバランス扱い');
+  });
+
+  test(
+      'PlayerSearch.search filters by name/position/age/overall and sorts '
+      'by the requested key across all given teams', () {
+    Player make(String id, String name, Position pos, int age, int strength) {
+      final p = PlayerGenerator.generate(
+          position: pos, strengthTier: strength, ageOverride: age);
+      return Player.fromJson(p.toJson()
+        ..['name'] = name
+        ..['id'] = id);
+    }
+
+    final teamA = Team(id: 'a', name: 'Aクラブ', players: [
+      make('p1', '山田太郎', Position.st, 20, 80),
+      make('p2', '田中一', Position.gk, 30, 60),
+    ]);
+    final teamB = Team(id: 'b', name: 'Bクラブ', players: [
+      make('p3', '山田次郎', Position.dc, 27, 70),
+    ]);
+
+    final byName = PlayerSearch.search([teamA, teamB], query: '山田');
+    expect(byName.map((r) => r.player.id).toSet(), {'p1', 'p3'});
+
+    final gks = PlayerSearch.search([teamA, teamB], group: PositionGroup.gk);
+    expect(gks.single.player.id, 'p2');
+    expect(gks.single.team.id, 'a');
+
+    final young = PlayerSearch.search([teamA, teamB], maxAge: 23);
+    expect(young.single.player.id, 'p1');
+
+    final byAge = PlayerSearch.search(
+      [teamA, teamB],
+      sort: PlayerSearchSort.age,
+    );
+    expect(byAge.first.player.id, 'p1', reason: '年齢順は若い方が先');
+
+    final limited = PlayerSearch.search([teamA, teamB], limit: 2);
+    expect(limited.length, 2);
+  });
+
+  test(
+      'BoardEngine cup target expects deeper runs from stronger clubs and '
+      'the wage budget always leaves signing headroom at season start', () {
+    const totalRounds = 5;
+    final strong = BoardEngine.estimateCupTargetRound(
+        strengthRank: 1, teamCount: 20, totalRounds: totalRounds);
+    final mid = BoardEngine.estimateCupTargetRound(
+        strengthRank: 10, teamCount: 20, totalRounds: totalRounds);
+    final weak = BoardEngine.estimateCupTargetRound(
+        strengthRank: 20, teamCount: 20, totalRounds: totalRounds);
+    expect(strong, totalRounds, reason: '優勝候補には決勝進出が期待される');
+    expect(strong, greaterThanOrEqualTo(mid));
+    expect(mid, greaterThanOrEqualTo(weak));
+    expect(weak, greaterThanOrEqualTo(1));
+
+    for (final tier in [1, 3, 5]) {
+      final cap = BoardEngine.wageBudgetFor(
+        tier: tier,
+        currentWeeklyWageBill: 1000,
+      );
+      expect(cap, greaterThan(1000), reason: 'シーズン開始時は必ず現在の週給総額より余裕がある');
+    }
+    expect(
+      BoardEngine.wageBudgetBaseForTier(1),
+      greaterThan(BoardEngine.wageBudgetBaseForTier(5)),
+      reason: '上位ディビジョンほど週給予算が大きい',
+    );
+  });
+
+  test(
+      'the wage budget cap blocks new signings that would exceed it and '
+      'reports the reason, while a fresh game always stores a cap', () async {
+    SharedPreferences.setMockInitialValues({});
+    final gameState = GameState();
+    await gameState.startNewGame('予算FC');
+    expect(gameState.save!.wageBudget, greaterThan(0));
+    expect(gameState.save!.boardCupTargetRound, greaterThan(0),
+        reason: '新規ゲームでは理事会のカップ目標も設定される');
+
+    // 上限を現在の週給総額ちょうどまで絞ると、どんな新加入も枠を超える。
+    gameState.save!.wageBudget = gameState.weeklyWageBill;
+    final target = gameState.transferMarket.first;
+    gameState.save!.budget = target.marketValue + 10000;
+    final bought = await gameState.buyPlayer(target.id);
+    expect(bought, isFalse);
+    expect(gameState.lastSigningBlockReason, contains('週給予算'));
+
+    // 上限を十分に広げれば同じ獲得が通る。
+    gameState.save!.wageBudget = gameState.weeklyWageBill + target.wage + 50;
+    final boughtNow = await gameState.buyPlayer(target.id);
+    expect(boughtNow, isTrue);
+    expect(gameState.lastSigningBlockReason, isNull);
+  });
+
+  test(
+      'DynamicsEngine picks high-influence team leaders, and unhappy '
+      'leaders drag down the rest of the dressing room week by week', () {
+    final players = <Player>[];
+    for (int i = 0; i < 6; i++) {
+      final p = PlayerGenerator.generate(
+          position: Position.mc, strengthTier: 60, ageOverride: 28);
+      p.setAttributeValue(AttributeKeys.leadership, i < 3 ? 90 : 20);
+      p.happiness = 60;
+      players.add(p);
+    }
+    final base = Team(id: 't', name: 'T', players: players);
+    base.startingXI.addAll(players.map((p) => p.id));
+
+    final leaders = DynamicsEngine.teamLeaders(base);
+    expect(leaders.map((p) => p.id).toSet(),
+        players.take(3).map((p) => p.id).toSet(),
+        reason: 'リーダーシップの高い選手がチームリーダーに選ばれる');
+
+    // 同一チームのクローンを2つ作り、リーダーの機嫌だけを変える。
+    final unhappyTeam = Team.fromJson(base.toJson());
+    final neutralTeam = Team.fromJson(base.toJson());
+    for (final p in DynamicsEngine.teamLeaders(unhappyTeam)) {
+      p.happiness = 20;
+    }
+    for (final p in DynamicsEngine.teamLeaders(neutralTeam)) {
+      p.happiness = 55;
+    }
+    HappinessEngine.applyWeekly(unhappyTeam, leagueRank: 5, boardTargetRank: 5);
+    HappinessEngine.applyWeekly(neutralTeam, leagueRank: 5, boardTargetRank: 5);
+
+    final unhappyFollower = unhappyTeam.players
+        .firstWhere((p) => !DynamicsEngine.isTeamLeader(unhappyTeam, p.id));
+    final neutralFollower =
+        neutralTeam.players.firstWhere((p) => p.id == unhappyFollower.id);
+    expect(unhappyFollower.happiness, lessThan(neutralFollower.happiness),
+        reason: '不機嫌なリーダー陣はロッカールーム全体の士気を下げる');
+  });
+
+  test(
+      'selling a team leader shakes the dressing room: every remaining '
+      'teammate loses happiness', () async {
+    SharedPreferences.setMockInitialValues({});
+    final gameState = GameState();
+    await gameState.startNewGame('序列FC');
+    final team = gameState.userTeam;
+    final leader = DynamicsEngine.teamLeaders(team).first;
+    final before = {
+      for (final p in team.players)
+        if (p.id != leader.id) p.id: p.happiness,
+    };
+
+    final sold = await gameState.sellPlayer(leader.id);
+    expect(sold, isTrue);
+    for (final p in team.players) {
+      final prev = before[p.id];
+      if (prev == null) continue;
+      expect(
+          p.happiness, (prev - DynamicsEngine.leaderSalePenalty).clamp(0, 100),
+          reason: 'リーダー放出で残った全員の不満度が下がる');
+    }
   });
 }

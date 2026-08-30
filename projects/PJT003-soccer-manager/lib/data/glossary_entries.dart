@@ -323,6 +323,42 @@ final List<GlossaryEntry> glossaryEntries = [
         'ライブ観戦中に訪れる得点/失点のチャンス。自クラブの攻撃側ではシュート/パス/ロングシュートを、守備側では積極的にタックル/カバーリングに専念を選ぶ。成功率は関わる選手の能力値の勝負(シューター対GKなど)から算出され、選択前に表示される。',
   ),
   const GlossaryEntry(
+    term: 'メンタリティ',
+    category: GlossaryCategory.tactics,
+    description:
+        'チーム全体の姿勢。超守備的〜超攻撃的の5段階から選び、攻撃的なほど攻撃力が上がる代わりに守備のリスクが増える(その逆も同様)。スタメン・戦術画面の戦術タブで設定でき、ライブ観戦・クイック消化の両方に効く。',
+  ),
+  const GlossaryEntry(
+    term: 'スカッド・ステータス',
+    category: GlossaryCategory.contractTransfer,
+    description:
+        '選手に約束する出場機会の立場(キープレイヤー/主力/ローテーション/育成枠)。上の立場ほどベンチに置いたときの不満が大きく、契約交渉で求める週給も高くなる。選手詳細画面で設定する。',
+  ),
+  const GlossaryEntry(
+    term: '週給予算',
+    category: GlossaryCategory.club,
+    description:
+        '理事会が設定する週給総額の上限。シーズン開始時にディビジョンと現在の人件費から決まり、上限を超える新規獲得はブロックされる。クラブ経営画面で使用状況を確認できる。',
+  ),
+  const GlossaryEntry(
+    term: 'チームリーダー',
+    category: GlossaryCategory.club,
+    description:
+        'リーダーシップ・実力・年齢(とキャプテンの肩書)から決まるロッカールームの中心選手(上位3人)。リーダー陣が不機嫌だとチーム全体の士気が下がり、上機嫌だと上がる。リーダーを放出するとチームに動揺が走る。',
+  ),
+  const GlossaryEntry(
+    term: 'カップ目標',
+    category: GlossaryCategory.club,
+    description:
+        '理事会が期待する国内カップの到達ラウンド。リーグ内の戦力が高いクラブほど深いラウンドまで期待され、達成すれば信頼度が上がり、大きく届かないと下がる。',
+  ),
+  const GlossaryEntry(
+    term: '選手検索',
+    category: GlossaryCategory.contractTransfer,
+    description:
+        '全ディビジョンの全選手を名前・ポジション・年齢・総合力で絞り込めるスカウティングツール。補強ターゲットの調査に使い、実際の獲得は移籍市場・フリーエージェント経由で行う。',
+  ),
+  const GlossaryEntry(
     term: '采配方針',
     category: GlossaryCategory.liveMatch,
     description:

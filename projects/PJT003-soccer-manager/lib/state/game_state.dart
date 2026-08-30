@@ -40,6 +40,7 @@ import '../logic/best_eleven_engine.dart';
 import '../logic/board_engine.dart';
 import '../logic/contract_engine.dart';
 import '../logic/continental_cup_engine.dart';
+import '../logic/dynamics_engine.dart';
 import '../logic/cup_engine.dart';
 import '../logic/happiness_engine.dart';
 import '../logic/investment_engine.dart';
@@ -548,6 +549,11 @@ class GameState extends ChangeNotifier {
     // 難易度による初期条件の補正(資金と理事会目標の厳しさ)。
     _save!.budget = (_save!.budget * difficulty.initialBudgetFactor).round();
     _save!.boardTargetRank = _difficultyAdjustedTarget(_save!.boardTargetRank);
+    _save!.wageBudget = BoardEngine.wageBudgetFor(
+      tier: userStartTier,
+      currentWeeklyWageBill: weeklyWageBill,
+    );
+    _save!.boardCupTargetRound = _estimateDomesticCupTarget();
     final rival = cpuTeams[rng.nextInt(cpuTeams.length)];
     _save!.rivalTeamId = rival.id;
     _save!.rivalTeamName = rival.name;
@@ -1228,12 +1234,14 @@ class GameState extends ChangeNotifier {
 
   Future<bool> buyPlayer(String playerId) async {
     if (_save == null) return false;
+    lastSigningBlockReason = null;
     if (!isTransferWindowOpen) return false;
     final idx = transferMarket.indexWhere((p) => p.id == playerId);
     if (idx < 0) return false;
     final player = transferMarket[idx];
     if (_save!.budget < player.marketValue) return false;
     if (userTeam.players.length >= maxSquadSize) return false;
+    if (!_wageBudgetAllowsSigning(player.wage)) return false;
     _save!.budget -= player.marketValue;
     userTeam.players.add(player);
     transferMarket.removeWhere((p) => p.id == playerId);
@@ -1277,6 +1285,10 @@ class GameState extends ChangeNotifier {
       return (attempted: false, accepted: false);
     }
     if (userTeam.players.length >= maxSquadSize) {
+      return (attempted: false, accepted: false);
+    }
+    lastSigningBlockReason = null;
+    if (!_wageBudgetAllowsSigning(player.wage)) {
       return (attempted: false, accepted: false);
     }
     final chance = transferOfferAcceptChance(player.marketValue, offer);
@@ -1356,11 +1368,20 @@ class GameState extends ChangeNotifier {
     if (player.isLoan) return false; // ローン選手は他クラブの所有物のため放出できない
     if (player.isLoanedOut) return false; // ローン放出中の選手は貸出先が保有しているため放出できない
     final net = netReleaseValueFor(playerId);
+    final wasTeamLeader = DynamicsEngine.isTeamLeader(team, playerId);
     team.players.removeWhere((p) => p.id == playerId);
     team.startingXI.remove(playerId);
     _clearPlayerRoleReferences(team, playerId);
     _save!.budget += net;
     _placeSoldPlayerAtCpuClub(player);
+    // ダイナミクス: チームリーダーの放出はロッカールーム全体を動揺させる。
+    if (wasTeamLeader) {
+      for (final p in team.players) {
+        p.happiness =
+            (p.happiness - DynamicsEngine.leaderSalePenalty).clamp(0, 100);
+      }
+      _logNews('チームリーダーの${player.name}を放出。ロッカールームに動揺が走っている', context: '移籍');
+    }
     notifyListeners();
     await _persist();
     return true;
@@ -1597,6 +1618,8 @@ class GameState extends ChangeNotifier {
     final total = player.marketValue;
     final downPayment = (total * 0.3).round();
     if (_save!.budget < downPayment) return false;
+    lastSigningBlockReason = null;
+    if (!_wageBudgetAllowsSigning(player.wage)) return false;
 
     _save!.budget -= downPayment;
     const weeks = 4;
@@ -1636,6 +1659,8 @@ class GameState extends ChangeNotifier {
     final player = transferMarket[idx];
     final fee = (player.marketValue * loanFeeRatioPercent / 100).round();
     if (_save!.budget < fee) return false;
+    lastSigningBlockReason = null;
+    if (!_wageBudgetAllowsSigning((player.wage * 0.6).round())) return false;
 
     _save!.budget -= fee;
     player.isLoan = true;
@@ -1830,10 +1855,12 @@ class GameState extends ChangeNotifier {
   /// フリーエージェントを新規契約で獲得する(移籍金は発生しない)。
   Future<bool> signFreeAgent(String playerId) async {
     if (_save == null) return false;
+    lastSigningBlockReason = null;
     if (!isTransferWindowOpen) return false;
     if (userTeam.players.length >= maxSquadSize) return false;
     final idx = _save!.freeAgents.indexWhere((p) => p.id == playerId);
     if (idx < 0) return false;
+    if (!_wageBudgetAllowsSigning(_save!.freeAgents[idx].wage)) return false;
     final player = _save!.freeAgents.removeAt(idx);
     ContractEngine.renewContract(player);
     userTeam.players.add(player);
@@ -2391,6 +2418,32 @@ class GameState extends ChangeNotifier {
       ? 0
       : ContractEngine.weeklyWageBill(userTeam) +
           _save!.infrastructure.totalStaffWeeklyWage;
+
+  /// 理事会が設定する週給総額の上限(万円/週)。シーズン開始時に確定する。
+  /// 未設定の旧セーブでは現在の状況から同じ式で算出する(必ず余裕がある
+  /// 値になるため、既存プレイを突然ブロックしない)。
+  int get wageBudgetCap {
+    if (_save == null) return 0;
+    if (_save!.wageBudget > 0) return _save!.wageBudget;
+    return BoardEngine.wageBudgetFor(
+      tier: _save!.currentDivisionTier,
+      currentWeeklyWageBill: weeklyWageBill,
+    );
+  }
+
+  /// 直近の獲得操作が週給予算でブロックされた場合の理由文言(表示用)。
+  String? lastSigningBlockReason;
+
+  /// 週給[addedWeeklyWage]万円の選手を加えても週給予算に収まるか。
+  /// 収まらない場合は[lastSigningBlockReason]に理由をセットしてfalseを返す。
+  bool _wageBudgetAllowsSigning(int addedWeeklyWage) {
+    final cap = wageBudgetCap;
+    if (weeklyWageBill + addedWeeklyWage <= cap) return true;
+    lastSigningBlockReason = '週給予算オーバー: 現在の週給総額$weeklyWageBill万円に'
+        '新加入の$addedWeeklyWage万円を加えると、理事会の上限$cap万円を超えます。'
+        '放出や施設スタッフの見直しで枠を空けてください。';
+    return false;
+  }
 
   /// 銀行から借り入れている融資一覧。
   List<BankLoan> get bankLoans => _save?.bankLoans ?? [];
@@ -3757,6 +3810,37 @@ class GameState extends ChangeNotifier {
   /// UI側(シーズン開始処理後のSnackBar)が表示に使う。
   String? lastBoardBonusNote;
 
+  /// 国内カップのブラケット全ラウンド数(1回戦から決勝まで)。
+  int _domesticCupTotalRounds(Cup cup) {
+    final firstRoundMatches = cup.rounds.first.length;
+    if (firstRoundMatches <= 0) return 0;
+    return (log(firstRoundMatches * 2) / ln2).round();
+  }
+
+  /// 理事会が期待する国内カップの到達ラウンドを、リーグ内の戦力順位から
+  /// 見積もる(国内カップが未生成なら0=期待なし)。
+  int _estimateDomesticCupTarget() {
+    final cup = domesticCup;
+    if (cup == null || _save == null) return 0;
+    final teams = [..._save!.league.teams]
+      ..sort((a, b) => b.overallRating.compareTo(a.overallRating));
+    final rank = teams.indexWhere((t) => t.id == _save!.userTeamId) + 1;
+    if (rank <= 0) return 0;
+    return BoardEngine.estimateCupTargetRound(
+      strengthRank: rank,
+      teamCount: teams.length,
+      totalRounds: _domesticCupTotalRounds(cup),
+    );
+  }
+
+  /// 理事会のカップ目標の表示ラベル(例: 「準決勝」)。未設定ならnull。
+  String? get boardCupTargetLabel {
+    final cup = domesticCup;
+    final target = _save?.boardCupTargetRound ?? 0;
+    if (cup == null || target <= 0) return null;
+    return CupEngine.roundLabel(target, _domesticCupTotalRounds(cup));
+  }
+
   /// 国内カップの1試合が大会へ適用された後の共通処理(自動消化・ライブ
   /// 共通)。自クラブの勝利賞金・敗退時の信頼度低下・優勝報酬を扱う。
   void _afterDomesticCupMatchApplied(CupMatch match) {
@@ -3773,7 +3857,19 @@ class GameState extends ChangeNotifier {
         lastCupPrizeNote = '勝利賞金として$prize万円を獲得!';
         _logNews(lastCupPrizeNote!, context: 'カップ戦');
       } else if (cup.isEliminated(userId)) {
-        _save!.confidence = (_save!.confidence - 1).clamp(0, 100);
+        // 理事会のカップ目標(到達ラウンド)と実際の成績を突き合わせる。
+        final reached = match.round;
+        final target = _save!.boardCupTargetRound;
+        final label = boardCupTargetLabel;
+        if (target > 0 && reached >= target) {
+          _save!.confidence = (_save!.confidence + 2).clamp(0, 100);
+          _logNews('国内カップは理事会の期待($label進出)に応えた。敗退したが評価は上々だ', context: 'カップ戦');
+        } else if (target > 0 && target - reached >= 2) {
+          _save!.confidence = (_save!.confidence - 3).clamp(0, 100);
+          _logNews('国内カップで早期敗退。理事会の期待($label進出)を大きく裏切った', context: 'カップ戦');
+        } else {
+          _save!.confidence = (_save!.confidence - 1).clamp(0, 100);
+        }
       }
     }
     if (cup.isComplete && cup.championId == userId && !cup.rewardClaimed) {
@@ -4128,6 +4224,10 @@ class GameState extends ChangeNotifier {
     _save!.boardTargetRank = _difficultyAdjustedTarget(
       BoardEngine.estimateTargetRank(_save!.league, _save!.userTeamId),
     );
+    _save!.wageBudget = BoardEngine.wageBudgetFor(
+      tier: _save!.currentDivisionTier,
+      currentWeeklyWageBill: weeklyWageBill,
+    );
     transferMarket = TransferMarket.generate();
     _refreshScoutCandidates();
     FreeAgentEngine.topUp(_save!.freeAgents);
@@ -4271,6 +4371,7 @@ class GameState extends ChangeNotifier {
         teamIds: newActiveTeams.map((t) => t.id).toList(),
       ),
     ];
+    _save!.boardCupTargetRound = _estimateDomesticCupTarget();
     if (playedTier == 1 && finalRank <= 2) {
       final continentalTeams = _generateContinentalTeams();
       _save!.continentalTeams = continentalTeams;

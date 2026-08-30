@@ -168,6 +168,13 @@ class SaveGame {
   /// ゲーム難易度(ニューゲーム時に選択)。
   GameDifficulty difficulty;
 
+  /// 理事会が設定する週給総額の上限(万円/週)。0は未設定(旧セーブ)で、
+  /// その場合はGameState側が現在の状況から同じ式で算出する。
+  int wageBudget;
+
+  /// 理事会が期待する国内カップの到達ラウンド(0は未設定=旧セーブ)。
+  int boardCupTargetRound;
+
   /// クラブニュース(お知らせ履歴)。新しいものが先頭。SnackBar等で
   /// 一度流れて消える通知を、あとから見返せるように保存する。件数は
   /// GameState側で上限管理する。旧セーブには存在しないため空で補完する。
@@ -268,6 +275,8 @@ class SaveGame {
     this.careerCupPrize = 0,
     this.pkShootoutWins = 0,
     this.difficulty = GameDifficulty.normal,
+    this.wageBudget = 0,
+    this.boardCupTargetRound = 0,
     List<NewsItem>? newsLog,
     List<String>? trophyHistory,
     List<String>? clubHistory,
@@ -368,6 +377,8 @@ class SaveGame {
         'careerCupPrize': careerCupPrize,
         'pkShootoutWins': pkShootoutWins,
         'difficulty': difficulty.name,
+        'wageBudget': wageBudget,
+        'boardCupTargetRound': boardCupTargetRound,
         'newsLog': newsLog.map((n) => n.toJson()).toList(),
         'trophyHistory': trophyHistory,
         'clubHistory': clubHistory,
@@ -492,6 +503,8 @@ class SaveGame {
         liveWins: json['liveWins'] as int? ?? 0,
         careerCupPrize: json['careerCupPrize'] as int? ?? 0,
         pkShootoutWins: json['pkShootoutWins'] as int? ?? 0,
+        wageBudget: json['wageBudget'] as int? ?? 0,
+        boardCupTargetRound: json['boardCupTargetRound'] as int? ?? 0,
         difficulty: GameDifficulty.values.firstWhere(
           (d) => d.name == json['difficulty'],
           orElse: () => GameDifficulty.normal,

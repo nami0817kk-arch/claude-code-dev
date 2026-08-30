@@ -1,7 +1,47 @@
+import 'dart:math';
+
 import '../models/league.dart';
 import '../models/match_result.dart';
 
 class BoardEngine {
+  /// ディビジョンごとの週給予算の基準値(万円/週)。下位リーグほど
+  /// 人件費に厳しく、昇格すると理事会が予算を引き上げる。
+  static int wageBudgetBaseForTier(int tier) => switch (tier) {
+        1 => 700,
+        2 => 480,
+        3 => 330,
+        4 => 230,
+        _ => 160,
+      };
+
+  /// 理事会が設定する週給総額の上限(万円/週)。ティア基準値と
+  /// 「現在の週給総額+基準値の25%の余裕」の大きい方を採用するため、
+  /// シーズン開始時点で必ず補強の余地が残る。
+  static int wageBudgetFor({
+    required int tier,
+    required int currentWeeklyWageBill,
+  }) {
+    final base = wageBudgetBaseForTier(tier);
+    final headroom = max(60, (base * 0.4).round());
+    return max(base, currentWeeklyWageBill + headroom);
+  }
+
+  /// 理事会が期待する国内カップの到達ラウンド(そのラウンドの試合を
+  /// 戦うところまで勝ち残ること)。リーグ内の戦力順位が高いクラブほど
+  /// 深いラウンドまで期待される。
+  static int estimateCupTargetRound({
+    required int strengthRank,
+    required int teamCount,
+    required int totalRounds,
+  }) {
+    if (teamCount <= 0 || totalRounds <= 0) return 0;
+    final ratio = strengthRank / teamCount;
+    if (ratio <= 0.15) return totalRounds; // 優勝候補: 決勝進出
+    if (ratio <= 0.35) return max(1, totalRounds - 1); // 準決勝進出
+    if (ratio <= 0.6) return max(1, totalRounds - 2); // 準々決勝進出
+    return max(1, totalRounds - 3);
+  }
+
   /// 現在のスカッド総合力から見て妥当な目標順位（1が最高位）を見積もる。
   static int estimateTargetRank(League league, String userTeamId) {
     final sorted = [...league.teams]

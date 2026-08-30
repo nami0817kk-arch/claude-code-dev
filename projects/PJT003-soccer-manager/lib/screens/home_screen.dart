@@ -95,7 +95,8 @@ class HomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '目標: ${save.boardTargetRank}位以内',
+                        '目標: ${save.boardTargetRank}位以内'
+                        '${gameState.boardCupTargetLabel != null ? '・カップ${gameState.boardCupTargetLabel}進出' : ''}',
                         style: TextStyle(color: scheme.onSurfaceVariant),
                       ),
                     ],

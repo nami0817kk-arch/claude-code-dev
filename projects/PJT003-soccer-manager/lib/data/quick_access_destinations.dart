@@ -13,6 +13,7 @@ import '../screens/hall_of_fame_screen.dart';
 import '../screens/league_ranking_screen.dart';
 import '../screens/manager_career_screen.dart';
 import '../screens/news_screen.dart';
+import '../screens/player_search_screen.dart';
 import '../screens/season_history_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/training_screen.dart';
@@ -60,6 +61,12 @@ final List<QuickAccessDestination> quickAccessDestinations = [
     label: 'クラブ経営',
     color: Colors.brown.shade400,
     builder: (_) => const FinanceScreen(),
+  ),
+  QuickAccessDestination(
+    icon: Icons.person_search,
+    label: '選手検索',
+    color: Colors.pink.shade400,
+    builder: (_) => const PlayerSearchScreen(),
   ),
   QuickAccessDestination(
     icon: Icons.newspaper,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../logic/contract_engine.dart';
+import '../logic/dynamics_engine.dart';
 import '../logic/lineup_utils.dart';
 import '../logic/match_engine.dart';
 import '../models/attributes.dart';
@@ -162,6 +163,14 @@ class PlayerDetailScreen extends StatelessWidget {
                 const Chip(
                   label: Text('副キャプテン'),
                   backgroundColor: Colors.blueGrey,
+                  labelStyle: TextStyle(color: Colors.white),
+                ),
+              // ダイナミクス: 影響力上位のチームリーダー。機嫌がロッカー
+              // ルーム全体へ波及し、放出するとチームが動揺する。
+              if (DynamicsEngine.isTeamLeader(team, p.id))
+                const Chip(
+                  label: Text('チームリーダー'),
+                  backgroundColor: Colors.deepOrange,
                   labelStyle: TextStyle(color: Colors.white),
                 ),
               if (p.isLoan)

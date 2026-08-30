@@ -1,4 +1,5 @@
 import '../models/player.dart';
+import 'dynamics_engine.dart';
 import '../models/team.dart';
 
 /// 選手の不満度(happiness)を週次で更新する。出場機会・待遇・チーム成績の
@@ -49,6 +50,26 @@ class HappinessEngine {
 
       p.happiness = (p.happiness + delta).clamp(0, 100);
       if (p.reassureCooldownWeeks > 0) p.reassureCooldownWeeks -= 1;
+    }
+
+    // ダイナミクス: チームリーダーの機嫌はロッカールーム全体に波及する。
+    // リーダー陣が不機嫌だと他の選手の士気も下がり、上機嫌だと上がる。
+    final leaders = DynamicsEngine.teamLeaders(team);
+    if (leaders.isNotEmpty) {
+      final avgLeaderHappiness =
+          leaders.fold<int>(0, (s, p) => s + p.happiness) / leaders.length;
+      final spill = avgLeaderHappiness < DynamicsEngine.unhappyLeaderThreshold
+          ? -1
+          : avgLeaderHappiness >= DynamicsEngine.happyLeaderThreshold
+              ? 1
+              : 0;
+      if (spill != 0) {
+        final leaderIds = leaders.map((p) => p.id).toSet();
+        for (final p in team.players) {
+          if (leaderIds.contains(p.id) || p.isLoanedOut) continue;
+          p.happiness = (p.happiness + spill).clamp(0, 100);
+        }
+      }
     }
   }
 
