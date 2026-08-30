@@ -10642,4 +10642,57 @@ void main() {
     expect(recovered.growthType, PlayerGrowthType.balanced);
     expect(recovered.squadStatus, SquadStatus.regular);
   });
+
+  test(
+      'the calendar shows preseason friendlies, and the guide/glossary '
+      'describe the default training focus (CA7)', () async {
+    // CalendarEngine.dateForFriendlyはどこからも呼ばれておらず、
+    // プレシーズン親善試合はカレンダーに一切出ていなかった(静的監査で検出)。
+    final gameState = GameState();
+    await gameState.startNewGame('親善テストFC');
+    final save = gameState.save!;
+    expect(save.friendlies, isNotEmpty, reason: '新規ゲームでプレシーズン親善試合が生成されていない');
+
+    final anchor = CalendarEngine.seasonAnchor(save.league.season);
+    final days = CalendarEngine.buildRange(
+      from: anchor.subtract(const Duration(days: 30)),
+      to: anchor.add(const Duration(days: 7)),
+      league: save.league,
+      userTeamId: gameState.userTeam.id,
+      trainingDayOfWeek: gameState.userTeam.trainingDayOfWeek,
+      today: anchor,
+      friendlies: save.friendlies,
+    );
+
+    final friendlyDays = days.where((d) => d.isFriendlyMatchDay).toList();
+    expect(friendlyDays.length, save.friendlies.length,
+        reason: '親善試合の日がカレンダーに出ていない');
+    for (final d in friendlyDays) {
+      expect(d.date.isBefore(anchor), isTrue, reason: '親善試合が開幕日より後に置かれている');
+      expect(d.opponentName, isNotNull, reason: '親善試合の対戦相手名が出ていない');
+      expect(d.isTrainingFocusDay, isFalse, reason: '親善試合の日が重点練習日と二重表示になっている');
+    }
+
+    // 消化済みの親善試合は「予定」として残らない。
+    final playedAll = CalendarEngine.buildRange(
+      from: anchor.subtract(const Duration(days: 30)),
+      to: anchor,
+      league: save.league,
+      userTeamId: gameState.userTeam.id,
+      trainingDayOfWeek: gameState.userTeam.trainingDayOfWeek,
+      today: anchor,
+      friendlies: const [],
+    );
+    expect(playedAll.any((d) => d.isFriendlyMatchDay), isFalse);
+
+    // 既定方針が「全体練習」に変わったことがガイド・用語集に反映されている。
+    final guideText = guideSections
+        .expand((s) => s.topics)
+        .map((t) => '${t.title}${t.description}')
+        .join();
+    expect(guideText.contains('全体練習'), isTrue,
+        reason: 'ガイドに既定のトレーニング方針(全体練習)の説明がない');
+    expect(glossaryEntries.any((e) => e.term == '全体練習'), isTrue,
+        reason: '用語集に「全体練習」が載っていない');
+  });
 }

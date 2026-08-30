@@ -18,6 +18,9 @@ class CalendarDayInfo {
   /// 複数の大会が同じ日に消化可能となることもあるため複数保持する。
   final List<String> cupLabels;
 
+  /// この日に予定されているプレシーズン親善試合(開幕前)。
+  final bool isFriendlyMatchDay;
+
   const CalendarDayInfo({
     required this.date,
     this.isLeagueMatchDay = false,
@@ -27,6 +30,7 @@ class CalendarDayInfo {
     this.isTrainingFocusDay = false,
     this.isToday = false,
     this.cupLabels = const [],
+    this.isFriendlyMatchDay = false,
   });
 
   bool get isCupMatchDay => cupLabels.isNotEmpty;
@@ -152,7 +156,20 @@ class CalendarEngine {
     Cup? domesticCup,
     ContinentalCup? continentalCup,
     List<Team> continentalTeams = const [],
+    List<Fixture> friendlies = const [],
   }) {
+    // プレシーズン親善試合は開幕前の週に並ぶ。未消化のものだけ予定として扱う。
+    final friendlyByDate = <DateTime, Fixture>{};
+    final upcomingFriendlies = [
+      for (final f in friendlies)
+        if (f.result == null) f,
+    ];
+    for (var i = 0; i < upcomingFriendlies.length; i++) {
+      friendlyByDate[dateOnly(
+        dateForFriendly(league.season, i, upcomingFriendlies.length),
+      )] = upcomingFriendlies[i];
+    }
+
     final matchesByDate = <DateTime, Fixture>{};
     for (final f in league.fixtures) {
       if (f.homeTeamId != userTeamId && f.awayTeamId != userTeamId) continue;
@@ -203,12 +220,27 @@ class CalendarEngine {
           ),
         );
       } else {
+        final friendly = friendlyByDate[cursor];
+        String? friendlyOpponent;
+        if (friendly != null) {
+          final isHome = friendly.homeTeamId == userTeamId;
+          final opponentId = isHome ? friendly.awayTeamId : friendly.homeTeamId;
+          for (final t in [...league.teams, ...continentalTeams]) {
+            if (t.id == opponentId) {
+              friendlyOpponent = t.name;
+              break;
+            }
+          }
+        }
         days.add(
           CalendarDayInfo(
             date: cursor,
-            isTrainingFocusDay: cursor.weekday == trainingDayOfWeek,
+            isTrainingFocusDay:
+                friendly == null && cursor.weekday == trainingDayOfWeek,
             isToday: isToday,
             cupLabels: cupLabels,
+            isFriendlyMatchDay: friendly != null,
+            opponentName: friendlyOpponent,
           ),
         );
       }

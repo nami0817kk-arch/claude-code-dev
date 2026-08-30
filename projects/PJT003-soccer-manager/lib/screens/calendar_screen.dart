@@ -52,6 +52,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       domesticCup: gameState.domesticCup,
       continentalCup: gameState.continentalCup,
       continentalTeams: gameState.save!.continentalTeams,
+      friendlies: gameState.save!.friendlies,
     );
 
     return Scaffold(
@@ -157,6 +158,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
         '第${day.matchday}節 ${day.isHomeMatch ? '(H)' : '(A)'} '
         'vs ${day.opponentName ?? '未定'}',
       );
+    } else if (day.isFriendlyMatchDay) {
+      messages.add('プレシーズン親善試合 vs ${day.opponentName ?? '未定'}');
     } else if (day.isTrainingFocusDay) {
       messages.add('重点トレーニング日');
     } else {
@@ -194,6 +197,13 @@ class _CalendarDayCell extends StatelessWidget {
         size: 14,
         color: (day.isHomeMatch ? Colors.blue.shade700 : Colors.grey.shade700)
             .withValues(alpha: dimmed ? 0.5 : 1),
+      );
+    } else if (day.isFriendlyMatchDay) {
+      background = Colors.teal.withValues(alpha: dimmed ? 0.10 : 0.18);
+      marker = Icon(
+        Icons.handshake,
+        size: 14,
+        color: Colors.teal.shade600.withValues(alpha: dimmed ? 0.5 : 1),
       );
     } else if (day.isTrainingFocusDay) {
       background = Colors.deepOrange.withValues(alpha: dimmed ? 0.08 : 0.14);
@@ -278,6 +288,7 @@ class _CalendarLegend extends StatelessWidget {
           item(Icons.sports_soccer, Colors.grey.shade700, 'アウェイ'),
           item(Icons.fitness_center, Colors.deepOrange.shade400, '重点練習日'),
           item(Icons.emoji_events, Colors.amber.shade700, 'カップ戦消化可能'),
+          item(Icons.handshake, Colors.teal.shade600, 'プレシーズン親善試合'),
         ],
       ),
     );

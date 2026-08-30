@@ -282,6 +282,12 @@ final List<GlossaryEntry> glossaryEntries = [
         'チーム/個別のトレーニング方針とは別に、狙った能力値を集中的に伸ばす個別設定。1人あたり2つまで指定でき、同時に指定できる人数にはヘッドコーチのレベルに応じた上限がある。',
   ),
   const GlossaryEntry(
+    term: '全体練習',
+    category: GlossaryCategory.condition,
+    description:
+        'トレーニング方針の既定値。ポジションに応じて攻守をバランス良く伸ばす。攻撃強化などの特化練習より1項目あたりの伸びは緩やかだが、どのポジションの選手も自分の主戦場の能力を伸ばせる。休養と違い、方針を変えなくても選手は育つ。',
+  ),
+  const GlossaryEntry(
     term: '練習強度',
     category: GlossaryCategory.condition,
     description: '軽め/通常/追い込みの3段階。強くするほど成長速度が上がる代わりに、疲労の蓄積と練習中の怪我リスクが増す。',
