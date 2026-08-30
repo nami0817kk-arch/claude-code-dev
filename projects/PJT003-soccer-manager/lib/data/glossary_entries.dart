@@ -154,7 +154,7 @@ final List<GlossaryEntry> glossaryEntries = [
     term: '性格',
     category: GlossaryCategory.condition,
     description:
-        '選手の気質。不満度の変動しやすさ・移籍希望の出やすさに影響する(プロフェッショナル/バランス型/野心家/気分屋/忠誠心の強い選手)。',
+        '選手の気質(全20種類)。不満度の変動しやすさ・移籍希望の出やすさのほか、チームトークや声かけへの感応度、賃金要求の強さにも影響する。各性格の詳しい説明はガイドの「スカッド・選手詳細画面」を参照。',
   ),
   const GlossaryEntry(
     term: 'デューティ',
@@ -180,9 +180,10 @@ final List<GlossaryEntry> glossaryEntries = [
     description: '選手に毎週支払う給料(万円)。契約更新の交渉で決まり、性格ごとの賃金感応度によって要求額が変わる。',
   ),
   const GlossaryEntry(
-    term: '契約残り週数',
+    term: '契約残り年数',
     category: GlossaryCategory.contractTransfer,
-    description: '現在の契約が満了するまでの週数。0になると自由契約としてチームを去るため、事前の契約更新が必要になる。',
+    description:
+        '現在の契約が満了するまでの年数。シーズン終了時に1年ずつ減り、残り0年のままシーズンを終えると自由契約として退団してしまうため、事前の契約更新が必要になる。',
   ),
   const GlossaryEntry(
     term: '想定移籍金',
@@ -277,7 +278,8 @@ final List<GlossaryEntry> glossaryEntries = [
   const GlossaryEntry(
     term: '特訓ドリル',
     category: GlossaryCategory.condition,
-    description: 'チーム/個別のトレーニング方針とは別に、特定の1能力値を狙い撃ちで伸ばす個別設定。',
+    description:
+        'チーム/個別のトレーニング方針とは別に、狙った能力値を集中的に伸ばす個別設定。1人あたり2つまで指定でき、同時に指定できる人数にはヘッドコーチのレベルに応じた上限がある。',
   ),
   const GlossaryEntry(
     term: '練習強度',
@@ -366,5 +368,59 @@ final List<GlossaryEntry> glossaryEntries = [
     term: '勝ち上がり賞金',
     category: GlossaryCategory.club,
     description: 'カップ戦で1勝(1タイ勝ち抜け)するごとに得られる賞金。ラウンドが深いほど高額で、優勝時はさらに優勝ボーナスが加わる。',
+  ),
+  const GlossaryEntry(
+    term: '天候',
+    category: GlossaryCategory.tactics,
+    description:
+        '試合当日の空模様(晴れ/雨/強風/猛暑/雪)。悪天候ほど攻撃力・チャンス数が下がり、雨は守備側がやや優位、猛暑は疲労が溜まりやすいなど試合展開が変わる。雨男・雪国育ちなど特定の天候で輝く選手特性もある。',
+  ),
+  const GlossaryEntry(
+    term: '記者会見',
+    category: GlossaryCategory.condition,
+    description:
+        '試合後に記者から受ける質問への受け答え。回答の選択によってチームの士気が上下するため、試合結果に合ったコメントを選ぶことが監督業の一部になる。',
+  ),
+  const GlossaryEntry(
+    term: 'スカウティングレポート(試合プレビュー)',
+    category: GlossaryCategory.tactics,
+    description:
+        '次の対戦相手の戦力・キープレイヤー・直近のフォームをまとめた事前情報。ここで判明したキープレイヤーにマンマークを付けるなど、試合前の準備に使う。',
+  ),
+  const GlossaryEntry(
+    term: '個別声かけ(モチベーショントーク)',
+    category: GlossaryCategory.condition,
+    description:
+        '監督が選手個人に声をかけて士気(モラール)を高めるコマンド。効果の大きさは選手の性格による感応度で変わり、一度使うと同じ選手には数週間のクールダウンがある。',
+  ),
+  const GlossaryEntry(
+    term: '話し合い',
+    category: GlossaryCategory.condition,
+    description:
+        '不満を抱えた選手と面談して不満度を和らげるコマンド。士気を対象にする個別声かけとは別物で、こちらにもクールダウンがある。移籍希望のフラグが立った選手を引き留める初手になる。',
+  ),
+  const GlossaryEntry(
+    term: '戦術ミーティング',
+    category: GlossaryCategory.condition,
+    description:
+        'チーム全体で戦術理解を深めるミーティング。判断力・ポジショニング・チームワークといったメンタル系能力値がわずかに成長する。連発はできず、数週間のクールダウンがある。',
+  ),
+  const GlossaryEntry(
+    term: 'ローテーション方針',
+    category: GlossaryCategory.condition,
+    description:
+        '選手個別のトレーニング方針を複数登録しておくと、週替わりで自動的に切り替わる仕組み。攻撃と守備を交互に鍛えるなど、毎週手動で切り替えなくてもバランス良く育成できる。',
+  ),
+  const GlossaryEntry(
+    term: '自動トレーニング',
+    category: GlossaryCategory.condition,
+    description:
+        '有効にすると、節を進めた際に週次トレーニングが自動で実施される。細かく管理したい週だけ無効に戻して手動で行うこともできる。',
+  ),
+  const GlossaryEntry(
+    term: '契約解除の違約金',
+    category: GlossaryCategory.contractTransfer,
+    description:
+        '契約が残っている選手を放出する際に支払う違約金。売却額から差し引かれ、残り契約が長いほど高額になるため、受け取り額がマイナスになることもある。放出のタイミングを見極める材料になる。',
   ),
 ];

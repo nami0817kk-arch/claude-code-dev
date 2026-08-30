@@ -8818,9 +8818,22 @@ void main() {
       '値切り交渉',
       '育成プラン(目標ロール)',
       '勝ち上がり賞金',
+      '天候',
+      '記者会見',
+      'スカウティングレポート(試合プレビュー)',
+      '個別声かけ(モチベーショントーク)',
+      '話し合い',
+      '戦術ミーティング',
+      'ローテーション方針',
+      '自動トレーニング',
+      '契約解除の違約金',
+      // 契約は年単位(AB1)のため、旧「契約残り週数」は年数表記へ更新済み。
+      '契約残り年数',
     ]) {
       expect(glossaryTerms, contains(term));
     }
+    expect(glossaryTerms, isNot(contains('契約残り週数')),
+        reason: '週数ベースの契約は年単位へ移行済みで、用語集も追随している');
     expect(
       glossaryEntries
           .where((e) => e.category == GlossaryCategory.liveMatch)
