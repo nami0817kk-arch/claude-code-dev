@@ -75,6 +75,12 @@ const int maxSquadSize = 26;
 /// 最低限回る16人とする。
 const int minSquadSize = 16;
 
+/// シーズン開始時に自動補強で確保する推奨人数。最低人数ちょうど(16人)で
+/// 張り付くと、負傷者と出場停止が数人重なるだけでベンチが空になり、
+/// ローテーションの選択肢そのものが消えてしまう(長期実測で毎シーズン
+/// 16人に張り付くことを確認)。シーズン開始時だけこの人数まで底上げする。
+const int seasonStartSquadSize = 18;
+
 /// ライブ観戦できるカップ試合の種別。リーグ戦([GameState.playNextMatchday])
 /// と同じインタラクティブ進行を、どの大会の試合として開始するかを表す。
 enum LiveCupKind { domestic, continentalGroup, continentalKnockout, superCup }
@@ -2811,7 +2817,7 @@ class GameState extends ChangeNotifier {
     // 緊急補強してスカッドが組めなくなる事態を防ぐ(安全網)。
     lastEmergencySignings = [];
     while (userTeam.players.length < minSquadSize) {
-      final signing = FreeAgentEngine.generateVeteran();
+      final signing = FreeAgentEngine.generateEmergencySigning();
       ContractEngine.renewContract(signing);
       userTeam.players.add(signing);
       lastEmergencySignings.add(signing.name);
@@ -4073,6 +4079,9 @@ class GameState extends ChangeNotifier {
     return teams;
   }
 
+  /// 直近の昇格で理事会から支給された補強予算(万円)。昇格していなければ0。
+  int lastPromotionBonus = 0;
+
   /// 直近のstartNextSeasonでの昇格・降格結果メッセージ(なければnull)。
   String? lastDivisionChangeMessage;
 
@@ -4322,12 +4331,21 @@ class GameState extends ChangeNotifier {
         )
         .toList();
     userInvolvedInLastPromotionPlayoff = userInPromotionPlayoff;
+    lastPromotionBonus = 0;
     if (newTier > playedTier) {
       lastDivisionChangeMessage = '降格が決まりました。来シーズンは$newTier部リーグでの再出発です。';
     } else if (newTier < playedTier) {
+      // 昇格ボーナス: 上のディビジョンで戦うための補強予算が理事会から
+      // 支給される(放映権料・スポンサー収入の増加分)。これがないと
+      // 戦力差を埋める資金がなく、昇格と降格を往復し続けることになる。
+      final promotionBonus = BoardEngine.promotionBonusFor(newTier);
+      _save!.budget += promotionBonus;
+      lastPromotionBonus = promotionBonus;
       lastDivisionChangeMessage = userInPromotionPlayoff
           ? '昇格プレーオフを勝ち抜き、来シーズンは$newTier部リーグに昇格します！'
-          : '昇格達成！来シーズンは$newTier部リーグに昇格します。';
+              '理事会から補強予算$promotionBonus万円が支給されました。'
+          : '昇格達成！来シーズンは$newTier部リーグに昇格します。'
+              '理事会から補強予算$promotionBonus万円が支給されました。';
     } else if (userInPromotionPlayoff) {
       lastDivisionChangeMessage = '昇格プレーオフで敗れ、来シーズンも$playedTier部リーグで戦います。';
     } else {
@@ -4404,8 +4422,8 @@ class GameState extends ChangeNotifier {
     }
     // 契約満了・引退により編成人数が最低人数を割り込んだ場合の緊急補強(安全網)。
     lastEmergencySignings = [];
-    while (userTeam.players.length < minSquadSize) {
-      final signing = FreeAgentEngine.generateVeteran();
+    while (userTeam.players.length < seasonStartSquadSize) {
+      final signing = FreeAgentEngine.generateEmergencySigning();
       ContractEngine.renewContract(signing);
       userTeam.players.add(signing);
       lastEmergencySignings.add(signing.name);

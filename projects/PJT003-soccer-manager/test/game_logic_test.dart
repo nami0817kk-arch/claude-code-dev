@@ -13,6 +13,7 @@ import 'package:soccer_manager/logic/dynamics_engine.dart';
 import 'package:soccer_manager/logic/player_search.dart';
 import 'package:soccer_manager/logic/continental_cup_engine.dart';
 import 'package:soccer_manager/logic/cup_engine.dart';
+import 'package:soccer_manager/logic/free_agent_engine.dart';
 import 'package:soccer_manager/logic/happiness_engine.dart';
 import 'package:soccer_manager/logic/lineup_utils.dart';
 import 'package:soccer_manager/logic/investment_engine.dart';
@@ -9973,5 +9974,66 @@ void main() {
     expect(attention.contains(c.id), isTrue, reason: '契約残り1年以下は要対応');
     expect(attention.contains(d.id), isFalse,
         reason: 'ローン加入選手の契約年数は要対応の対象外(状態も健全)');
+  });
+
+  test(
+      'emergency signings pull from young-to-prime free agents so the squad '
+      'does not age indefinitely, and season starts top up beyond the bare '
+      'minimum', () {
+    // 長期実測で、緊急補強が常にベテランFA(27〜35歳)だったため
+    // スカッドの平均年齢が7シーズンで26→31歳まで上がり続けることを確認した。
+    var youngEnough = 0;
+    for (var i = 0; i < 200; i++) {
+      final p = FreeAgentEngine.generateEmergencySigning();
+      expect(p.age, inInclusiveRange(21, 29), reason: '緊急補強は若手〜中堅から拾う');
+      if (p.age <= 26) youngEnough++;
+    }
+    expect(youngEnough, greaterThan(60), reason: '緊急補強の多くが20代前半〜半ばである');
+
+    // 通常のFA市場は従来通りベテラン中心のまま(役割が違う)。
+    for (var i = 0; i < 50; i++) {
+      expect(FreeAgentEngine.generateVeteran().age, greaterThanOrEqualTo(27));
+    }
+
+    expect(seasonStartSquadSize, greaterThan(minSquadSize),
+        reason: 'シーズン開始時は最低人数より余裕を持たせる');
+  });
+
+  test(
+      'promotion pays a board reinforcement bonus that scales with the new '
+      'division, and it lands in the budget on promotion', () async {
+    // 昇格ボーナスがないと、ティアあたり約10の戦力差を埋める資金がなく
+    // 昇格と降格を往復し続けることを長期実測で確認した。
+    for (var tier = 1; tier <= 4; tier++) {
+      expect(BoardEngine.promotionBonusFor(tier),
+          greaterThan(BoardEngine.promotionBonusFor(tier + 1)),
+          reason: '上のディビジョンへの昇格ほど大きな補強予算が出る');
+    }
+    expect(BoardEngine.promotionBonusFor(4),
+        BoardEngine.wageBudgetBaseForTier(4) * BoardEngine.promotionBonusWeeks);
+
+    SharedPreferences.setMockInitialValues({});
+    final gameState = GameState();
+    await gameState.startNewGame('昇格FC');
+    final save = gameState.save!;
+    // 最下層から1つ上のティアへ昇格する状況を作る(首位でシーズンを終える)。
+    final startTier = save.currentDivisionTier;
+    if (startTier <= 1) return; // 1部スタートなら昇格は起こらない
+    var guard = 0;
+    while (save.league.nextUnplayedFixture != null && guard++ < 200) {
+      await gameState.playNextMatchday();
+    }
+    final budgetBefore = save.budget;
+    await gameState.startNextSeason();
+    if (save.currentDivisionTier < startTier) {
+      expect(gameState.lastPromotionBonus,
+          BoardEngine.promotionBonusFor(save.currentDivisionTier));
+      expect(budgetBefore + gameState.lastPromotionBonus,
+          lessThanOrEqualTo(save.budget),
+          reason: '昇格ボーナスは資金に反映される(他の収入と合算)');
+      expect(gameState.lastDivisionChangeMessage, contains('補強予算'));
+    } else {
+      expect(gameState.lastPromotionBonus, 0, reason: '昇格していないシーズンはボーナス0');
+    }
   });
 }

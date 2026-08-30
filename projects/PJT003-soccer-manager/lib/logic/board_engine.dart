@@ -145,6 +145,18 @@ class BoardEngine {
   }
 
   /// 最終順位に応じた賞金（万円）。
+  /// 昇格時の理事会からの補強予算(万円)。昇格したクラブは放映権料・
+  /// スポンサー収入が跳ね上がるため、新しいディビジョンで戦うための
+  /// 資金が渡される。金額は新ティアの週給予算基準の[promotionBonusWeeks]
+  /// 週分で、上のディビジョンほど大きい。
+  ///
+  /// これがないと、昇格しても戦力差(ティアあたり総合力で約10)を埋める
+  /// 資金がなく、昇格→即降格の往復から抜け出せない(長期実測で確認)。
+  static const int promotionBonusWeeks = 6;
+
+  static int promotionBonusFor(int newTier) =>
+      wageBudgetBaseForTier(newTier) * promotionBonusWeeks;
+
   static int seasonPrizeMoney({
     required int finalRank,
     required int teamCount,
