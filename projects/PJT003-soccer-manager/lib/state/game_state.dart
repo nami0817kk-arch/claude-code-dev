@@ -41,6 +41,7 @@ import '../logic/board_engine.dart';
 import '../logic/contract_engine.dart';
 import '../logic/continental_cup_engine.dart';
 import '../logic/dynamics_engine.dart';
+import '../logic/tactics_ai.dart';
 import '../logic/cup_engine.dart';
 import '../logic/happiness_engine.dart';
 import '../logic/investment_engine.dart';
@@ -554,6 +555,7 @@ class GameState extends ChangeNotifier {
       currentWeeklyWageBill: weeklyWageBill,
     );
     _save!.boardCupTargetRound = _estimateDomesticCupTarget();
+    _save!.managerContractYears = 3;
     final rival = cpuTeams[rng.nextInt(cpuTeams.length)];
     _save!.rivalTeamId = rival.id;
     _save!.rivalTeamName = rival.name;
@@ -2935,6 +2937,9 @@ class GameState extends ChangeNotifier {
       }
       final weather = WeatherEngine.roll();
       f.weather = weather;
+      // CPUクラブは対戦相手との力関係で試合ごとに姿勢を選ぶ
+      // (ユーザーの設定には触れない)。
+      CpuTacticsAI.applyPreMatch(home, away, _save!.userTeamId);
       final isUserFixture = f.homeTeamId == _save!.userTeamId ||
           f.awayTeamId == _save!.userTeamId;
       if (isUserFixture) {
@@ -3060,6 +3065,23 @@ class GameState extends ChangeNotifier {
     }
     if (lastBudgetCrisisWarning != null) {
       _logNews(lastBudgetCrisisWarning!, context: newsWeek);
+    }
+    // ウォッチリストの選手が今節ゴールしたらニュースで知らせる
+    // (スカウティングの追跡対象を見失わないようにするため)。
+    if (_save!.watchlistPlayerIds.isNotEmpty) {
+      final watched = _save!.watchlistPlayerIds.toSet();
+      for (final f in league.fixturesForMatchday(md)) {
+        final r = f.result;
+        if (r == null) continue;
+        for (final e in r.events) {
+          if (e.type == MatchEventType.goal &&
+              e.scorerId != null &&
+              e.scorerName != null &&
+              watched.contains(e.scorerId)) {
+            _logNews('ウォッチ中の${e.scorerName}が今節ゴールを決めた', context: newsWeek);
+          }
+        }
+      }
     }
 
     if (userFixture != null) {
@@ -3468,6 +3490,11 @@ class GameState extends ChangeNotifier {
     if (!_canAdvanceCup(cup.lastPlayedAtMatchday)) return null;
 
     final match = cup.nextUnplayedMatch!;
+    if (!match.isBye) {
+      final home = allTeamsForCups.firstWhere((t) => t.id == match.homeTeamId);
+      final away = allTeamsForCups.firstWhere((t) => t.id == match.awayTeamId);
+      CpuTacticsAI.applyPreMatch(home, away, _save!.userTeamId);
+    }
     final result = CupEngine.playNextMatch(cup, allTeamsForCups);
     cup.lastPlayedAtMatchday = _currentLeagueMatchdayMarker;
     if (result != null) {
@@ -3505,6 +3532,11 @@ class GameState extends ChangeNotifier {
     if (!_continentalHasNextMatch(cup)) return null;
     if (!_canAdvanceCup(cup.lastPlayedAtMatchday)) return null;
     final match = ContinentalCupEngine.nextGroupMatch(cup);
+    if (match != null) {
+      final home = allTeamsForCups.firstWhere((t) => t.id == match.homeTeamId);
+      final away = allTeamsForCups.firstWhere((t) => t.id == match.awayTeamId);
+      CpuTacticsAI.applyPreMatch(home, away, _save!.userTeamId);
+    }
     final result = ContinentalCupEngine.playNextGroupMatch(
       cup,
       allTeamsForCups,
@@ -3526,6 +3558,11 @@ class GameState extends ChangeNotifier {
     if (!_continentalHasNextMatch(cup)) return null;
     if (!_canAdvanceCup(cup.lastPlayedAtMatchday)) return null;
     final leg = ContinentalCupEngine.nextKnockoutLeg(cup);
+    if (leg != null) {
+      final home = allTeamsForCups.firstWhere((t) => t.id == leg.homeId);
+      final away = allTeamsForCups.firstWhere((t) => t.id == leg.awayId);
+      CpuTacticsAI.applyPreMatch(home, away, _save!.userTeamId);
+    }
     final result = ContinentalCupEngine.playNextKnockoutLeg(
       cup,
       allTeamsForCups,
@@ -3810,6 +3847,9 @@ class GameState extends ChangeNotifier {
   /// UI側(シーズン開始処理後のSnackBar)が表示に使う。
   String? lastBoardBonusNote;
 
+  /// シーズン終了時の監督契約(任期)の去就の通知文。
+  String? lastManagerContractNote;
+
   /// 国内カップのブラケット全ラウンド数(1回戦から決勝まで)。
   int _domesticCupTotalRounds(Cup cup) {
     final firstRoundMatches = cup.rounds.first.length;
@@ -4058,6 +4098,34 @@ class GameState extends ChangeNotifier {
       lastBoardBonusNote = exceeded
           ? '理事会目標を大きく上回り、報奨金$bonus万円が支給されました!'
           : '理事会目標を達成し、報奨金$bonus万円が支給されました!';
+    }
+
+    // 監督契約(任期)の更新。旧セーブ(0=未導入)はまず2年契約を結ぶ。
+    lastManagerContractNote = null;
+    if (_save!.managerContractYears <= 0) {
+      _save!.managerContractYears = 2;
+      lastManagerContractNote = '理事会と2年の監督契約を結んだ';
+    } else {
+      final outcome = BoardEngine.managerContractAfterSeason(
+        yearsRemaining: _save!.managerContractYears,
+        targetMet: finalRank <= _save!.boardTargetRank,
+        confidence: _save!.confidence,
+      );
+      _save!.managerContractYears = outcome.years;
+      switch (outcome.event) {
+        case ManagerContractEvent.extended:
+          lastManagerContractNote = '目標達成が評価され、監督契約が3年に延長された!';
+        case ManagerContractEvent.renewedOneYear:
+          lastManagerContractNote = '契約満了。理事会は単年契約での続投を提示し、受け入れた';
+        case ManagerContractEvent.finalYearWarning:
+          lastManagerContractNote = '監督契約は残り1年。今シーズンの成績が去就を左右する';
+        case ManagerContractEvent.dismissed:
+          // 契約非更新=解任。既存の解任フロー(信頼度0)に合流させる。
+          _save!.confidence = 0;
+          lastManagerContractNote = '成績不振により契約は更新されなかった(解任)';
+        case ManagerContractEvent.none:
+          break;
+      }
     }
 
     for (final t in _save!.allTeams) {
@@ -4404,6 +4472,9 @@ class GameState extends ChangeNotifier {
     }
     if (lastBoardBonusNote != null) {
       _logNews(lastBoardBonusNote!, context: newsCtx);
+    }
+    if (lastManagerContractNote != null) {
+      _logNews(lastManagerContractNote!, context: newsCtx);
     }
     if (lastSeasonManagerAwardWon) {
       _logNews('年間最優秀監督賞を受賞しました！', context: newsCtx);

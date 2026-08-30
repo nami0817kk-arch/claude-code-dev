@@ -28,6 +28,7 @@ import 'package:soccer_manager/logic/scout_report_engine.dart';
 import 'package:soccer_manager/logic/scouting_engine.dart';
 import 'package:soccer_manager/logic/season_projection_engine.dart';
 import 'package:soccer_manager/logic/sponsor_engine.dart';
+import 'package:soccer_manager/logic/tactics_ai.dart';
 import 'package:soccer_manager/logic/training_engine.dart';
 import 'package:soccer_manager/logic/transfer_market.dart';
 import 'package:soccer_manager/logic/weather_engine.dart';
@@ -9509,5 +9510,119 @@ void main() {
           p.happiness, (prev - DynamicsEngine.leaderSalePenalty).clamp(0, 100),
           reason: 'リーダー放出で残った全員の不満度が下がる');
     }
+  });
+
+  test(
+      'CpuTacticsAI picks mentality from rating gaps and never touches '
+      'the user team', () {
+    expect(CpuTacticsAI.mentalityFor(ownRating: 70, opponentRating: 60),
+        TeamMentality.veryAttacking);
+    expect(CpuTacticsAI.mentalityFor(ownRating: 70, opponentRating: 65),
+        TeamMentality.attacking);
+    expect(CpuTacticsAI.mentalityFor(ownRating: 70, opponentRating: 68),
+        TeamMentality.balanced);
+    expect(CpuTacticsAI.mentalityFor(ownRating: 70, opponentRating: 70),
+        TeamMentality.balanced);
+    expect(CpuTacticsAI.mentalityFor(ownRating: 60, opponentRating: 65),
+        TeamMentality.defensive);
+    expect(CpuTacticsAI.mentalityFor(ownRating: 60, opponentRating: 70),
+        TeamMentality.veryDefensive);
+
+    Team makeTeam(String id, int tier) {
+      final players = [
+        for (int i = 0; i < 11; i++)
+          PlayerGenerator.generate(position: Position.mc, strengthTier: tier),
+      ];
+      final t = Team(id: id, name: id, players: players);
+      t.startingXI.addAll(players.map((p) => p.id));
+      return t;
+    }
+
+    final user = makeTeam('user', 85);
+    final weakCpu = makeTeam('cpu', 35);
+    user.mentality = TeamMentality.veryAttacking;
+    CpuTacticsAI.applyPreMatch(user, weakCpu, 'user');
+    expect(user.mentality, TeamMentality.veryAttacking,
+        reason: 'ユーザーのチームのメンタリティはAIが書き換えない');
+    final gap = user.overallRating - weakCpu.overallRating;
+    expect(gap, greaterThanOrEqualTo(CpuTacticsAI.bigGapThreshold),
+        reason: '強さ85と35のチームには大きな力量差があるはず');
+    expect(weakCpu.mentality, TeamMentality.veryDefensive,
+        reason: '大きな格上と当たるCPUは超守備的に構える');
+
+    // 立場を入れ替えても同様(ホーム側がCPU)。
+    final strongCpu = makeTeam('cpu2', 85);
+    final userWeak = makeTeam('user2', 35);
+    strongCpu.mentality = TeamMentality.balanced;
+    CpuTacticsAI.applyPreMatch(strongCpu, userWeak, 'user2');
+    expect(strongCpu.mentality, TeamMentality.veryAttacking,
+        reason: '大きな格下と当たるCPUは超攻撃的に出る');
+  });
+
+  test('PlayerSearch restrictToIds narrows results to a watchlist', () {
+    final players = [
+      for (int i = 0; i < 5; i++)
+        PlayerGenerator.generate(position: Position.mc, strengthTier: 60),
+    ];
+    final team = Team(id: 't', name: 'T', players: players);
+    final watched = {players[0].id, players[3].id};
+
+    final results = PlayerSearch.search([team], restrictToIds: watched);
+    expect(results.map((r) => r.player.id).toSet(), watched,
+        reason: 'ウォッチリストの選手だけが返る');
+    expect(PlayerSearch.search([team], restrictToIds: const {}), isEmpty,
+        reason: '空のウォッチリストなら結果も空');
+    expect(PlayerSearch.search([team]).length, players.length,
+        reason: 'restrictToIds未指定なら全員が対象');
+  });
+
+  test(
+      'managerContractAfterSeason covers extension, warning, renewal and '
+      'dismissal', () {
+    // 目標達成で残りわずか→3年契約に延長。
+    var r = BoardEngine.managerContractAfterSeason(
+        yearsRemaining: 2, targetMet: true, confidence: 60);
+    expect(r.years, 3);
+    expect(r.event, ManagerContractEvent.extended);
+
+    // 満了+信頼あり→単年の暫定契約で続投。
+    r = BoardEngine.managerContractAfterSeason(
+        yearsRemaining: 1, targetMet: false, confidence: 60);
+    expect(r.years, 1);
+    expect(r.event, ManagerContractEvent.renewedOneYear);
+
+    // 満了+信頼なし→契約非更新(解任)。
+    r = BoardEngine.managerContractAfterSeason(
+        yearsRemaining: 1, targetMet: false, confidence: 30);
+    expect(r.years, 0);
+    expect(r.event, ManagerContractEvent.dismissed);
+
+    // 残り1年になる→最終年の警告。
+    r = BoardEngine.managerContractAfterSeason(
+        yearsRemaining: 2, targetMet: false, confidence: 60);
+    expect(r.years, 1);
+    expect(r.event, ManagerContractEvent.finalYearWarning);
+
+    // まだ余裕がある→何も起きない。
+    r = BoardEngine.managerContractAfterSeason(
+        yearsRemaining: 3, targetMet: false, confidence: 60);
+    expect(r.years, 2);
+    expect(r.event, ManagerContractEvent.none);
+  });
+
+  test(
+      'managerContractYears starts at 3, survives json round trips and '
+      'defaults to 0 for old saves', () async {
+    SharedPreferences.setMockInitialValues({});
+    final gameState = GameState();
+    await gameState.startNewGame('契約FC');
+    expect(gameState.save!.managerContractYears, 3, reason: '新規ゲームは3年契約から始まる');
+
+    final restored = SaveGame.fromJson(gameState.save!.toJson());
+    expect(restored.managerContractYears, 3);
+
+    final legacy = gameState.save!.toJson()..remove('managerContractYears');
+    expect(SaveGame.fromJson(legacy).managerContractYears, 0,
+        reason: '旧セーブは0(未締結)として読み込み、次のシーズン開始時に締結する');
   });
 }

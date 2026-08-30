@@ -359,6 +359,18 @@ final List<GlossaryEntry> glossaryEntries = [
         '全ディビジョンの全選手を名前・ポジション・年齢・総合力で絞り込めるスカウティングツール。補強ターゲットの調査に使い、実際の獲得は移籍市場・フリーエージェント経由で行う。',
   ),
   const GlossaryEntry(
+    term: '監督契約',
+    category: GlossaryCategory.club,
+    description:
+        '理事会と結ぶ監督(あなた)の契約。毎シーズン残り年数が1年ずつ減り、目標達成で3年契約に延長される。契約が切れた時に理事会の信頼が低いと解任、信頼があれば1年の暫定契約で続投となる。残り年数は監督キャリア画面で確認できる。',
+  ),
+  const GlossaryEntry(
+    term: 'ウォッチリスト',
+    category: GlossaryCategory.contractTransfer,
+    description:
+        '気になる選手に星印をつけて追いかけるリスト。選手検索画面の星ボタンで登録・解除でき、「ウォッチ中」フィルタで一覧できる。ウォッチ中の選手が得点するとクラブニュースに届く。',
+  ),
+  const GlossaryEntry(
     term: '采配方針',
     category: GlossaryCategory.liveMatch,
     description:

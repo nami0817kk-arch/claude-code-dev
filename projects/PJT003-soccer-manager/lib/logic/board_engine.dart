@@ -3,7 +3,40 @@ import 'dart:math';
 import '../models/league.dart';
 import '../models/match_result.dart';
 
+/// シーズン終了時の監督契約の去就。
+enum ManagerContractEvent {
+  none,
+  finalYearWarning,
+  extended,
+  renewedOneYear,
+  dismissed,
+}
+
 class BoardEngine {
+  /// シーズン終了時に監督契約(残り年数)を1年消化し、去就を決める。
+  /// 目標達成で残りが少なければ3年へ延長。満了時は信頼度次第で
+  /// 単年契約の続投か、契約非更新(解任)となる。
+  static ({int years, ManagerContractEvent event}) managerContractAfterSeason({
+    required int yearsRemaining,
+    required bool targetMet,
+    required int confidence,
+  }) {
+    final years = yearsRemaining - 1;
+    if (targetMet && years <= 1) {
+      return (years: 3, event: ManagerContractEvent.extended);
+    }
+    if (years <= 0) {
+      if (confidence >= 45) {
+        return (years: 1, event: ManagerContractEvent.renewedOneYear);
+      }
+      return (years: 0, event: ManagerContractEvent.dismissed);
+    }
+    if (years == 1) {
+      return (years: 1, event: ManagerContractEvent.finalYearWarning);
+    }
+    return (years: years, event: ManagerContractEvent.none);
+  }
+
   /// ディビジョンごとの週給予算の基準値(万円/週)。下位リーグほど
   /// 人件費に厳しく、昇格すると理事会が予算を引き上げる。
   static int wageBudgetBaseForTier(int tier) => switch (tier) {

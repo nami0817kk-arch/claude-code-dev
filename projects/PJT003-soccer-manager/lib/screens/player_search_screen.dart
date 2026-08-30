@@ -24,6 +24,7 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
   int? _maxAge;
   int? _minOverall;
   PlayerSearchSort _sort = PlayerSearchSort.overall;
+  bool _watchedOnly = false;
 
   @override
   void dispose() {
@@ -50,6 +51,8 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
             group: _group,
             maxAge: _maxAge,
             minOverall: _minOverall,
+            restrictToIds:
+                _watchedOnly ? save.watchlistPlayerIds.toSet() : null,
             sort: _sort,
           );
     final userTeamId = gameState.userTeam.id;
@@ -114,6 +117,12 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
                       onSelected: (sel) =>
                           setState(() => _minOverall = sel ? 70 : null),
                     ),
+                    FilterChip(
+                      avatar: const Icon(Icons.star, size: 16),
+                      label: const Text('ウォッチ中'),
+                      selected: _watchedOnly,
+                      onSelected: (sel) => setState(() => _watchedOnly = sel),
+                    ),
                     for (final sort in PlayerSearchSort.values)
                       ChoiceChip(
                         label: Text(sort.label),
@@ -173,12 +182,33 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
                               ' / 市場価値${p.marketValue}万円',
                               style: const TextStyle(fontSize: 12),
                             ),
-                            trailing: Text(
-                              '${p.overall}',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    gameState.isWatched(p.id)
+                                        ? Icons.star
+                                        : Icons.star_border,
+                                    color: gameState.isWatched(p.id)
+                                        ? Colors.amber.shade700
+                                        : Colors.grey,
+                                  ),
+                                  tooltip: gameState.isWatched(p.id)
+                                      ? 'ウォッチリストから外す'
+                                      : 'ウォッチリストに追加',
+                                  onPressed: () => context
+                                      .read<GameState>()
+                                      .toggleWatched(p.id),
+                                ),
+                                Text(
+                                  '${p.overall}',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ],
                             ),
                           ),
                         );

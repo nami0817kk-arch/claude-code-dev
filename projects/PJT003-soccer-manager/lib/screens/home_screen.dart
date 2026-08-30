@@ -1055,6 +1055,11 @@ class HomeScreen extends StatelessWidget {
       messages.add((boardBonus, true));
       gameState.lastBoardBonusNote = null;
     }
+    final contractNote = gameState.lastManagerContractNote;
+    if (contractNote != null) {
+      messages.add((contractNote, true));
+      gameState.lastManagerContractNote = null;
+    }
     if (gameState.lastSeasonManagerAwardWon) {
       messages.add(('年間最優秀監督賞を受賞しました！', true));
       gameState.lastSeasonManagerAwardWon = false;

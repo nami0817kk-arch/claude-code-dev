@@ -25,13 +25,15 @@ class PlayerSearch {
     PositionGroup? group,
     int? maxAge,
     int? minOverall,
+    Set<String>? restrictToIds,
     PlayerSearchSort sort = PlayerSearchSort.overall,
     int limit = 50,
   }) {
     final results = <PlayerSearchResult>[
       for (final t in teams)
         for (final p in t.players)
-          if ((query.isEmpty || p.name.contains(query)) &&
+          if ((restrictToIds == null || restrictToIds.contains(p.id)) &&
+              (query.isEmpty || p.name.contains(query)) &&
               (group == null || p.position.group == group) &&
               (maxAge == null || p.age <= maxAge) &&
               (minOverall == null || p.overall >= minOverall))

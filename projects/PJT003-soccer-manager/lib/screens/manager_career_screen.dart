@@ -72,6 +72,13 @@ class ManagerCareerScreen extends StatelessWidget {
                         _StatColumn(label: '勝率', value: '$winRate%'),
                       ],
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      save.managerContractYears > 0
+                          ? '監督契約: 残り${save.managerContractYears}年'
+                          : '監督契約: 次のシーズン開始時に締結予定',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                   ],
                 ),
               ),

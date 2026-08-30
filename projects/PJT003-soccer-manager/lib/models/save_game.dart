@@ -175,6 +175,10 @@ class SaveGame {
   /// 理事会が期待する国内カップの到達ラウンド(0は未設定=旧セーブ)。
   int boardCupTargetRound;
 
+  /// 監督契約の残り年数(0は未導入=旧セーブ。次のシーズン開始時に
+  /// 判定なしで2年契約が結ばれる)。
+  int managerContractYears;
+
   /// クラブニュース(お知らせ履歴)。新しいものが先頭。SnackBar等で
   /// 一度流れて消える通知を、あとから見返せるように保存する。件数は
   /// GameState側で上限管理する。旧セーブには存在しないため空で補完する。
@@ -277,6 +281,7 @@ class SaveGame {
     this.difficulty = GameDifficulty.normal,
     this.wageBudget = 0,
     this.boardCupTargetRound = 0,
+    this.managerContractYears = 0,
     List<NewsItem>? newsLog,
     List<String>? trophyHistory,
     List<String>? clubHistory,
@@ -379,6 +384,7 @@ class SaveGame {
         'difficulty': difficulty.name,
         'wageBudget': wageBudget,
         'boardCupTargetRound': boardCupTargetRound,
+        'managerContractYears': managerContractYears,
         'newsLog': newsLog.map((n) => n.toJson()).toList(),
         'trophyHistory': trophyHistory,
         'clubHistory': clubHistory,
@@ -505,6 +511,7 @@ class SaveGame {
         pkShootoutWins: json['pkShootoutWins'] as int? ?? 0,
         wageBudget: json['wageBudget'] as int? ?? 0,
         boardCupTargetRound: json['boardCupTargetRound'] as int? ?? 0,
+        managerContractYears: json['managerContractYears'] as int? ?? 0,
         difficulty: GameDifficulty.values.firstWhere(
           (d) => d.name == json['difficulty'],
           orElse: () => GameDifficulty.normal,
