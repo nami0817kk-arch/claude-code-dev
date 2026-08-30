@@ -1328,66 +1328,87 @@ class Player {
     return value.round().clamp(50, 20000);
   }
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'age': age,
-        'position': position.name,
-        'secondaryPositions': secondaryPositions.map((p) => p.name).toList(),
-        // AttributeKeys.all の並び順に沿った値だけの配列で保存する(キー名を
-        // 省いた分だけセーブデータを大幅に圧縮できる)。並び順は
-        // AttributeKeys.all に追記する形でのみ変更し、既存項目の順序を
-        // 変えてはならない(変えると旧セーブの値が別の属性にずれてしまう)。
-        'attributes': [for (final k in AttributeKeys.all) attributes[k] ?? 50],
-        'potential': potential,
-        'fatigue': fatigue,
-        'morale': morale,
-        'injuryWeeks': injuryWeeks,
-        'injuryType': injuryType?.name,
-        'injuryHistoryCounts': injuryHistoryCounts,
-        'yellowCards': yellowCards,
-        'suspendedMatches': suspendedMatches,
-        'careerAppearances': careerAppearances,
-        'careerGoals': careerGoals,
-        'individualFocus': individualFocus?.name,
-        'wage': wage,
-        'contractYearsRemaining': contractYearsRemaining,
-        'personality': personality.name,
-        'happiness': happiness,
-        'reassureCooldownWeeks': reassureCooldownWeeks,
-        'talkCooldownWeeks': talkCooldownWeeks,
-        'isLoan': isLoan,
-        'loanWeeksRemaining': loanWeeksRemaining,
-        'loanBuyOptionFee': loanBuyOptionFee,
-        'releaseClause': releaseClause,
-        'internationalDutyWeeksRemaining': internationalDutyWeeksRemaining,
-        'duty': duty.name,
-        'squadStatus': squadStatus.name,
-        'isTransferListed': isTransferListed,
-        'loanedOutWeeksRemaining': loanedOutWeeksRemaining,
-        'loanedOutToClubName': loanedOutToClubName,
-        'originClubName': originClubName,
-        'appearanceFee': appearanceFee,
-        'role': role.name,
-        'positionFamiliarity': positionFamiliarity,
-        'matchSharpness': matchSharpness,
-        'youthMatchApps': youthMatchApps,
-        'loanStartOverall': loanStartOverall,
-        'overallHistory': overallHistory,
-        'youthMatchGoals': youthMatchGoals,
-        'lastYouthMatchRating': lastYouthMatchRating,
-        'mentorId': mentorId,
-        'drillAttributeKey': drillAttributeKey,
-        'drillAttributeKey2': drillAttributeKey2,
-        'traitTrainingTarget': traitTrainingTarget?.name,
-        'personalityTraitTrainingTarget': personalityTraitTrainingTarget?.name,
-        'focusRotation': focusRotation?.map((f) => f.name).toList(),
-        'rotationWeekIndex': rotationWeekIndex,
-        'trainingConvertTargetPosition': trainingConvertTargetPosition,
-        'developmentTargetRole': developmentTargetRole?.name,
-        'trait': trait?.name,
-        'growthType': growthType.name,
-      };
+  /// セーブデータへの書き出し。既定値のままの項目は書き出さない
+  /// (fromJson側がすべて`?? 既定値`で読むため、省略しても復元結果は同じ)。
+  /// 5部×20クラブ=100クラブ・約1800選手を保存するため、1選手あたりの
+  /// 数百バイトがセーブ全体では数百KBの差になる。実測では3.22MB→大幅に
+  /// 縮小し、Web版のlocalStorage(オリジンあたり5MB程度)の上限に対する
+  /// 余裕が生まれる。
+  Map<String, dynamic> toJson() {
+    final json = <String, dynamic>{
+      'id': id,
+      'name': name,
+      'age': age,
+      'position': position.name,
+      // AttributeKeys.all の並び順に沿った値だけの配列で保存する(キー名を
+      // 省いた分だけセーブデータを大幅に圧縮できる)。並び順は
+      // AttributeKeys.all に追記する形でのみ変更し、既存項目の順序を
+      // 変えてはならない(変えると旧セーブの値が別の属性にずれてしまう)。
+      'attributes': [for (final k in AttributeKeys.all) attributes[k] ?? 50],
+      'potential': potential,
+      // 契約年数は「キーが無い=旧セーブ」とみなして2年に移行する処理が
+      // あるため、0年でも必ず書き出す。
+      'contractYearsRemaining': contractYearsRemaining,
+    };
+    // 既定値と異なるときだけ書き出す。
+    void put(String key, Object? value, Object? defaultValue) {
+      if (value == null || value == defaultValue) return;
+      if (value is Iterable && value.isEmpty) return;
+      if (value is Map && value.isEmpty) return;
+      json[key] = value;
+    }
+
+    put('secondaryPositions', secondaryPositions.map((p) => p.name).toList(),
+        null);
+    put('fatigue', fatigue, 0);
+    put('morale', morale, 75);
+    put('injuryWeeks', injuryWeeks, 0);
+    put('injuryType', injuryType?.name, null);
+    put('injuryHistoryCounts', injuryHistoryCounts, null);
+    put('yellowCards', yellowCards, 0);
+    put('suspendedMatches', suspendedMatches, 0);
+    put('careerAppearances', careerAppearances, 0);
+    put('careerGoals', careerGoals, 0);
+    put('individualFocus', individualFocus?.name, null);
+    put('wage', wage, 20);
+    put('personality', personality.name, PlayerPersonality.balanced.name);
+    put('happiness', happiness, 70);
+    put('reassureCooldownWeeks', reassureCooldownWeeks, 0);
+    put('talkCooldownWeeks', talkCooldownWeeks, 0);
+    put('isLoan', isLoan, false);
+    put('loanWeeksRemaining', loanWeeksRemaining, 0);
+    put('loanBuyOptionFee', loanBuyOptionFee, null);
+    put('releaseClause', releaseClause, null);
+    put('internationalDutyWeeksRemaining', internationalDutyWeeksRemaining, 0);
+    put('duty', duty.name, PlayerDuty.support.name);
+    put('squadStatus', squadStatus.name, SquadStatus.regular.name);
+    put('isTransferListed', isTransferListed, false);
+    put('loanedOutWeeksRemaining', loanedOutWeeksRemaining, 0);
+    put('loanedOutToClubName', loanedOutToClubName, null);
+    put('originClubName', originClubName, null);
+    put('appearanceFee', appearanceFee, 0);
+    put('role', role.name, PlayerRole.standard.name);
+    put('positionFamiliarity', positionFamiliarity, null);
+    put('matchSharpness', matchSharpness, 80);
+    put('youthMatchApps', youthMatchApps, 0);
+    put('loanStartOverall', loanStartOverall, 0);
+    put('overallHistory', overallHistory, null);
+    put('youthMatchGoals', youthMatchGoals, 0);
+    put('lastYouthMatchRating', lastYouthMatchRating, 0);
+    put('mentorId', mentorId, null);
+    put('drillAttributeKey', drillAttributeKey, null);
+    put('drillAttributeKey2', drillAttributeKey2, null);
+    put('traitTrainingTarget', traitTrainingTarget?.name, null);
+    put('personalityTraitTrainingTarget', personalityTraitTrainingTarget?.name,
+        null);
+    put('focusRotation', focusRotation?.map((f) => f.name).toList(), null);
+    put('rotationWeekIndex', rotationWeekIndex, 0);
+    put('trainingConvertTargetPosition', trainingConvertTargetPosition, null);
+    put('developmentTargetRole', developmentTargetRole?.name, null);
+    put('trait', trait?.name, null);
+    put('growthType', growthType.name, PlayerGrowthType.balanced.name);
+    return json;
+  }
 
   factory Player.fromJson(Map<String, dynamic> json) {
     final rawAttributes = json['attributes'];

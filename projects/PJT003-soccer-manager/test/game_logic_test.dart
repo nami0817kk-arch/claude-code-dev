@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -10419,5 +10420,226 @@ void main() {
           greaterThanOrEqualTo(BoardEngine.newSeasonConfidenceFloor),
           reason: '新シーズンの猶予(信頼度の下限)が効いていない');
     }
+  });
+
+  test(
+      'omitting default-valued fields from the save does not change what is '
+      'loaded back, for default and heavily customised players (CA6)', () {
+    // 5部×20クラブ=約1800選手を保存するため、選手1人あたりの数百バイトが
+    // セーブ全体では数MBの差になる(実測3.22MB→1.23MB)。既定値の項目を
+    // 書き出さない最適化が、復元結果を1項目でも変えていないことを固定する。
+    void expectRoundTrip(Player p, String label) {
+      final restored = Player.fromJson(
+          jsonDecode(jsonEncode(p.toJson())) as Map<String, dynamic>);
+      expect(restored.id, p.id, reason: '$label: id');
+      expect(restored.name, p.name, reason: '$label: name');
+      expect(restored.age, p.age, reason: '$label: age');
+      expect(restored.position, p.position, reason: '$label: position');
+      expect(restored.secondaryPositions, p.secondaryPositions,
+          reason: '$label: secondaryPositions');
+      expect(restored.potential, p.potential, reason: '$label: potential');
+      expect(restored.overall, p.overall, reason: '$label: overall');
+      for (final k in AttributeKeys.all) {
+        expect(restored.attributeValue(k), p.attributeValue(k),
+            reason: '$label: 能力値$k');
+      }
+      expect(restored.fatigue, p.fatigue, reason: '$label: fatigue');
+      expect(restored.morale, p.morale, reason: '$label: morale');
+      expect(restored.injuryWeeks, p.injuryWeeks, reason: '$label: injury');
+      expect(restored.injuryType, p.injuryType, reason: '$label: injuryType');
+      expect(restored.injuryHistoryCounts, p.injuryHistoryCounts,
+          reason: '$label: injuryHistoryCounts');
+      expect(restored.yellowCards, p.yellowCards, reason: '$label: yellow');
+      expect(restored.suspendedMatches, p.suspendedMatches,
+          reason: '$label: suspended');
+      expect(restored.careerAppearances, p.careerAppearances,
+          reason: '$label: careerApps');
+      expect(restored.careerGoals, p.careerGoals,
+          reason: '$label: careerGoals');
+      expect(restored.individualFocus, p.individualFocus,
+          reason: '$label: individualFocus');
+      expect(restored.wage, p.wage, reason: '$label: wage');
+      expect(restored.contractYearsRemaining, p.contractYearsRemaining,
+          reason: '$label: contractYears');
+      expect(restored.personality, p.personality,
+          reason: '$label: personality');
+      expect(restored.happiness, p.happiness, reason: '$label: happiness');
+      expect(restored.isLoan, p.isLoan, reason: '$label: isLoan');
+      expect(restored.loanWeeksRemaining, p.loanWeeksRemaining,
+          reason: '$label: loanWeeks');
+      expect(restored.loanBuyOptionFee, p.loanBuyOptionFee,
+          reason: '$label: loanBuyOption');
+      expect(restored.releaseClause, p.releaseClause,
+          reason: '$label: releaseClause');
+      expect(restored.duty, p.duty, reason: '$label: duty');
+      expect(restored.squadStatus, p.squadStatus,
+          reason: '$label: squadStatus');
+      expect(restored.isTransferListed, p.isTransferListed,
+          reason: '$label: transferListed');
+      expect(restored.loanedOutWeeksRemaining, p.loanedOutWeeksRemaining,
+          reason: '$label: loanedOut');
+      expect(restored.loanedOutToClubName, p.loanedOutToClubName,
+          reason: '$label: loanedOutTo');
+      expect(restored.originClubName, p.originClubName,
+          reason: '$label: originClub');
+      expect(restored.appearanceFee, p.appearanceFee, reason: '$label: appFee');
+      expect(restored.role, p.role, reason: '$label: role');
+      expect(restored.positionFamiliarity, p.positionFamiliarity,
+          reason: '$label: familiarity');
+      expect(restored.matchSharpness, p.matchSharpness,
+          reason: '$label: sharpness');
+      expect(restored.youthMatchApps, p.youthMatchApps,
+          reason: '$label: youthApps');
+      expect(restored.youthMatchGoals, p.youthMatchGoals,
+          reason: '$label: youthGoals');
+      expect(restored.lastYouthMatchRating, p.lastYouthMatchRating,
+          reason: '$label: youthRating');
+      expect(restored.loanStartOverall, p.loanStartOverall,
+          reason: '$label: loanStartOverall');
+      expect(restored.overallHistory, p.overallHistory,
+          reason: '$label: overallHistory');
+      expect(restored.mentorId, p.mentorId, reason: '$label: mentorId');
+      expect(restored.drillAttributeKey, p.drillAttributeKey,
+          reason: '$label: drill1');
+      expect(restored.drillAttributeKey2, p.drillAttributeKey2,
+          reason: '$label: drill2');
+      expect(restored.traitTrainingTarget, p.traitTrainingTarget,
+          reason: '$label: traitTarget');
+      expect(restored.personalityTraitTrainingTarget,
+          p.personalityTraitTrainingTarget,
+          reason: '$label: personalityTraitTarget');
+      expect(restored.focusRotation, p.focusRotation,
+          reason: '$label: focusRotation');
+      expect(restored.rotationWeekIndex, p.rotationWeekIndex,
+          reason: '$label: rotationIndex');
+      expect(restored.trainingConvertTargetPosition,
+          p.trainingConvertTargetPosition,
+          reason: '$label: convertTarget');
+      expect(restored.developmentTargetRole, p.developmentTargetRole,
+          reason: '$label: devRole');
+      expect(restored.trait, p.trait, reason: '$label: trait');
+      expect(restored.growthType, p.growthType, reason: '$label: growthType');
+    }
+
+    // 既定値だらけの選手(省略が最も効くケース)。
+    final plain = PlayerGenerator.generate(
+        position: Position.dc, strengthTier: 55, ageOverride: 24);
+    expectRoundTrip(plain, '既定値の選手');
+
+    // 契約0年でも「旧セーブ扱いで2年」に化けないこと。
+    plain.contractYearsRemaining = 0;
+    expect(
+      Player.fromJson(
+              jsonDecode(jsonEncode(plain.toJson())) as Map<String, dynamic>)
+          .contractYearsRemaining,
+      0,
+      reason: '契約0年が省略されて2年に化けている',
+    );
+
+    // 全項目を既定値から動かした選手。
+    final custom = PlayerGenerator.generate(
+        position: Position.amc, strengthTier: 70, ageOverride: 26)
+      ..secondaryPositions.add(Position.st)
+      ..fatigue = 44
+      ..morale = 31
+      ..injuryWeeks = 3
+      ..injuryType = InjuryType.ligament
+      ..yellowCards = 4
+      ..suspendedMatches = 1
+      ..careerAppearances = 210
+      ..careerGoals = 61
+      ..individualFocus = TrainingFocus.attack
+      ..wage = 340
+      ..contractYearsRemaining = 4
+      ..happiness = 22
+      ..reassureCooldownWeeks = 2
+      ..talkCooldownWeeks = 1
+      ..isLoan = true
+      ..loanWeeksRemaining = 12
+      ..loanBuyOptionFee = 5200
+      ..releaseClause = 9900
+      ..internationalDutyWeeksRemaining = 2
+      ..duty = PlayerDuty.attack
+      ..squadStatus = SquadStatus.keyPlayer
+      ..isTransferListed = true
+      ..loanedOutWeeksRemaining = 8
+      ..loanedOutToClubName = '武者修行FC'
+      ..originClubName = '育成元FC'
+      ..appearanceFee = 45
+      ..matchSharpness = 37
+      ..youthMatchApps = 9
+      ..youthMatchGoals = 4
+      ..lastYouthMatchRating = 7.5
+      ..loanStartOverall = 58
+      ..rotationWeekIndex = 1
+      ..mentorId = 'mentor-1'
+      ..drillAttributeKey = AttributeKeys.finishing
+      ..drillAttributeKey2 = AttributeKeys.passing
+      ..focusRotation = [TrainingFocus.attack, TrainingFocus.fitness]
+      ..developmentTargetRole = PlayerRole.playmaker;
+    custom.overallHistory.addAll([50, 51, 53]);
+    custom.positionFamiliarity[Position.st.name] = 60;
+    custom.injuryHistoryCounts[InjuryType.muscle.name] = 2;
+    expectRoundTrip(custom, '全項目を変えた選手');
+  });
+
+  test(
+      'saves written in the older verbose format still load identically, and '
+      'unknown enum names fall back instead of throwing (CA6)', () {
+    // 既定値を省略する形式に変えても、すべてのキーが並んだ旧セーブは
+    // これまで通り読めなければならない。
+    final p = PlayerGenerator.generate(
+        position: Position.mc, strengthTier: 60, ageOverride: 25)
+      ..fatigue = 30
+      ..wage = 120;
+    final sparse = p.toJson();
+
+    // 旧形式相当: 既定値の項目も明示的に並べた JSON。
+    final verbose = <String, dynamic>{
+      ...sparse,
+      'morale': p.morale,
+      'injuryWeeks': p.injuryWeeks,
+      'yellowCards': p.yellowCards,
+      'careerAppearances': p.careerAppearances,
+      'careerGoals': p.careerGoals,
+      'happiness': p.happiness,
+      'isLoan': p.isLoan,
+      'isTransferListed': p.isTransferListed,
+      'matchSharpness': p.matchSharpness,
+      'duty': p.duty.name,
+      'role': p.role.name,
+      'squadStatus': p.squadStatus.name,
+      'growthType': p.growthType.name,
+      'personality': p.personality.name,
+      'overallHistory': p.overallHistory,
+      'mentorId': null,
+      'trait': p.trait?.name,
+    };
+    final fromVerbose = Player.fromJson(verbose);
+    final fromSparse = Player.fromJson(sparse);
+    expect(fromVerbose.overall, fromSparse.overall);
+    expect(fromVerbose.morale, fromSparse.morale);
+    expect(fromVerbose.wage, fromSparse.wage);
+    expect(fromVerbose.duty, fromSparse.duty);
+    expect(fromVerbose.growthType, fromSparse.growthType);
+    expect(fromVerbose.matchSharpness, fromSparse.matchSharpness);
+
+    // 未知のenum名は既定値へフォールバックし、例外にはならない。
+    final corrupted = <String, dynamic>{
+      ...sparse,
+      'duty': '__unknown__',
+      'role': '__unknown__',
+      'personality': '__unknown__',
+      'growthType': '__unknown__',
+      'squadStatus': '__unknown__',
+      'injuryType': '__unknown__',
+    };
+    late Player recovered;
+    expect(() => recovered = Player.fromJson(corrupted), returnsNormally);
+    expect(recovered.duty, PlayerDuty.support);
+    expect(recovered.role, PlayerRole.standard);
+    expect(recovered.personality, PlayerPersonality.balanced);
+    expect(recovered.growthType, PlayerGrowthType.balanced);
+    expect(recovered.squadStatus, SquadStatus.regular);
   });
 }
