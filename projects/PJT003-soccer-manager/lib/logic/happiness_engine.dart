@@ -25,8 +25,13 @@ class HappinessEngine {
       if (started) {
         delta += 3;
       } else {
+        // スカッド・ステータス(出場機会の約束)が上の立場ほど、ベンチに
+        // 置かれたときの不満が大きくなる(育成枠はほぼ気にしない)。
         final benchPenalty = p.overall >= 65 ? 4 : 2;
-        delta -= (benchPenalty * personality.benchSensitivity).round();
+        delta -= (benchPenalty *
+                personality.benchSensitivity *
+                p.squadStatus.benchExpectationFactor)
+            .round();
       }
 
       final fairWage = (p.marketValue / 40).round().clamp(5, 999);

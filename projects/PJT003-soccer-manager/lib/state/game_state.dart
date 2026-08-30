@@ -947,6 +947,24 @@ class GameState extends ChangeNotifier {
     _persist();
   }
 
+  /// チームメンタリティ(超守備的〜超攻撃的)を変更する。
+  void setMentality(TeamMentality mentality) {
+    if (_save == null) return;
+    userTeam.mentality = mentality;
+    notifyListeners();
+    _persist();
+  }
+
+  /// 選手のスカッド・ステータス(出場機会の約束)を変更する。
+  void setSquadStatus(String playerId, SquadStatus status) {
+    if (_save == null) return;
+    final idx = userTeam.players.indexWhere((p) => p.id == playerId);
+    if (idx < 0) return;
+    userTeam.players[idx].squadStatus = status;
+    notifyListeners();
+    _persist();
+  }
+
   void setLineHeight(int value) {
     if (_save == null) return;
     userTeam.lineHeight = value.clamp(0, 100);

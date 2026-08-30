@@ -550,6 +550,7 @@ class MatchEngine {
     final avgStamina = _avgAttribute(lineup, AttributeKeys.stamina);
     final result = (total / relevant.length) *
         t.formation.attackBias *
+        t.mentality.attackFactor *
         lineHeightAttackFactor(t.lineHeight) *
         widthAttackFactor(t.width) *
         tempoAttackFactor(t.tempo, avgStamina);
@@ -579,6 +580,7 @@ class MatchEngine {
     final avgWorkRate = _avgAttribute(lineup, AttributeKeys.workRate);
     final result = (total / relevant.length) *
         t.formation.defenseBias *
+        t.mentality.defenseFactor *
         pressingDefenseFactor(t.pressing, avgWorkRate) *
         lineHeightDefenseRiskFactor(t.lineHeight) *
         widthDefenseRiskFactor(t.width);

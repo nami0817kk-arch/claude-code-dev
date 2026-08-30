@@ -261,6 +261,36 @@ class _TacticsTab extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('メンタリティ', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final m in TeamMentality.values)
+                      ChoiceChip(
+                        label: Text(m.label),
+                        selected: team.mentality == m,
+                        onSelected: (_) =>
+                            context.read<GameState>().setMentality(m),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  team.mentality.description,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
               children: [
                 Row(
                   children: [

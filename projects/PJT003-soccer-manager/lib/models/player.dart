@@ -124,6 +124,42 @@ extension PositionLabel on Position {
 /// 選手の戦術上のデューティ(役割の重心)。攻撃/守備の貢献度に補正がかかる。
 enum PlayerDuty { defend, support, attack }
 
+/// スカッド・ステータス(出場機会の約束)。選手にどの立場を約束するかで、
+/// ベンチに置いたときの不満の増え方と、契約交渉で求める週給が変わる。
+enum SquadStatus { keyPlayer, regular, rotation, prospect }
+
+extension SquadStatusInfo on SquadStatus {
+  String get label => switch (this) {
+        SquadStatus.keyPlayer => 'キープレイヤー',
+        SquadStatus.regular => '主力',
+        SquadStatus.rotation => 'ローテーション',
+        SquadStatus.prospect => '育成枠',
+      };
+
+  String get description => switch (this) {
+        SquadStatus.keyPlayer => '毎試合の出場を約束。外すと大きく不満だが、週給要求も高い',
+        SquadStatus.regular => '基本的に出場を想定する標準の立場',
+        SquadStatus.rotation => '出場は状況次第。ベンチでも不満が溜まりにくい',
+        SquadStatus.prospect => '出場より育成優先。不満はほぼ溜まらず週給も控えめ',
+      };
+
+  /// ベンチに置いたときの不満増加に掛かる倍率。
+  double get benchExpectationFactor => switch (this) {
+        SquadStatus.keyPlayer => 1.6,
+        SquadStatus.regular => 1.0,
+        SquadStatus.rotation => 0.5,
+        SquadStatus.prospect => 0.2,
+      };
+
+  /// 契約交渉で求める週給に掛かる倍率(立場が上なほど高い)。
+  double get wageFactor => switch (this) {
+        SquadStatus.keyPlayer => 1.15,
+        SquadStatus.regular => 1.0,
+        SquadStatus.rotation => 0.92,
+        SquadStatus.prospect => 0.85,
+      };
+}
+
 extension PlayerDutyInfo on PlayerDuty {
   String get label => switch (this) {
         PlayerDuty.defend => '守備的',
@@ -948,6 +984,9 @@ class Player {
   /// 戦術上のデューティ(守備的/バランス/攻撃的)。試合エンジンの攻守貢献度に補正がかかる。
   PlayerDuty duty;
 
+  /// スカッド・ステータス(出場機会の約束)。旧セーブは「主力」扱い。
+  SquadStatus squadStatus;
+
   /// 移籍リストに登録されているか。登録中は他クラブからのオファーが来やすくなる。
   bool isTransferListed;
 
@@ -1086,6 +1125,7 @@ class Player {
     this.releaseClause,
     this.internationalDutyWeeksRemaining = 0,
     this.duty = PlayerDuty.support,
+    this.squadStatus = SquadStatus.regular,
     this.isTransferListed = false,
     this.loanedOutWeeksRemaining = 0,
     this.loanedOutToClubName,
@@ -1297,6 +1337,7 @@ class Player {
         'releaseClause': releaseClause,
         'internationalDutyWeeksRemaining': internationalDutyWeeksRemaining,
         'duty': duty.name,
+        'squadStatus': squadStatus.name,
         'isTransferListed': isTransferListed,
         'loanedOutWeeksRemaining': loanedOutWeeksRemaining,
         'loanedOutToClubName': loanedOutToClubName,
@@ -1394,6 +1435,11 @@ class Player {
         PlayerDuty.values,
         json['duty'] as String?,
         PlayerDuty.support,
+      ),
+      squadStatus: enumFromName(
+        SquadStatus.values,
+        json['squadStatus'] as String?,
+        SquadStatus.regular,
       ),
       isTransferListed: json['isTransferListed'] as bool? ?? false,
       loanedOutWeeksRemaining: json['loanedOutWeeksRemaining'] as int? ?? 0,

@@ -13,6 +13,7 @@ import '../services/feedback_service.dart';
 import '../state/game_state.dart';
 import '../theme/semantic_colors.dart';
 import 'glossary_screen.dart';
+import '../widgets/attribute_radar.dart';
 import '../widgets/player_face_avatar.dart';
 import '../widgets/stat_bar.dart';
 
@@ -388,6 +389,8 @@ class PlayerDetailScreen extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 12),
+          Center(child: AttributeRadar(player: p)),
+          const SizedBox(height: 12),
           _MatchImpactSummary(
             player: p,
             isStarting: isStarting,
@@ -396,6 +399,34 @@ class PlayerDetailScreen extends StatelessWidget {
           const SizedBox(height: 16),
           Text('選手を操作', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
+          // スカッド・ステータス(出場機会の約束)。自クラブ所属の選手のみ
+          // 設定でき、ベンチ時の不満の増え方と契約の要求週給に影響する。
+          if (gameState.userTeam.players.any((tp) => tp.id == p.id)) ...[
+            Text(
+              'スカッド・ステータス(出場機会の約束)',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final s in SquadStatus.values)
+                  ChoiceChip(
+                    label: Text(s.label),
+                    selected: p.squadStatus == s,
+                    onSelected: (_) =>
+                        context.read<GameState>().setSquadStatus(p.id, s),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              p.squadStatus.description,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (p.isLoan)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),

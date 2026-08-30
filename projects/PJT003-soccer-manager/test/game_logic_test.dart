@@ -9274,4 +9274,77 @@ void main() {
     expect(assists.map((e) => e.playerId).toSet(), {'p2', 'p4'});
     expect(assists.firstWhere((e) => e.playerId == 'p2').name, '司令塔');
   });
+
+  test(
+      'TeamMentality shifts match openness: two very-attacking sides produce '
+      'clearly more total goals than two very-defensive sides', () {
+    double avgGoals(TeamMentality mentality) {
+      var total = 0;
+      const trials = 300;
+      for (int i = 0; i < trials; i++) {
+        final home = PlayerGenerator.generateSquad(
+            id: 'home', name: 'Home', strengthTier: 60);
+        final away = PlayerGenerator.generateSquad(
+            id: 'away', name: 'Away', strengthTier: 60);
+        home.mentality = mentality;
+        away.mentality = mentality;
+        final r = MatchEngine.simulate(
+          home: home,
+          away: away,
+          matchday: 1,
+          weather: Weather.clear,
+        );
+        total += r.homeGoals + r.awayGoals;
+      }
+      return total / trials;
+    }
+
+    final attacking = avgGoals(TeamMentality.veryAttacking);
+    final defensive = avgGoals(TeamMentality.veryDefensive);
+    expect(attacking - defensive, greaterThan(0.4),
+        reason: '超攻撃的な対戦は超守備的な対戦より明確にゴールが多くなる'
+            '(実測$attacking vs $defensive)');
+  });
+
+  test(
+      'SquadStatus scales bench unhappiness and contract wage demands, and '
+      'round-trips through JSON with a regular fallback for older saves', () {
+    // 同一選手のクローンを2体作り、スカッド・ステータスだけを変える
+    // (性格・総合力などの個体差を比較から排除するため)。
+    final base = PlayerGenerator.generate(
+        position: Position.st, strengthTier: 70, ageOverride: 26);
+    base.happiness = 60;
+    base.wage = 30;
+    final key = Player.fromJson(base.toJson())
+      ..squadStatus = SquadStatus.keyPlayer;
+    final prospect = Player.fromJson(base.toJson())
+      ..squadStatus = SquadStatus.prospect;
+
+    final team = Team(id: 't', name: 'T', players: [key, prospect]);
+    // スタメンを空にして両者ともベンチ扱いにする。
+    team.startingXI.clear();
+    HappinessEngine.applyWeekly(team, leagueRank: 5, boardTargetRank: 5);
+    expect(key.happiness, lessThan(prospect.happiness),
+        reason: 'キープレイヤーはベンチに置かれると育成枠より大きく不満を溜める');
+
+    expect(
+      ContractEngine.minimumAcceptableWage(key),
+      greaterThan(ContractEngine.minimumAcceptableWage(prospect)),
+      reason: 'キープレイヤー扱いの選手ほど高い週給を求める',
+    );
+
+    final restored = Player.fromJson(key.toJson());
+    expect(restored.squadStatus, SquadStatus.keyPlayer);
+    final legacyJson = key.toJson()..remove('squadStatus');
+    expect(Player.fromJson(legacyJson).squadStatus, SquadStatus.regular,
+        reason: '旧セーブは主力扱いにフォールバック');
+
+    final mentalTeam = Team(id: 'm', name: 'M', players: []);
+    mentalTeam.mentality = TeamMentality.veryAttacking;
+    expect(Team.fromJson(mentalTeam.toJson()).mentality,
+        TeamMentality.veryAttacking);
+    final legacyTeam = mentalTeam.toJson()..remove('mentality');
+    expect(Team.fromJson(legacyTeam).mentality, TeamMentality.balanced,
+        reason: 'メンタリティキーのない旧セーブはバランス扱い');
+  });
 }

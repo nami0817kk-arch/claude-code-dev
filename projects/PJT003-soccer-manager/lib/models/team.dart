@@ -7,6 +7,51 @@ import 'training_focus.dart';
 /// 保存できる戦術プリセットの上限数。
 const int maxTacticPresets = 5;
 
+/// チーム全体の姿勢(メンタリティ)。攻撃的なほどチャンスは増えるが
+/// 守備のリスクも増え、守備的なほどその逆になる(合計の期待値は概ね
+/// 中立で、相手・状況に応じた使い分けに意味を持たせる)。
+enum TeamMentality {
+  veryDefensive,
+  defensive,
+  balanced,
+  attacking,
+  veryAttacking
+}
+
+extension TeamMentalityInfo on TeamMentality {
+  String get label => switch (this) {
+        TeamMentality.veryDefensive => '超守備的',
+        TeamMentality.defensive => '守備的',
+        TeamMentality.balanced => 'バランス',
+        TeamMentality.attacking => '攻撃的',
+        TeamMentality.veryAttacking => '超攻撃的',
+      };
+
+  String get description => switch (this) {
+        TeamMentality.veryDefensive => '守備を最優先。攻撃力-12% / 守備力+10%',
+        TeamMentality.defensive => 'やや守備寄り。攻撃力-6% / 守備力+5%',
+        TeamMentality.balanced => '攻守のバランスを取る標準の姿勢',
+        TeamMentality.attacking => 'やや攻撃寄り。攻撃力+6% / 守備力-5%',
+        TeamMentality.veryAttacking => '攻撃に全振り。攻撃力+12% / 守備力-10%',
+      };
+
+  double get attackFactor => switch (this) {
+        TeamMentality.veryDefensive => 0.88,
+        TeamMentality.defensive => 0.94,
+        TeamMentality.balanced => 1.0,
+        TeamMentality.attacking => 1.06,
+        TeamMentality.veryAttacking => 1.12,
+      };
+
+  double get defenseFactor => switch (this) {
+        TeamMentality.veryDefensive => 1.10,
+        TeamMentality.defensive => 1.05,
+        TeamMentality.balanced => 1.0,
+        TeamMentality.attacking => 0.95,
+        TeamMentality.veryAttacking => 0.90,
+      };
+}
+
 class Team {
   final String id;
   String name;
@@ -36,6 +81,9 @@ class Team {
 
   /// 守備ラインの高さ（0-100）。高いほど攻撃的だが裏を突かれやすい。
   int lineHeight;
+
+  /// チーム全体の姿勢(メンタリティ)。旧セーブはバランス扱い。
+  TeamMentality mentality;
 
   /// 攻撃の幅（0-100）。高いほどサイドを広く使い攻撃力が上がるが、中央の守備が薄くなる。
   int width;
@@ -93,6 +141,7 @@ class Team {
     this.autoTrainingEnabled = false,
     this.pressing = 50,
     this.lineHeight = 50,
+    this.mentality = TeamMentality.balanced,
     this.width = 50,
     this.tempo = 50,
     this.captainId,
@@ -150,6 +199,7 @@ class Team {
         'autoTrainingEnabled': autoTrainingEnabled,
         'pressing': pressing,
         'lineHeight': lineHeight,
+        'mentality': mentality.name,
         'width': width,
         'tempo': tempo,
         'captainId': captainId,
@@ -188,6 +238,11 @@ class Team {
         autoTrainingEnabled: json['autoTrainingEnabled'] as bool? ?? false,
         pressing: json['pressing'] as int? ?? 50,
         lineHeight: json['lineHeight'] as int? ?? 50,
+        mentality: enumFromName(
+          TeamMentality.values,
+          json['mentality'] as String?,
+          TeamMentality.balanced,
+        ),
         width: json['width'] as int? ?? 50,
         tempo: json['tempo'] as int? ?? 50,
         captainId: json['captainId'] as String?,

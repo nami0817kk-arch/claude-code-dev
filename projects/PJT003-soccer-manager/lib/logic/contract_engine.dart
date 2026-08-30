@@ -104,8 +104,12 @@ class ContractEngine {
 
   /// 契約交渉で選手が受け入れる最低週俸(万円)。要求水準が高い性格ほど、
   /// より大きな昇給を求める。
-  static int minimumAcceptableWage(Player p) =>
-      (p.wage * (1.05 + p.personality.wageSensitivity * 0.15)).round();
+  /// スカッド・ステータス(出場機会の約束)が上の立場ほど、その立場に
+  /// 見合った週給を求める(キープレイヤー扱いなら高く、育成枠なら控えめ)。
+  static int minimumAcceptableWage(Player p) => (p.wage *
+          (1.05 + p.personality.wageSensitivity * 0.15) *
+          p.squadStatus.wageFactor)
+      .round();
 
   /// 交渉開始時に選手側がまず提示する要求額(万円)。本当の最低希望額を
   /// 開始直後にそのまま見せてしまうと駆け引きが成立しなくなるため、
