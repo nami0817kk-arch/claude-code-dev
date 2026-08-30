@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../logic/contract_engine.dart';
 import '../models/player.dart';
+import '../models/player_season_stats.dart';
 import '../models/team.dart';
 import '../services/feedback_service.dart';
 import '../state/game_state.dart';
@@ -14,7 +15,18 @@ import 'glossary_screen.dart';
 import 'player_compare_screen.dart';
 import 'player_detail_screen.dart';
 
-enum SquadSortOption { position, overall, age, potential, wage }
+enum SquadSortOption {
+  position,
+  overall,
+  age,
+  potential,
+  wage,
+  fatigue,
+  sharpness,
+  happiness,
+  contract,
+  marketValue,
+}
 
 extension on SquadSortOption {
   String get label => switch (this) {
@@ -23,22 +35,69 @@ extension on SquadSortOption {
         SquadSortOption.age => '年齢(若い順)',
         SquadSortOption.potential => 'ポテンシャル',
         SquadSortOption.wage => '週俸',
+        SquadSortOption.fatigue => '疲労が大きい順',
+        SquadSortOption.sharpness => '実戦感覚が低い順',
+        SquadSortOption.happiness => '不満が大きい順',
+        SquadSortOption.contract => '契約残りが短い順',
+        SquadSortOption.marketValue => '市場価値',
+      };
+}
+
+/// スカッドの状況で絞り込むフィルタ。
+enum SquadStatusFilter { all, starters, bench, needsAttention }
+
+extension SquadStatusFilterInfo on SquadStatusFilter {
+  String get label => switch (this) {
+        SquadStatusFilter.all => 'すべて',
+        SquadStatusFilter.starters => 'スタメン',
+        SquadStatusFilter.bench => '控え',
+        SquadStatusFilter.needsAttention => '要対応',
       };
 }
 
 class SquadScreen extends StatefulWidget {
   const SquadScreen({super.key});
 
+  /// 「要対応」フィルタが拾う状態かどうか。負傷・出場停止・移籍希望のほか、
+  /// 疲労過多・実戦感覚の低下(成長ペナルティ圏)・契約最終年(ローンを除く)
+  /// といった「放置するとまずい」状態を横断的に検知する。
+  static bool needsAttention(Player p) =>
+      p.isInjured ||
+      p.isSuspended ||
+      p.wantsTransfer ||
+      p.fatigue >= 75 ||
+      (!p.isLoanedOut && p.matchSharpness < 40) ||
+      (!p.isLoan && p.contractYearsRemaining <= 1);
+
   /// フィルタ・検索・並び替えを適用した選手リストを返す。UIから切り離してテスト可能にしてある。
+  /// [status]でスタメン/控え/要対応を絞り込む場合は[startingIds]
+  /// (現在の先発ID)を渡す。
   static List<Player> filterAndSort(
     List<Player> all, {
     PositionGroup? group,
     String query = '',
     SquadSortOption sort = SquadSortOption.position,
+    SquadStatusFilter status = SquadStatusFilter.all,
+    Set<String> startingIds = const {},
   }) {
     var players = all;
     if (group != null) {
       players = players.where((p) => p.position.group == group).toList();
+    }
+    switch (status) {
+      case SquadStatusFilter.all:
+        break;
+      case SquadStatusFilter.starters:
+        players = players.where((p) => startingIds.contains(p.id)).toList();
+        break;
+      case SquadStatusFilter.bench:
+        players = players
+            .where((p) => !startingIds.contains(p.id) && !p.isLoanedOut)
+            .toList();
+        break;
+      case SquadStatusFilter.needsAttention:
+        players = players.where(needsAttention).toList();
+        break;
     }
     if (query.isNotEmpty) {
       final q = query.toLowerCase();
@@ -66,6 +125,23 @@ class SquadScreen extends StatefulWidget {
       case SquadSortOption.wage:
         players.sort((a, b) => b.wage.compareTo(a.wage));
         break;
+      case SquadSortOption.fatigue:
+        players.sort((a, b) => b.fatigue.compareTo(a.fatigue));
+        break;
+      case SquadSortOption.sharpness:
+        players.sort((a, b) => a.matchSharpness.compareTo(b.matchSharpness));
+        break;
+      case SquadSortOption.happiness:
+        players.sort((a, b) => a.happiness.compareTo(b.happiness));
+        break;
+      case SquadSortOption.contract:
+        // ローン加入選手には自クラブとの契約年数の概念がないため末尾に回す。
+        int key(Player p) => p.isLoan ? 999 : p.contractYearsRemaining;
+        players.sort((a, b) => key(a).compareTo(key(b)));
+        break;
+      case SquadSortOption.marketValue:
+        players.sort((a, b) => b.marketValue.compareTo(a.marketValue));
+        break;
     }
     return players;
   }
@@ -79,6 +155,7 @@ class _SquadScreenState extends State<SquadScreen> {
   final List<String> _selected = [];
   PositionGroup? _filterGroup;
   SquadSortOption _sort = SquadSortOption.position;
+  SquadStatusFilter _statusFilter = SquadStatusFilter.all;
   final _searchController = TextEditingController();
   String _query = '';
 
@@ -151,7 +228,8 @@ class _SquadScreenState extends State<SquadScreen> {
                           },
                     child: Text(
                       '契約更新する（基本$renewalCost万円 + サインボーナス$signingBonus万円 / '
-                      '+40週 / 新出場手当$newAppearanceFee万円）',
+                      '新契約${ContractEngine.negotiatedYears(p)}年 / '
+                      '新出場手当$newAppearanceFee万円）',
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -223,9 +301,19 @@ class _SquadScreenState extends State<SquadScreen> {
               label: '移籍リストに登録中',
             ),
             _LegendRow(
-              icon: Icons.battery_alert,
-              color: Colors.orange,
-              label: '疲労が大きい',
+              icon: Icons.trending_up,
+              color: Colors.green,
+              label: '総合値の下の▲/▼ = 直近5節の総合力の変化(成長トレンド)',
+            ),
+            _LegendRow(
+              icon: Icons.monitor_heart_outlined,
+              color: Colors.grey,
+              label: '2行目の疲労/感覚/士気は、問題のある値だけ赤く強調される',
+            ),
+            _LegendRow(
+              icon: Icons.workspace_premium,
+              color: Colors.teal,
+              label: '名前の横のKP/ROT/育成 = スカッド・ステータス(主力は非表示)',
             ),
           ],
         ),
@@ -248,6 +336,8 @@ class _SquadScreenState extends State<SquadScreen> {
       group: _filterGroup,
       query: _query,
       sort: _sort,
+      status: _statusFilter,
+      startingIds: team.startingXI.toSet(),
     );
     final lastRatings = gameState.save!.league
         .lastPlayedFixtureFor(team.id)
@@ -317,6 +407,31 @@ class _SquadScreenState extends State<SquadScreen> {
               child: PositionFilterBar(
                 value: _filterGroup,
                 onChanged: (g) => setState(() => _filterGroup = g),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    for (final f in SquadStatusFilter.values)
+                      ChoiceChip(
+                        label: Text(
+                          f == SquadStatusFilter.needsAttention
+                              ? '${f.label} '
+                                  '${team.players.where(SquadScreen.needsAttention).length}'
+                              : f.label,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        selected: _statusFilter == f,
+                        onSelected: (_) => setState(() => _statusFilter = f),
+                      ),
+                  ],
+                ),
               ),
             ),
             Padding(
@@ -425,6 +540,31 @@ class _SquadScreenState extends State<SquadScreen> {
                                     ),
                                   ),
                                 ],
+                                if (p.squadStatus != SquadStatus.regular) ...[
+                                  const SizedBox(width: 6),
+                                  Tooltip(
+                                    message:
+                                        'スカッド・ステータス: ${p.squadStatus.label}',
+                                    child: Text(
+                                      switch (p.squadStatus) {
+                                        SquadStatus.keyPlayer => 'KP',
+                                        SquadStatus.rotation => 'ROT',
+                                        SquadStatus.prospect => '育成',
+                                        SquadStatus.regular => '',
+                                      },
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: switch (p.squadStatus) {
+                                          SquadStatus.keyPlayer =>
+                                            Colors.amber.shade800,
+                                          SquadStatus.rotation => Colors.teal,
+                                          _ => Colors.grey,
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ],
                                 if (p.isLoan) ...[
                                   const SizedBox(width: 6),
                                   const Tooltip(
@@ -493,24 +633,42 @@ class _SquadScreenState extends State<SquadScreen> {
                                 ],
                               ],
                             ),
-                            subtitle: Text(
-                              p.isInjured
-                                  ? '負傷中（あと${p.injuryWeeks}週）'
-                                  : p.isSuspended
-                                      ? '出場停止（あと${p.suspendedMatches}試合）'
-                                      : p.isOnInternationalDuty
-                                          ? '代表召集中（あと${p.internationalDutyWeeksRemaining}週）'
-                                          : p.isLoanedOut
-                                              ? '${p.loanedOutToClubName}へローン放出中（あと${p.loanedOutWeeksRemaining}週）'
-                                              : '${p.age}歳 / ${p.position.label} / 総合 ${p.overall}'
-                                                  '${lastRatings?[p.id] != null ? ' / 前節 ${lastRatings![p.id]!.toStringAsFixed(1)}' : ''}'
-                                                  '${p.isLoan ? '' : ' / ${ContractEngine.yearsLabel(p.contractYearsRemaining)}'}',
-                              style: (p.isInjured ||
-                                      p.isSuspended ||
-                                      p.isOnInternationalDuty ||
-                                      p.isLoanedOut)
-                                  ? const TextStyle(color: Colors.redAccent)
-                                  : null,
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  p.isInjured
+                                      ? '負傷中（あと${p.injuryWeeks}週）'
+                                      : p.isSuspended
+                                          ? '出場停止（あと${p.suspendedMatches}試合）'
+                                          : p.isOnInternationalDuty
+                                              ? '代表召集中（あと${p.internationalDutyWeeksRemaining}週）'
+                                              : p.isLoanedOut
+                                                  ? '${p.loanedOutToClubName}へローン放出中（あと${p.loanedOutWeeksRemaining}週）'
+                                                  : '${p.age}歳 / ${p.position.label} / 総合 ${p.overall}'
+                                                      '${lastRatings?[p.id] != null ? ' / 前節 ${lastRatings![p.id]!.toStringAsFixed(1)}' : ''}'
+                                                      '${p.isLoan ? '' : ' / ${ContractEngine.yearsLabel(p.contractYearsRemaining)}'}',
+                                  style: (p.isInjured ||
+                                          p.isSuspended ||
+                                          p.isOnInternationalDuty ||
+                                          p.isLoanedOut)
+                                      ? const TextStyle(color: Colors.redAccent)
+                                      : (!p.isLoan &&
+                                              p.contractYearsRemaining <= 1)
+                                          ? const TextStyle(
+                                              color: Colors.orange)
+                                          : null,
+                                ),
+                                if (!_compareMode &&
+                                    !p.isInjured &&
+                                    !p.isSuspended &&
+                                    !p.isOnInternationalDuty &&
+                                    !p.isLoanedOut)
+                                  _ConditionLine(
+                                    player: p,
+                                    stats: gameState.seasonStatsFor(p.id),
+                                  ),
+                              ],
                             ),
                             trailing: _compareMode
                                 ? Text(
@@ -521,17 +679,47 @@ class _SquadScreenState extends State<SquadScreen> {
                                 : Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      p.fatigue > 70
-                                          ? const Icon(
-                                              Icons.battery_alert,
-                                              color: Colors.orange,
-                                            )
-                                          : Text(
-                                              '${p.overall}',
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleMedium,
-                                            ),
+                                      Builder(
+                                        builder: (context) {
+                                          // 成長トレンド: 直近5節前と比べた
+                                          // 総合力の変化(記録が浅ければ先頭と比較)。
+                                          final h = p.overallHistory;
+                                          final trend = h.length >= 2
+                                              ? h.last -
+                                                  h[h.length >= 6
+                                                      ? h.length - 6
+                                                      : 0]
+                                              : 0;
+                                          return Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                '${p.overall}',
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .titleMedium,
+                                              ),
+                                              if (trend != 0)
+                                                Tooltip(
+                                                  message: '直近5節の総合力の変化',
+                                                  child: Text(
+                                                    trend > 0
+                                                        ? '▲$trend'
+                                                        : '▼${-trend}',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: trend > 0
+                                                          ? Colors.green
+                                                          : Colors.redAccent,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          );
+                                        },
+                                      ),
                                       if (!p.isLoan && !p.isLoanedOut) ...[
                                         const SizedBox(width: 4),
                                         IconButton(
@@ -582,6 +770,8 @@ class _SquadSummaryCard extends StatelessWidget {
         ? 0
         : (players.fold<int>(0, (s, p) => s + p.age) / count).round();
     final wageBill = ContractEngine.weeklyWageBill(team);
+    final injured = players.where((p) => p.isInjured).length;
+    final attention = players.where(SquadScreen.needsAttention).length;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
@@ -595,7 +785,17 @@ class _SquadSummaryCard extends StatelessWidget {
               _SummaryItem(label: '人数', value: '$count'),
               _SummaryItem(label: '平均総合', value: '$avgOverall'),
               _SummaryItem(label: '平均年齢', value: '$avgAge歳'),
-              _SummaryItem(label: '週俸総額', value: '$wageBill万円'),
+              _SummaryItem(label: '週俸', value: '$wageBill万'),
+              _SummaryItem(
+                label: '負傷',
+                value: '$injured',
+                valueColor: injured > 0 ? Colors.redAccent : null,
+              ),
+              _SummaryItem(
+                label: '要対応',
+                value: '$attention',
+                valueColor: attention > 0 ? Colors.orange : null,
+              ),
             ],
           ),
         ),
@@ -607,15 +807,66 @@ class _SquadSummaryCard extends StatelessWidget {
 class _SummaryItem extends StatelessWidget {
   final String label;
   final String value;
+  final Color? valueColor;
 
-  const _SummaryItem({required this.label, required this.value});
+  const _SummaryItem({
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          value,
+          style: Theme.of(context)
+              .textTheme
+              .titleMedium
+              ?.copyWith(color: valueColor),
+        ),
         Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+      ],
+    );
+  }
+}
+
+/// 出場可能な選手のコンディションと今季成績を1行にまとめたサブ表示。
+/// 問題のある値(疲労過多・実戦感覚低下・不満)だけを色で強調する。
+class _ConditionLine extends StatelessWidget {
+  final Player player;
+  final PlayerSeasonStats stats;
+
+  const _ConditionLine({required this.player, required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget cond(String label, int value, bool bad) => Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Text(
+            '$label$value',
+            style: TextStyle(
+              fontSize: 11,
+              color: bad ? Colors.redAccent : Colors.grey,
+              fontWeight: bad ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        );
+
+    return Row(
+      children: [
+        cond('疲労', player.fatigue, player.fatigue >= 75),
+        cond('感覚', player.matchSharpness, player.matchSharpness < 40),
+        cond('士気', player.happiness, player.happiness < 40),
+        Flexible(
+          child: Text(
+            '今季${stats.appearances}試合${stats.goals}点'
+            '${stats.averageRating != null ? '・評点${stats.averageRating!.toStringAsFixed(1)}' : ''}',
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+        ),
       ],
     );
   }

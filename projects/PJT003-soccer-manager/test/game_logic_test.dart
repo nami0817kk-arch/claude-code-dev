@@ -9887,4 +9887,91 @@ void main() {
           greaterThanOrEqualTo(advices[i - 1].kind.index));
     }
   });
+
+  test(
+      'SquadScreen.filterAndSort supports the condition sorts and the '
+      'starters/bench/needs-attention status filters', () {
+    Player make() =>
+        PlayerGenerator.generate(position: Position.mc, strengthTier: 55);
+    final a = make()
+      ..fatigue = 90
+      ..matchSharpness = 80
+      ..happiness = 80
+      ..contractYearsRemaining = 3;
+    final b = make()
+      ..fatigue = 10
+      ..matchSharpness = 20
+      ..happiness = 90
+      ..contractYearsRemaining = 2;
+    final c = make()
+      ..fatigue = 50
+      ..matchSharpness = 60
+      ..happiness = 55
+      ..contractYearsRemaining = 1;
+    final d = make()
+      ..fatigue = 30
+      ..matchSharpness = 90
+      ..happiness = 70
+      ..isLoan = true
+      ..loanWeeksRemaining = 10
+      ..contractYearsRemaining = 0;
+    final e = make()
+      ..fatigue = 20
+      ..matchSharpness = 85
+      ..happiness = 75
+      ..contractYearsRemaining = 2
+      ..loanedOutWeeksRemaining = 5;
+    final all = [a, b, c, d, e];
+
+    expect(
+        SquadScreen.filterAndSort(all, sort: SquadSortOption.fatigue).first.id,
+        a.id,
+        reason: '疲労が最も大きい選手が先頭に来る');
+    expect(
+        SquadScreen.filterAndSort(all, sort: SquadSortOption.sharpness)
+            .first
+            .id,
+        b.id,
+        reason: '実戦感覚が最も低い選手が先頭に来る');
+    expect(
+        SquadScreen.filterAndSort(all, sort: SquadSortOption.happiness)
+            .first
+            .id,
+        c.id,
+        reason: '不満が最も大きい(happinessが低い)選手が先頭に来る');
+    final byContract =
+        SquadScreen.filterAndSort(all, sort: SquadSortOption.contract);
+    expect(byContract.first.id, c.id, reason: '契約残りが短い順(ローン加入選手は末尾)');
+    expect(byContract.last.id, d.id, reason: 'ローン加入選手には契約年数の概念がないため末尾に回る');
+    final byValue =
+        SquadScreen.filterAndSort(all, sort: SquadSortOption.marketValue);
+    for (var i = 1; i < byValue.length; i++) {
+      expect(byValue[i].marketValue,
+          lessThanOrEqualTo(byValue[i - 1].marketValue));
+    }
+
+    final startingIds = {a.id};
+    expect(
+        SquadScreen.filterAndSort(all,
+                status: SquadStatusFilter.starters, startingIds: startingIds)
+            .map((p) => p.id),
+        [a.id]);
+    final bench = SquadScreen.filterAndSort(all,
+            status: SquadStatusFilter.bench, startingIds: startingIds)
+        .map((p) => p.id)
+        .toSet();
+    expect(bench.contains(a.id), isFalse, reason: 'スタメンは控えに含まれない');
+    expect(bench.contains(e.id), isFalse, reason: 'ローン放出中は控えに含まれない');
+    expect(bench.containsAll({b.id, c.id, d.id}), isTrue);
+
+    final attention = SquadScreen.filterAndSort(all,
+            status: SquadStatusFilter.needsAttention, startingIds: startingIds)
+        .map((p) => p.id)
+        .toSet();
+    expect(attention.contains(a.id), isTrue, reason: '疲労75以上は要対応');
+    expect(attention.contains(b.id), isTrue, reason: '実戦感覚40未満は要対応');
+    expect(attention.contains(c.id), isTrue, reason: '契約残り1年以下は要対応');
+    expect(attention.contains(d.id), isFalse,
+        reason: 'ローン加入選手の契約年数は要対応の対象外(状態も健全)');
+  });
 }
