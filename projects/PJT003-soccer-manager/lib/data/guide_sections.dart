@@ -39,7 +39,8 @@ List<GuideTopic> _personalityTopics() => [
 
 /// 選手のプレースタイル(ロール)を説明するトピック一覧。standard(標準)は
 /// 「特定のロールを指定しない」という意味しか持たないため、ガイドでは
-/// 個性のある残り20種類のみを紹介する。
+/// 個性のある残りの全種類のみを紹介する(一覧は実際のenumから生成する
+/// ため、ロールが増減してもこのガイドは自動的に追随する)。
 List<GuideTopic> _roleTopics() => [
       for (final r in PlayerRole.values)
         if (r != PlayerRole.standard)

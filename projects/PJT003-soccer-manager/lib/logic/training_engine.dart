@@ -489,8 +489,22 @@ class TrainingEngine {
 
   /// フォーカス・ポジションに応じて、ブレイクスルーで伸ばす能力値の候補群を
   /// 返す。実際に取り組んでいる練習内容と無関係な能力が伸びると不自然な
-  /// ため、通常成長([_applyToPlayer]の各focus分岐)と同じ属性群を使う。
-  static List<String> _breakthroughPoolFor(Player p, TrainingFocus focus) {
+  /// ため、通常成長([_applyToPlayer]の各focus分岐)と同じ属性群をベースに、
+  /// その選手が個別に取り組んでいる特訓ドリルと育成プラン(目標ロール)の
+  /// 重視能力値も候補へ加える(狙って鍛えている能力こそ開花してほしい、
+  /// という育成の手応えに直結するため)。
+  static List<String> breakthroughPoolFor(Player p, TrainingFocus focus) {
+    final base = _breakthroughBasePoolFor(p, focus);
+    final extras = <String>{
+      if (p.drillAttributeKey != null) p.drillAttributeKey!,
+      if (p.drillAttributeKey2 != null) p.drillAttributeKey2!,
+      ...?p.developmentTargetRole?.keyAttributes,
+    };
+    if (extras.isEmpty) return base;
+    return {...base, ...extras}.toList();
+  }
+
+  static List<String> _breakthroughBasePoolFor(Player p, TrainingFocus focus) {
     if (p.position.group == PositionGroup.gk) {
       return AttributeKeys.goalkeeping;
     }
@@ -550,7 +564,7 @@ class TrainingEngine {
     chance *= 0.7 + p.attributeValue(AttributeKeys.determination) / 165;
     if (_rng.nextDouble() >= chance) return;
 
-    final pool = _breakthroughPoolFor(p, focus);
+    final pool = breakthroughPoolFor(p, focus);
     final shuffled = [...pool]..shuffle(_rng);
     final count = min(2 + _rng.nextInt(3), shuffled.length);
     for (var i = 0; i < count; i++) {
@@ -639,6 +653,12 @@ class TrainingEngine {
     PlayerTrait.fearlessDefender: AttributeKeys.bravery,
     PlayerTrait.divineReflexes: AttributeKeys.reflexes,
   };
+
+  /// [trait]の適性判定に使う対応能力値キー(能力値ベースの特性のみ、
+  /// なければnull)。生成時の「その選手にあり得ない特性」の除外判定
+  /// (PlayerGenerator)からも参照する。
+  static String? traitAttributeKeyOf(PlayerTrait trait) =>
+      _traitAttributeKeys[trait];
 
   /// 選手が[trait]の特訓にどれだけ向いているかを表す倍率(特訓成功率に乗算)。
   /// 対応する能力値・年齢が特性の発動条件に近い選手ほど高くなる

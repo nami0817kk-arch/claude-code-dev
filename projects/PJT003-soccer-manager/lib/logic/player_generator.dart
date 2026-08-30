@@ -4,6 +4,7 @@ import '../models/attributes.dart';
 import '../models/player.dart';
 import '../models/team.dart';
 import '../data/name_pool.dart';
+import 'training_engine.dart';
 
 class PlayerGenerator {
   static final Random _rng = Random();
@@ -323,26 +324,113 @@ class PlayerGenerator {
       potential: potential,
       fatigue: _rng.nextInt(15),
       morale: 65 + _rng.nextInt(25),
-      personality: PlayerPersonality
-          .values[_rng.nextInt(PlayerPersonality.values.length)],
+      personality: _pickPersonality(),
       happiness: 55 + _rng.nextInt(30),
     );
     player.wage = (player.marketValue / 40).round().clamp(5, 500);
     player.contractYearsRemaining = 1 + _rng.nextInt(4);
     player.role = _pickRole(player);
     player.duty = _pickDuty(player);
-    player.trait = _pickTrait();
+    player.trait = _pickTraitFor(player);
     player.growthType = _pickGrowthType();
     return player;
   }
 
-  /// 選手特性(PlayerTrait、50種類)のいずれかを一定確率で割り当てる。
+  /// 性格の出現重み。かつては全20種類から一様に抽選していたため、
+  /// 「模範選手」や「クラブの伝説肌」のような極端に恵まれた/珍しい気質が
+  /// ごく普通の気質と同じ頻度で現れていた。中庸な性格を厚く、効果の
+  /// 極端な性格(良くも悪くも)を薄くすることで、珍しい性格の選手に
+  /// 出会えたときの特別感を生む。
+  static const Map<PlayerPersonality, int> _personalityWeights = {
+    PlayerPersonality.balanced: 3,
+    PlayerPersonality.fairlyProfessional: 3,
+    PlayerPersonality.spirited: 3,
+    PlayerPersonality.resolute: 3,
+    PlayerPersonality.professional: 2,
+    PlayerPersonality.loyal: 2,
+    PlayerPersonality.ambitious: 2,
+    PlayerPersonality.determined: 2,
+    PlayerPersonality.driven: 2,
+    PlayerPersonality.laidBack: 2,
+    PlayerPersonality.perfectionist: 2,
+    PlayerPersonality.temperamental: 2,
+    PlayerPersonality.unambitious: 2,
+    PlayerPersonality.easilyDiscouraged: 2,
+    PlayerPersonality.modelCitizen: 1,
+    PlayerPersonality.veryAmbitious: 1,
+    PlayerPersonality.mercenary: 1,
+    PlayerPersonality.volatile: 1,
+    PlayerPersonality.lowDetermination: 1,
+    PlayerPersonality.clubLegendType: 1,
+  };
+
+  static PlayerPersonality _pickPersonality() {
+    final total = _personalityWeights.values.fold<int>(0, (s, w) => s + w);
+    var pick = _rng.nextInt(total);
+    for (final entry in _personalityWeights.entries) {
+      pick -= entry.value;
+      if (pick < 0) return entry.key;
+    }
+    return PlayerPersonality.balanced;
+  }
+
+  /// 選手特性(PlayerTrait、全54種類)のいずれかを一定確率で割り当てる。
   /// 能力値が近い選手同士でも試合結果に差が出るようにするための要素で、
   /// 持たない選手の方が多い。
-  static PlayerTrait? _pickTrait() {
+  ///
+  /// かつては全特性から一様に抽選していたため、「フィールドプレーヤーに
+  /// GKの反応速度依存の特性」「30歳にワンダーキッド(21歳以下でのみ発動)」
+  /// のような、その選手には一生発動し得ない特性が付くことがあった。
+  /// ポジション・年齢的にあり得ない特性を除外したうえで、その選手の資質
+  /// ([TrainingEngine.traitSuitability])に比例した重みで抽選する。
+  static PlayerTrait? _pickTraitFor(Player p) {
     final roll = _rng.nextDouble();
     if (roll >= 0.35) return null;
-    return PlayerTrait.values[_rng.nextInt(PlayerTrait.values.length)];
+
+    final isGk = p.position.group == PositionGroup.gk;
+    final candidates = <PlayerTrait>[];
+    final weights = <double>[];
+    var totalWeight = 0.0;
+    for (final trait in PlayerTrait.values) {
+      if (!traitPlausibleAtGeneration(p, trait, isGk: isGk)) continue;
+      final w = TrainingEngine.traitSuitability(p, trait);
+      candidates.add(trait);
+      weights.add(w);
+      totalWeight += w;
+    }
+    if (candidates.isEmpty) return null;
+    var pick = _rng.nextDouble() * totalWeight;
+    for (var i = 0; i < candidates.length; i++) {
+      pick -= weights[i];
+      if (pick <= 0) return candidates[i];
+    }
+    return candidates.last;
+  }
+
+  /// 生成時にその選手へ[trait]を割り当てるのが妥当かどうか。
+  /// 「一生発動し得ない特性」だけを弾く最小限のフィルタで、
+  /// 「今は条件に届かないが鍛えれば発動する」特性(能力値80以上系など)は
+  /// 育てがいのある個性として許容する。
+  static bool traitPlausibleAtGeneration(
+    Player p,
+    PlayerTrait trait, {
+    required bool isGk,
+  }) {
+    // 発動条件の年齢上限を過ぎた特性は二度と発動しない(年齢は増える一方)。
+    if (trait == PlayerTrait.wonderkid && p.age > 21) return false;
+    if (trait == PlayerTrait.primeTime && p.age > 29) return false;
+
+    final attrKey = TrainingEngine.traitAttributeKeyOf(trait);
+    if (attrKey == null) return true;
+    final isGkAttr = AttributeKeys.goalkeeping.contains(attrKey);
+    // GK能力値依存の特性はGK以外には発動機会がなく、逆にGKへ
+    // フィールドの技術/フィジカル依存の特性を付けても実態と噛み合わない
+    // (GKのメンタル依存特性 — リーダーシップ・冷静さ等 — は許容する)。
+    if (isGkAttr && !isGk) return false;
+    if (isGk && !isGkAttr && !AttributeKeys.mental.contains(attrKey)) {
+      return false;
+    }
+    return true;
   }
 
   /// 成長タイプ(早熟/標準/大器晩成)を割り当てる。大半は標準で、

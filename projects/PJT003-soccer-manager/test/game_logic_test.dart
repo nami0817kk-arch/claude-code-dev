@@ -8883,4 +8883,96 @@ void main() {
         reason: '8シーズンでCPU平均戦力が大きく下がる(リーグデフレ)のは退行');
     expect(drift, lessThan(8.0), reason: '逆に大きく上がり続ける(インフレ)のも退行');
   });
+
+  test(
+      'PlayerGenerator never assigns lifetime-inert traits: GK-attribute '
+      'traits stay on goalkeepers, goalkeepers never get outfield '
+      'technical/physical traits, and age-expired wonderkid/primeTime are '
+      'never rolled', () {
+    for (int i = 0; i < 800; i++) {
+      final position = Position.values[i % Position.values.length];
+      final p = PlayerGenerator.generate(position: position, strengthTier: 60);
+      final trait = p.trait;
+      if (trait == null) continue;
+      final isGk = p.position.group == PositionGroup.gk;
+      final key = TrainingEngine.traitAttributeKeyOf(trait);
+      if (key != null) {
+        if (AttributeKeys.goalkeeping.contains(key)) {
+          expect(isGk, isTrue,
+              reason: 'GK能力値依存の特性(${trait.name})はフィールド選手には一生発動しない');
+        }
+        if (isGk) {
+          expect(
+            AttributeKeys.goalkeeping.contains(key) ||
+                AttributeKeys.mental.contains(key),
+            isTrue,
+            reason: 'GKにフィールドの技術/フィジカル依存特性(${trait.name})は付けない',
+          );
+        }
+      }
+      if (trait == PlayerTrait.wonderkid) {
+        expect(p.age, lessThanOrEqualTo(21),
+            reason: '21歳を過ぎた選手のワンダーキッドは二度と発動しない');
+      }
+      if (trait == PlayerTrait.primeTime) {
+        expect(p.age, lessThanOrEqualTo(29),
+            reason: '29歳を過ぎた選手のプライムタイムは二度と発動しない');
+      }
+    }
+  });
+
+  test(
+      'PlayerGenerator weights personalities so that common temperaments '
+      'appear clearly more often than the rare extreme ones', () {
+    const commonSet = {
+      PlayerPersonality.balanced,
+      PlayerPersonality.fairlyProfessional,
+      PlayerPersonality.spirited,
+      PlayerPersonality.resolute,
+    };
+    const rareSet = {
+      PlayerPersonality.modelCitizen,
+      PlayerPersonality.veryAmbitious,
+      PlayerPersonality.mercenary,
+      PlayerPersonality.volatile,
+      PlayerPersonality.lowDetermination,
+      PlayerPersonality.clubLegendType,
+    };
+    var common = 0;
+    var rare = 0;
+    const trials = 4000;
+    for (int i = 0; i < trials; i++) {
+      final p = PlayerGenerator.generate(
+          position: Position.mc, strengthTier: 60, ageOverride: 24);
+      if (commonSet.contains(p.personality)) common++;
+      if (rareSet.contains(p.personality)) rare++;
+    }
+    // 期待値: common=重み3×4種=1200、rare=重み1×6種=600(比2.0)。
+    // 乱数ばらつきを考慮して比1.3以上を要求する(旧・一様抽選では
+    // common=800 < rare=1200 となり必ず失敗する)。
+    expect(common, greaterThan((rare * 1.3).round()),
+        reason: '中庸な性格は極端に珍しい性格より明確に多く出現する');
+  });
+
+  test(
+      'TrainingEngine.breakthroughPoolFor includes the attributes the '
+      'player is deliberately working on (drills and development plan) in '
+      'addition to the focus-based base pool', () {
+    final p = PlayerGenerator.generate(
+        position: Position.dc, strengthTier: 60, ageOverride: 20);
+    p.drillAttributeKey = AttributeKeys.finishing;
+    p.drillAttributeKey2 = AttributeKeys.pace;
+    p.developmentTargetRole = PlayerRole.ballPlayingDefender;
+
+    final pool = TrainingEngine.breakthroughPoolFor(p, TrainingFocus.defense);
+
+    expect(pool, contains(AttributeKeys.finishing),
+        reason: '特訓ドリルで狙っている能力値は才能開花の候補に入る');
+    expect(pool, contains(AttributeKeys.pace));
+    for (final k in PlayerRole.ballPlayingDefender.keyAttributes) {
+      expect(pool, contains(k), reason: '育成プラン(目標ロール)の重視能力値も候補に入る');
+    }
+    expect(pool, contains(AttributeKeys.tackling),
+        reason: 'フォーカス由来の基本候補群はそのまま残る');
+  });
 }
