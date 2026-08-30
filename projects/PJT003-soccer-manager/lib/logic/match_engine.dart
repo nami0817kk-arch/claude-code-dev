@@ -204,12 +204,18 @@ class InteractiveHalfState {
 
   HalfResult toHalfResult() {
     final sorted = [...events]..sort((a, b) => a.minute.compareTo(b.minute));
+    // ライブ観戦でも自動消化と同じ基準でシュート数を記録する
+    // (枠外・ブロックされた「打っただけ」のシュートを上乗せする)。
+    final speculative = MatchEngine.speculativeShotsForStats(
+      chanceIndex,
+      chanceIndex == 0 ? 0.5 : possessionShareSum / chanceIndex,
+    );
     return HalfResult(
       homeGoals: homeGoals,
       awayGoals: awayGoals,
       events: sorted,
-      homeShots: homeShots,
-      awayShots: awayShots,
+      homeShots: homeShots + speculative.home,
+      awayShots: awayShots + speculative.away,
       homeShotsOnTarget: homeShotsOnTarget,
       awayShotsOnTarget: awayShotsOnTarget,
       possessionShareSum: possessionShareSum,
@@ -976,6 +982,44 @@ class MatchEngine {
     return null;
   }
 
+  /// カード事象1回あたりに一発退場(直接レッド)となる確率。
+  /// 実際のサッカーでは退場は20〜25試合に1枚(0.04〜0.08枚/試合)しか
+  /// 出ないが、かつてはこの値が0.08と高く、実測で0.29枚/試合(実際の
+  /// 4〜6倍)の退場が発生していた。2枚目の警告による退場も別途あるため、
+  /// 直接レッドはごく稀な事象として扱う。
+  static const double _directRedChance = 0.015;
+
+  /// 「積極的にタックル」を選んだ場合の一発退場の確率。ユーザーが自分で
+  /// リスクを取った結果なので通常より高いが、それでも稀な事象に留める。
+  static const double _aggressiveTackleRedChance = 0.05;
+
+  /// 決定機1回あたりに上乗せする「打っただけ」のシュート本数の目安。
+  /// このエンジンが数えているのは得点に絡む決定機だけなので、そのままでは
+  /// スタッツのシュート数が実際の試合(両チーム合計25本前後)の半分ほど
+  /// (実測13本)にしかならない。枠を外した・ブロックされたシュートを
+  /// ポゼッションに応じて振り分けて上乗せし、記録としての現実感を出す。
+  /// 枠内シュートには加算しないため、枠内率も現実的な水準に近づく。
+  static const double _speculativeShotsPerChance = 1.0;
+
+  /// [chances]回の決定機と平均ポゼッション[homeShare]から、両チームの
+  /// 「打っただけ」のシュート本数を見積もる。
+  static ({int home, int away}) speculativeShotsForStats(
+    int chances,
+    double homeShare,
+  ) {
+    var home = 0;
+    var away = 0;
+    final total = (chances * _speculativeShotsPerChance).round();
+    for (var i = 0; i < total; i++) {
+      if (_rng.nextDouble() < homeShare) {
+        home++;
+      } else {
+        away++;
+      }
+    }
+    return (home: home, away: away);
+  }
+
   static Player? _pickCardTarget(List<Player> lineup) {
     final candidates =
         lineup.where((p) => p.position.group != PositionGroup.gk).toList();
@@ -1078,7 +1122,7 @@ class MatchEngine {
       // 同じ半で既に警告を受けている選手が再びカード対象に選ばれた場合、
       // 実際のルール通り2枚目の警告は退場(レッドカード)として扱う。
       final isSecondYellow = target.yellowCardedThisHalf;
-      final isRed = isSecondYellow || _rng.nextDouble() < 0.08;
+      final isRed = isSecondYellow || _rng.nextDouble() < _directRedChance;
       if (!isRed) target.yellowCardedThisHalf = true;
       events.add(
         MatchEvent(
@@ -1348,6 +1392,14 @@ class MatchEngine {
     }
 
     events.sort((a, b) => a.minute.compareTo(b.minute));
+    // 記録としてのシュート数を現実的な水準にするため、枠外・ブロックされた
+    // 「打っただけ」のシュートを上乗せする(得点計算には一切影響しない)。
+    final speculative = speculativeShotsForStats(
+      chanceMinutes.length,
+      chanceMinutes.isEmpty ? 0.5 : possessionShareSum / chanceMinutes.length,
+    );
+    homeShots += speculative.home;
+    awayShots += speculative.away;
     return HalfResult(
       homeGoals: homeGoals,
       awayGoals: awayGoals,
@@ -1948,7 +2000,7 @@ class MatchEngine {
       final target = _pickCardTarget(lineup);
       if (target == null) continue;
       final isSecondYellow = target.yellowCardedThisHalf;
-      final isRed = isSecondYellow || _rng.nextDouble() < 0.08;
+      final isRed = isSecondYellow || _rng.nextDouble() < _directRedChance;
       if (!isRed) target.yellowCardedThisHalf = true;
       events.add(
         MatchEvent(
@@ -2325,7 +2377,8 @@ class MatchEngine {
         final tackler = pending.defender ?? _pickCardTarget(defendingLineup);
         if (tackler != null) {
           final isSecondYellow = tackler.yellowCardedThisHalf;
-          final isRed = isSecondYellow || _rng.nextDouble() < 0.12;
+          final isRed =
+              isSecondYellow || _rng.nextDouble() < _aggressiveTackleRedChance;
           if (!isRed) tackler.yellowCardedThisHalf = true;
           final cardEvent = MatchEvent(
             minute: pending.minute,

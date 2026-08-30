@@ -10084,4 +10084,110 @@ void main() {
       }
     }
   }, timeout: const Timeout(Duration(minutes: 5)));
+
+  test(
+      'match statistics stay in a realistic range: '
+      'shots per match are football-like and red cards are rare (CA3)', () {
+    // CA3の実測で、シュートが13本/試合(実際のサッカーは25〜27本)、
+    // 一発退場が0.29枚/試合(実際は0.04〜0.08枚)と非現実的だった。
+    // 決定機以外の「打っただけ」のシュートを統計に加算し、直接レッドの
+    // 確率を下げた結果を、以降の調整で壊さないよう固定する。
+    Team squad(String id, int tier) {
+      final t =
+          PlayerGenerator.generateSquad(id: id, name: id, strengthTier: tier);
+      LineupUtils.autoFill(t);
+      return t;
+    }
+
+    const n = 400;
+    var shots = 0;
+    var reds = 0;
+    var goals = 0;
+    for (var i = 0; i < n; i++) {
+      final r = MatchEngine.simulate(
+        home: squad('h$i', 55),
+        away: squad('a$i', 55),
+        matchday: 1,
+      );
+      shots += (r.homeShots ?? 0) + (r.awayShots ?? 0);
+      goals += r.homeGoals + r.awayGoals;
+      reds += r.events.where((e) => e.type == MatchEventType.redCard).length;
+    }
+
+    final shotsPerMatch = shots / n;
+    final redsPerMatch = reds / n;
+    final goalsPerMatch = goals / n;
+
+    expect(shotsPerMatch, greaterThan(18.0),
+        reason: 'シュート${shotsPerMatch.toStringAsFixed(1)}本/試合は少なすぎる');
+    expect(shotsPerMatch, lessThan(34.0),
+        reason: 'シュート${shotsPerMatch.toStringAsFixed(1)}本/試合は多すぎる');
+    expect(redsPerMatch, lessThan(0.2),
+        reason: '退場${redsPerMatch.toStringAsFixed(3)}枚/試合は多すぎる');
+    // 得点はシュート加算の影響を受けてはいけない(統計上の本数のみ増やす)。
+    expect(goalsPerMatch, greaterThan(1.8),
+        reason: '総得点${goalsPerMatch.toStringAsFixed(2)}/試合は少なすぎる');
+    expect(goalsPerMatch, lessThan(3.5),
+        reason: '総得点${goalsPerMatch.toStringAsFixed(2)}/試合は多すぎる');
+    // 枠内シュートは総シュートを超えない。
+    expect(shotsPerMatch, greaterThan(goalsPerMatch),
+        reason: 'シュート本数が得点を下回っている');
+  }, timeout: const Timeout(Duration(minutes: 5)));
+
+  test(
+      'the live-watch half and the quick simulation report '
+      'consistent shot totals (CA3)', () {
+    // 速攻シミュレーションだけにシュート加算を入れると、ライブ観戦した
+    // 試合だけ統計が半分になる。両経路が同じ水準になることを保証する。
+    Team squad(String id) {
+      final t =
+          PlayerGenerator.generateSquad(id: id, name: id, strengthTier: 55);
+      LineupUtils.autoFill(t);
+      return t;
+    }
+
+    const n = 60;
+    var quickShots = 0;
+    var liveShots = 0;
+    for (var i = 0; i < n; i++) {
+      final quick = MatchEngine.simulate(
+        home: squad('qh$i'),
+        away: squad('qa$i'),
+        matchday: 1,
+      );
+      quickShots += (quick.homeShots ?? 0) + (quick.awayShots ?? 0);
+
+      final home = squad('lh$i');
+      final away = squad('la$i');
+      for (final half in const [(1, 45), (46, 90)]) {
+        final state = MatchEngine.beginInteractiveHalf(
+          home: home,
+          away: away,
+          startMinute: half.$1,
+          endMinute: half.$2,
+          interactiveTeamId: home.id,
+        );
+        while (!state.isFinished) {
+          final pending = state.pending!;
+          MatchEngine.resolvePendingChance(
+            state,
+            pending.context == ChanceContext.attack
+                ? ChanceDecision.shoot
+                : ChanceDecision.coverSpace,
+          );
+        }
+        final result = state.toHalfResult();
+        liveShots += result.homeShots + result.awayShots;
+      }
+    }
+
+    final quickAvg = quickShots / n;
+    final liveAvg = liveShots / n;
+    expect(liveAvg, greaterThan(quickAvg * 0.6),
+        reason: 'ライブ観戦のシュート$liveAvg本/試合が速攻シミュレーション'
+            '$quickAvg本/試合より大幅に少ない');
+    expect(liveAvg, lessThan(quickAvg * 1.6),
+        reason: 'ライブ観戦のシュート$liveAvg本/試合が速攻シミュレーション'
+            '$quickAvg本/試合より大幅に多い');
+  }, timeout: const Timeout(Duration(minutes: 5)));
 }
