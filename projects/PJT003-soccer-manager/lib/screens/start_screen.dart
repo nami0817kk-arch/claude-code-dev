@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/league_theme.dart';
+import '../models/save_game.dart';
 import '../state/game_state.dart';
 import '../widgets/busy_overlay.dart';
 import 'main_shell.dart';
@@ -126,7 +127,11 @@ class _StartScreenState extends State<StartScreen> {
     final gameState = context.read<GameState>();
     try {
       await gameState.loadSlot(slot.slot);
-      await gameState.startNewGame(result.clubName, theme: result.theme);
+      await gameState.startNewGame(
+        result.clubName,
+        theme: result.theme,
+        difficulty: result.difficulty,
+      );
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -251,7 +256,8 @@ class _SlotCard extends StatelessWidget {
 class _NewClubInput {
   final String clubName;
   final LeagueTheme theme;
-  _NewClubInput(this.clubName, this.theme);
+  final GameDifficulty difficulty;
+  _NewClubInput(this.clubName, this.theme, this.difficulty);
 }
 
 class _NewClubDialog extends StatefulWidget {
@@ -265,6 +271,7 @@ class _NewClubDialog extends StatefulWidget {
 class _NewClubDialogState extends State<_NewClubDialog> {
   final _controller = TextEditingController();
   LeagueTheme _theme = LeagueTheme.england;
+  GameDifficulty _difficulty = GameDifficulty.normal;
 
   @override
   void dispose() {
@@ -305,6 +312,27 @@ class _NewClubDialogState extends State<_NewClubDialog> {
                   )
                   .toList(),
             ),
+            const SizedBox(height: 16),
+            Text('難易度', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: GameDifficulty.values
+                  .map(
+                    (d) => ChoiceChip(
+                      label: Text(d.label),
+                      selected: _difficulty == d,
+                      onSelected: (_) => setState(() => _difficulty = d),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _difficulty.description,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ],
         ),
       ),
@@ -317,7 +345,7 @@ class _NewClubDialogState extends State<_NewClubDialog> {
           onPressed: () {
             final name = _controller.text.trim();
             if (name.isEmpty) return;
-            Navigator.pop(context, _NewClubInput(name, _theme));
+            Navigator.pop(context, _NewClubInput(name, _theme, _difficulty));
           },
           child: const Text('創設する'),
         ),

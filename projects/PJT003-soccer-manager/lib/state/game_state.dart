@@ -444,9 +444,17 @@ class GameState extends ChangeNotifier {
     }
   }
 
+  /// 難易度に応じて理事会の目標順位を緩和/厳格化する。イージーは2つ緩く、
+  /// ハードは1つ厳しくなる(1位〜リーグチーム数の範囲でクランプ)。
+  int _difficultyAdjustedTarget(int target) {
+    final delta = _save?.difficulty.boardTargetDelta ?? 0;
+    return (target + delta).clamp(1, teamsPerLeague);
+  }
+
   Future<void> startNewGame(
     String clubName, {
     LeagueTheme theme = LeagueTheme.england,
+    GameDifficulty difficulty = GameDifficulty.normal,
   }) async {
     isBusy = true;
     notifyListeners();
@@ -535,7 +543,11 @@ class GameState extends ChangeNotifier {
       otherDivisionLeagues: otherDivisionLeagues,
       currentDivisionTier: userStartTier,
       clubHistory: [clubName],
+      difficulty: difficulty,
     );
+    // 難易度による初期条件の補正(資金と理事会目標の厳しさ)。
+    _save!.budget = (_save!.budget * difficulty.initialBudgetFactor).round();
+    _save!.boardTargetRank = _difficultyAdjustedTarget(_save!.boardTargetRank);
     final rival = cpuTeams[rng.nextInt(cpuTeams.length)];
     _save!.rivalTeamId = rival.id;
     _save!.rivalTeamName = rival.name;
@@ -2254,9 +2266,8 @@ class GameState extends ChangeNotifier {
     _save!.userTeamId = newTeamId;
     _save!.pendingJobOfferTeamId = null;
     _save!.confidence = 60;
-    _save!.boardTargetRank = BoardEngine.estimateTargetRank(
-      _save!.league,
-      newTeamId,
+    _save!.boardTargetRank = _difficultyAdjustedTarget(
+      BoardEngine.estimateTargetRank(_save!.league, newTeamId),
     );
     _save!.clubHistory.add(newTeamName);
     notifyListeners();
@@ -4096,9 +4107,8 @@ class GameState extends ChangeNotifier {
       fixtures: newFixtures,
       season: league.season + 1,
     );
-    _save!.boardTargetRank = BoardEngine.estimateTargetRank(
-      _save!.league,
-      _save!.userTeamId,
+    _save!.boardTargetRank = _difficultyAdjustedTarget(
+      BoardEngine.estimateTargetRank(_save!.league, _save!.userTeamId),
     );
     transferMarket = TransferMarket.generate();
     _refreshScoutCandidates();

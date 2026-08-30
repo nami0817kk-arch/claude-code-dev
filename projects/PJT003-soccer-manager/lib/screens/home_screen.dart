@@ -479,6 +479,70 @@ class HomeScreen extends StatelessWidget {
                                     _fixtureLabel(league, next),
                                     style: const TextStyle(color: Colors.grey),
                                   ),
+                                  // 対戦相手の現在の順位・戦力・直近フォームを
+                                  // 一目で確認できるようにする(詳細な分析は
+                                  // 従来通りスカウティングレポートで)。
+                                  Builder(builder: (context) {
+                                    final oppId = next.homeTeamId == userTeam.id
+                                        ? next.awayTeamId
+                                        : next.homeTeamId;
+                                    final opp = league.teams
+                                        .firstWhere((t) => t.id == oppId);
+                                    final oppRank = standings.indexWhere(
+                                          (r) => r.teamId == oppId,
+                                        ) +
+                                        1;
+                                    final form = league.recentFormFor(oppId);
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            '$oppRank位・総合${opp.overallRating}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          for (final r in form)
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 1,
+                                              ),
+                                              child: Container(
+                                                width: 16,
+                                                height: 16,
+                                                alignment: Alignment.center,
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  color: r == 'W'
+                                                      ? SemanticColors.positive(
+                                                          context,
+                                                        )
+                                                      : r == 'L'
+                                                          ? SemanticColors
+                                                              .negative(
+                                                              context,
+                                                            )
+                                                          : Colors
+                                                              .grey.shade500,
+                                                ),
+                                                child: Text(
+                                                  r,
+                                                  style: const TextStyle(
+                                                    fontSize: 10,
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
                                 ],
                               ),
                             ),

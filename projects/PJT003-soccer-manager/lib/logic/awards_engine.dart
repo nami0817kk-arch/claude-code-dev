@@ -3,7 +3,71 @@ import '../models/match_result.dart';
 import '../models/player.dart';
 import '../models/season_award.dart';
 
+/// シーズン中いつでも閲覧できる個人ランキングの1行。
+typedef PlayerRankingEntry = ({
+  String playerId,
+  String name,
+  String teamId,
+  int count,
+});
+
 class AwardsEngine {
+  /// 完了した全試合のイベントから、シーズン途中でも閲覧できる得点
+  /// ランキングを集計する(同数は集計順)。氏名・所属はイベント自身が
+  /// 持つ記録を使うため、移籍・退団した選手も正しく表示される。
+  static List<PlayerRankingEntry> goalRanking(League league, {int limit = 20}) {
+    return _rankEvents(
+      league,
+      idOf: (e) => e.type == MatchEventType.goal ? e.scorerId : null,
+      nameOf: (e) => e.scorerName,
+      limit: limit,
+    );
+  }
+
+  /// アシストランキング(得点イベントに記録されたアシスト者を集計)。
+  static List<PlayerRankingEntry> assistRanking(
+    League league, {
+    int limit = 20,
+  }) {
+    return _rankEvents(
+      league,
+      idOf: (e) => e.type == MatchEventType.goal ? e.assistId : null,
+      nameOf: (e) => e.assistName,
+      limit: limit,
+    );
+  }
+
+  static List<PlayerRankingEntry> _rankEvents(
+    League league, {
+    required String? Function(MatchEvent e) idOf,
+    required String? Function(MatchEvent e) nameOf,
+    required int limit,
+  }) {
+    final counts = <String, int>{};
+    final info = <String, ({String name, String teamId})>{};
+    for (final f in league.fixtures) {
+      final result = f.result;
+      if (result == null) continue;
+      for (final e in result.events) {
+        final id = idOf(e);
+        final name = nameOf(e);
+        if (id == null || name == null) continue;
+        counts[id] = (counts[id] ?? 0) + 1;
+        info[id] = (name: name, teamId: e.teamId);
+      }
+    }
+    final entries = [
+      for (final entry in counts.entries)
+        (
+          playerId: entry.key,
+          name: info[entry.key]!.name,
+          teamId: info[entry.key]!.teamId,
+          count: entry.value,
+        ),
+    ]..sort((a, b) => b.count.compareTo(a.count));
+    return entries.length > limit ? entries.sublist(0, limit) : entries;
+  }
+
   /// 完了した全試合の得点イベントから選手ごとの得点数を集計する。
   static Map<String, int> _goalsByPlayer(League league) {
     final goals = <String, int>{};

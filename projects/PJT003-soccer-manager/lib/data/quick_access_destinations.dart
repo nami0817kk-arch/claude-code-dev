@@ -10,6 +10,7 @@ import '../screens/finance_screen.dart';
 import '../screens/glossary_screen.dart';
 import '../screens/guide_screen.dart';
 import '../screens/hall_of_fame_screen.dart';
+import '../screens/league_ranking_screen.dart';
 import '../screens/manager_career_screen.dart';
 import '../screens/news_screen.dart';
 import '../screens/season_history_screen.dart';
@@ -83,6 +84,12 @@ final List<QuickAccessDestination> quickAccessDestinations = [
     label: '個人タイトル',
     color: Colors.amber.shade700,
     builder: (_) => const AwardsScreen(),
+  ),
+  QuickAccessDestination(
+    icon: Icons.format_list_numbered,
+    label: 'リーグランキング',
+    color: Colors.green.shade700,
+    builder: (_) => const LeagueRankingScreen(),
   ),
   QuickAccessDestination(
     icon: Icons.workspace_premium,

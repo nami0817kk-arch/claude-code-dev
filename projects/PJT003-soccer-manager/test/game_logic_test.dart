@@ -9184,4 +9184,94 @@ void main() {
     expect(save.newsLog.first.text, isNot(startsWith('古いニュース')),
         reason: '新しいニュースが先頭に来る');
   });
+
+  test(
+      'GameDifficulty affects the starting budget and board target, is '
+      'persisted through JSON, and defaults to normal for older saves',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final easyState = GameState();
+    await easyState.startNewGame('イージーFC', difficulty: GameDifficulty.easy);
+    expect(easyState.save!.difficulty, GameDifficulty.easy);
+    expect(easyState.save!.budget, 9000, reason: '初期資金6000万円の1.5倍');
+    expect(
+      easyState.save!.boardTargetRank,
+      (BoardEngine.estimateTargetRank(easyState.save!.league, 'user') + 2)
+          .clamp(1, teamsPerLeague),
+      reason: 'イージーは理事会目標が2つ緩い',
+    );
+
+    final hardState = GameState();
+    await hardState.startNewGame('ハードFC', difficulty: GameDifficulty.hard);
+    expect(hardState.save!.budget, 3600, reason: '初期資金6000万円の0.6倍');
+    expect(
+      hardState.save!.boardTargetRank,
+      (BoardEngine.estimateTargetRank(hardState.save!.league, 'user') - 1)
+          .clamp(1, teamsPerLeague),
+      reason: 'ハードは理事会目標が1つ厳しい',
+    );
+
+    final restored = SaveGame.fromJson(hardState.save!.toJson());
+    expect(restored.difficulty, GameDifficulty.hard);
+
+    final legacy = hardState.save!.toJson()..remove('difficulty');
+    expect(SaveGame.fromJson(legacy).difficulty, GameDifficulty.normal,
+        reason: '難易度キーのない旧セーブはノーマル扱い');
+  });
+
+  test(
+      'AwardsEngine.goalRanking and assistRanking aggregate mid-season '
+      'events, sort by count, and use the names recorded in the events', () {
+    final teamA = Team(id: 'a', name: 'A', players: []);
+    final teamB = Team(id: 'b', name: 'B', players: []);
+    MatchEvent goal(String teamId, String scorerId, String scorerName,
+            {String? assistId, String? assistName}) =>
+        MatchEvent(
+          minute: 10,
+          teamId: teamId,
+          type: MatchEventType.goal,
+          scorerId: scorerId,
+          scorerName: scorerName,
+          assistId: assistId,
+          assistName: assistName,
+        );
+    final league = League(
+      teams: [teamA, teamB],
+      season: 1,
+      fixtures: [
+        Fixture(
+          matchday: 1,
+          homeTeamId: 'a',
+          awayTeamId: 'b',
+          result: MatchResult(
+            matchday: 1,
+            homeTeamId: 'a',
+            awayTeamId: 'b',
+            homeGoals: 2,
+            awayGoals: 1,
+            events: [
+              goal('a', 'p1', 'エース', assistId: 'p2', assistName: '司令塔'),
+              goal('a', 'p1', 'エース'),
+              goal('b', 'p3', '相手FW', assistId: 'p4', assistName: '相手MF'),
+            ],
+          ),
+        ),
+        // 未消化の試合は集計対象外。
+        Fixture(matchday: 2, homeTeamId: 'b', awayTeamId: 'a'),
+      ],
+    );
+
+    final goals = AwardsEngine.goalRanking(league);
+    expect(goals.first.playerId, 'p1');
+    expect(goals.first.count, 2);
+    expect(goals.first.name, 'エース');
+    expect(goals.first.teamId, 'a');
+    expect(goals.length, 2);
+
+    final assists = AwardsEngine.assistRanking(league);
+    expect(assists.length, 2);
+    expect(assists.every((e) => e.count == 1), isTrue);
+    expect(assists.map((e) => e.playerId).toSet(), {'p2', 'p4'});
+    expect(assists.firstWhere((e) => e.playerId == 'p2').name, '司令塔');
+  });
 }

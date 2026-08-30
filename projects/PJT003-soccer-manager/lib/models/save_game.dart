@@ -17,6 +17,38 @@ import 'season_record.dart';
 import 'sponsor.dart';
 import 'team.dart';
 
+/// ゲーム難易度。ニューゲーム時に選択し、初期資金と理事会の目標順位の
+/// 厳しさに影響する(旧セーブには存在しないためnormalへフォールバック)。
+enum GameDifficulty { easy, normal, hard }
+
+extension GameDifficultyInfo on GameDifficulty {
+  String get label => switch (this) {
+        GameDifficulty.easy => 'イージー',
+        GameDifficulty.normal => 'ノーマル',
+        GameDifficulty.hard => 'ハード',
+      };
+
+  String get description => switch (this) {
+        GameDifficulty.easy => '初期資金1.5倍・理事会の目標が2つ緩い',
+        GameDifficulty.normal => '標準バランス',
+        GameDifficulty.hard => '初期資金0.6倍・理事会の目標が1つ厳しい',
+      };
+
+  /// 初期資金に掛ける倍率。
+  double get initialBudgetFactor => switch (this) {
+        GameDifficulty.easy => 1.5,
+        GameDifficulty.normal => 1.0,
+        GameDifficulty.hard => 0.6,
+      };
+
+  /// 理事会の目標順位への補正(正の値ほど目標が緩くなる)。
+  int get boardTargetDelta => switch (this) {
+        GameDifficulty.easy => 2,
+        GameDifficulty.normal => 0,
+        GameDifficulty.hard => -1,
+      };
+}
+
 class SaveGame {
   String clubName;
   String userTeamId;
@@ -133,6 +165,9 @@ class SaveGame {
   int careerCupPrize; // カップ戦で獲得した賞金・優勝報酬の通算(万円)
   int pkShootoutWins; // ライブ観戦のPK戦を制した回数
 
+  /// ゲーム難易度(ニューゲーム時に選択)。
+  GameDifficulty difficulty;
+
   /// クラブニュース(お知らせ履歴)。新しいものが先頭。SnackBar等で
   /// 一度流れて消える通知を、あとから見返せるように保存する。件数は
   /// GameState側で上限管理する。旧セーブには存在しないため空で補完する。
@@ -232,6 +267,7 @@ class SaveGame {
     this.liveWins = 0,
     this.careerCupPrize = 0,
     this.pkShootoutWins = 0,
+    this.difficulty = GameDifficulty.normal,
     List<NewsItem>? newsLog,
     List<String>? trophyHistory,
     List<String>? clubHistory,
@@ -331,6 +367,7 @@ class SaveGame {
         'liveWins': liveWins,
         'careerCupPrize': careerCupPrize,
         'pkShootoutWins': pkShootoutWins,
+        'difficulty': difficulty.name,
         'newsLog': newsLog.map((n) => n.toJson()).toList(),
         'trophyHistory': trophyHistory,
         'clubHistory': clubHistory,
@@ -455,6 +492,10 @@ class SaveGame {
         liveWins: json['liveWins'] as int? ?? 0,
         careerCupPrize: json['careerCupPrize'] as int? ?? 0,
         pkShootoutWins: json['pkShootoutWins'] as int? ?? 0,
+        difficulty: GameDifficulty.values.firstWhere(
+          (d) => d.name == json['difficulty'],
+          orElse: () => GameDifficulty.normal,
+        ),
         newsLog: (json['newsLog'] as List?)
             ?.map((e) => NewsItem.fromJson(e as Map<String, dynamic>))
             .toList(),
