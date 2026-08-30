@@ -75,22 +75,43 @@ class BoardEngine {
     return max(1, totalRounds - 3);
   }
 
+  /// スカッド総合力の順位に対して理事会が許容する余裕(順位いくつ分か)。
+  /// 戦力通りの順位ちょうどを要求すると、達成できるかどうかが実質50%の
+  /// コイン投げになり、何をしても運任せで解任される。少しの取りこぼしなら
+  /// 許される幅を持たせる。
+  static const int targetRankCushion = 2;
+
   /// 現在のスカッド総合力から見て妥当な目標順位（1が最高位）を見積もる。
   static int estimateTargetRank(League league, String userTeamId) {
     final sorted = [...league.teams]
       ..sort((a, b) => b.overallRating.compareTo(a.overallRating));
     final idx = sorted.indexWhere((t) => t.id == userTeamId);
-    return idx < 0 ? (league.teams.length / 2).ceil() : idx + 1;
+    final strengthRank = idx < 0 ? (league.teams.length / 2).ceil() : idx + 1;
+    return (strengthRank + targetRankCushion).clamp(1, league.teams.length);
   }
 
+  /// 新シーズン開幕時に、続投が決まった監督へ戻す信頼度の下限。
+  /// 信頼度はシーズンをまたいで持ち越されるため、前シーズンをぎりぎり
+  /// 生き延びた監督は開幕2節で解任され、立て直す機会すらなかった
+  /// (実測で確認)。契約を更新された=理事会は続投を選んだということなので、
+  /// 新シーズンの開幕時点では最低限の猶予を与える。
+  static const int newSeasonConfidenceFloor = 40;
+
   /// 試合結果を受けて信頼度の増減量を返す。
+  /// かつては勝ち+4・引き分け-1・負け-6と負けが重く、信頼度を維持するには
+  /// 勝ちが負けの1.5倍(38試合なら23勝15敗)必要だった。つまり優勝争いを
+  /// しない限り信頼度が0へ落ち続け、実測では放置プレイ5回中5回が、うち
+  /// 3回はシーズン1〜2で解任されていた。勝ち負けを対称にし、勝率5割の
+  /// クラブは試合結果だけでは信頼を失わないようにする。理事会の評価は
+  /// シーズン中盤レビュー([midSeasonReviewDelta])とシーズン終了時の
+  /// 順位評価([confidenceDeltaForSeasonEnd])が主役になる。
   static int confidenceDeltaForMatch(MatchResult result, String userTeamId) {
     final isHome = result.homeTeamId == userTeamId;
     final userGoals = isHome ? result.homeGoals : result.awayGoals;
     final oppGoals = isHome ? result.awayGoals : result.homeGoals;
-    if (userGoals > oppGoals) return 4;
-    if (userGoals == oppGoals) return -1;
-    return -6;
+    if (userGoals > oppGoals) return 3;
+    if (userGoals == oppGoals) return 0;
+    return -3;
   }
 
   /// シーズン終了時の順位評価による信頼度の増減量を返す。

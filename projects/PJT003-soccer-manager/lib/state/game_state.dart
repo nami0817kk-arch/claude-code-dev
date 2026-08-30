@@ -4376,6 +4376,12 @@ class GameState extends ChangeNotifier {
     _save!.boardTargetRank = _difficultyAdjustedTarget(
       BoardEngine.estimateTargetRank(_save!.league, _save!.userTeamId),
     );
+    // 続投が決まった監督には、新シーズン開幕時に最低限の信頼度を戻す
+    // (解任が確定している場合は信頼度0のままにして解任フローを壊さない)。
+    if (_save!.confidence > 0 && _save!.managerContractYears > 0) {
+      _save!.confidence =
+          max(_save!.confidence, BoardEngine.newSeasonConfidenceFloor);
+    }
     _save!.wageBudget = BoardEngine.wageBudgetFor(
       tier: _save!.currentDivisionTier,
       currentWeeklyWageBill: weeklyWageBill,

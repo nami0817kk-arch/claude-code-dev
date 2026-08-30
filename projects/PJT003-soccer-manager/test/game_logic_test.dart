@@ -10342,4 +10342,82 @@ void main() {
     expect(cpuGain, greaterThan(userGain * 0.4),
         reason: 'CPU$cpuGain に対しユーザー$userGain で、リーグが置き去りにされている');
   });
+
+  test(
+      'board confidence from match results is symmetric, so a .500 club does '
+      'not bleed to a certain sacking (CA5)', () {
+    // かつては勝ち+4・引き分け-1・負け-6で、信頼度を保つには38試合中
+    // 23勝15敗という優勝級の成績が必要だった。実測では完全放置プレイの
+    // 5回中5回が、うち3回はシーズン1〜2で解任されていた。
+    MatchResult make(int userGoals, int oppGoals) => MatchResult(
+          homeTeamId: 'user',
+          awayTeamId: 'opp',
+          homeGoals: userGoals,
+          awayGoals: oppGoals,
+          matchday: 1,
+          events: const [],
+        );
+
+    final win = BoardEngine.confidenceDeltaForMatch(make(2, 0), 'user');
+    final draw = BoardEngine.confidenceDeltaForMatch(make(1, 1), 'user');
+    final loss = BoardEngine.confidenceDeltaForMatch(make(0, 2), 'user');
+
+    expect(win, greaterThan(0));
+    expect(loss, lessThan(0));
+    // 勝ちと負けの重みが釣り合っていること。
+    expect(win + loss, 0, reason: '勝ち$win と負け$loss が非対称で、勝率5割でも信頼度が減る');
+    // 17勝4分17敗(勝率5割)のシーズンで信頼度が下がらないこと。
+    final evenSeason = 17 * win + 4 * draw + 17 * loss;
+    expect(evenSeason, greaterThanOrEqualTo(0),
+        reason: '勝率5割のシーズンで信頼度が$evenSeason 減っている');
+  });
+
+  test(
+      'the board target leaves a cushion above the squad strength rank so it '
+      'is not a coin flip (CA5)', () async {
+    // 戦力順位ちょうどを要求すると達成が実質50%の運任せになる。
+    final gameState = GameState();
+    await gameState.startNewGame('目標テストFC');
+    final league = gameState.save!.league;
+
+    final sorted = [...league.teams]
+      ..sort((a, b) => b.overallRating.compareTo(a.overallRating));
+    final strengthRank =
+        sorted.indexWhere((t) => t.id == gameState.userTeam.id) + 1;
+    final target =
+        BoardEngine.estimateTargetRank(league, gameState.userTeam.id);
+
+    expect(BoardEngine.targetRankCushion, greaterThan(0));
+    expect(target, greaterThan(strengthRank),
+        reason: '目標$target位が戦力順位$strengthRank位ちょうど以上に厳しい');
+    expect(target, lessThanOrEqualTo(league.teams.length));
+  });
+
+  test(
+      'a manager who survives into a new season gets the board patience back, '
+      'instead of being sacked in matchday two (CA5)', () async {
+    // 信頼度はシーズンをまたいで持ち越されるため、前シーズンをぎりぎり
+    // 生き延びた監督が開幕2節で解任される実測例があった。
+    final gameState = GameState();
+    await gameState.startNewGame('猶予テストFC');
+
+    while (gameState.save!.league.nextUnplayedFixture != null) {
+      await gameState.playNextMatchday();
+      if (gameState.isHalfTime) await gameState.playSecondHalf();
+      if (gameState.isDismissed) break;
+    }
+    if (gameState.isDismissed) return; // 解任された場合はこのテストの対象外。
+
+    // シーズンを生き延びた状態で、信頼度をぎりぎりまで削っておく。
+    gameState.save!.confidence = 1;
+    await gameState.startNextSeason();
+
+    if (gameState.save!.managerContractYears > 0) {
+      expect(gameState.isDismissed, isFalse,
+          reason: '続投が決まったのに新シーズン開幕時点で解任状態になっている');
+      expect(gameState.save!.confidence,
+          greaterThanOrEqualTo(BoardEngine.newSeasonConfidenceFloor),
+          reason: '新シーズンの猶予(信頼度の下限)が効いていない');
+    }
+  });
 }
