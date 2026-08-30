@@ -306,6 +306,38 @@ class TrainingEngine {
     }
   }
 
+  /// 紅白戦(スカッド内の練習試合)によるマッチシャープネスの回復量。
+  static const int practiceMatchSharpnessGain = 8;
+
+  /// 紅白戦で溜まる疲労。実戦形式のぶん、通常練習に少し上乗せされる。
+  static const int practiceMatchFatigue = 4;
+
+  /// 紅白戦で実戦経験によるメンタル成長([growFromMatchExperience])の
+  /// 判定が走る確率。公式戦出場(毎試合確定で判定)よりは控えめ。
+  static const double practiceMatchExperienceChance = 0.35;
+
+  /// 紅白戦(スカッド内の練習試合)。週次トレーニングの一環として自動で
+  /// 行われ、スタメン以外の選手が実戦感覚(マッチシャープネス)を保ち、
+  /// まれに実戦経験によるメンタル成長の機会も得る。公式戦に出ている
+  /// スタメン組はそちらで感覚を保っているため対象外。負傷・代表招集・
+  /// ローン放出中の選手は参加できない(出場停止は公式戦のみの処分の
+  /// ため参加できる)。効果を受けた選手のリストを返す。
+  static List<Player> applyIntraSquadMatch(Team team) {
+    final participants = <Player>[];
+    for (final p in team.players) {
+      if (team.startingXI.contains(p.id)) continue;
+      if (p.isInjured || p.isOnInternationalDuty || p.isLoanedOut) continue;
+      p.matchSharpness =
+          (p.matchSharpness + practiceMatchSharpnessGain).clamp(0, 100);
+      p.fatigue = (p.fatigue + practiceMatchFatigue).clamp(0, 100);
+      if (_rng.nextDouble() < practiceMatchExperienceChance) {
+        growFromMatchExperience(p);
+      }
+      participants.add(p);
+    }
+    return participants;
+  }
+
   /// CPUクラブ向けの簡易的な週次成長。個別方針・メンター・ドリルといった
   /// ユーザー専用の仕組みは適用しないが、何もしないとユーザーだけが
   /// 育成システムで伸び続け、CPUの相対的な強さが何シーズンも停滞して

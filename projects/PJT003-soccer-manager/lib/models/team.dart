@@ -52,6 +52,38 @@ extension TeamMentalityInfo on TeamMentality {
       };
 }
 
+/// チームの戦術スタイル(攻撃の組み立て方の型)。スカッドの適性
+/// (関連能力値)が高いほど効果が大きく、スタイル間には相性がある
+/// (詳細は StyleEngine)。柔軟(flexible)は補正なし・相性なしの中立。
+enum TacticalStyle {
+  flexible,
+  possession,
+  gegenpress,
+  counter,
+  longBall,
+  wingPlay,
+}
+
+extension TacticalStyleInfo on TacticalStyle {
+  String get label => switch (this) {
+        TacticalStyle.flexible => '柔軟',
+        TacticalStyle.possession => 'ポゼッション',
+        TacticalStyle.gegenpress => 'ゲーゲンプレス',
+        TacticalStyle.counter => 'カウンター',
+        TacticalStyle.longBall => 'ロングボール',
+        TacticalStyle.wingPlay => 'ウイングプレー',
+      };
+
+  String get description => switch (this) {
+        TacticalStyle.flexible => '型を決めず相手に合わせる。補正も弱点もない中立スタイル',
+        TacticalStyle.possession => 'ボールを保持して主導権を握る。パス・テクニック・視野が生命線',
+        TacticalStyle.gegenpress => '失った瞬間に前から奪い返す。労働量・スタミナ・積極性が必要',
+        TacticalStyle.counter => '受けて裏の一撃で仕留める。スピード・オフザボール・予測が武器',
+        TacticalStyle.longBall => '長いボールで最前線へ届ける。ヘディング・強さ・ジャンプ力が土台',
+        TacticalStyle.wingPlay => 'サイドを起点に崩す。クロス・ドリブル・スピードで勝負',
+      };
+}
+
 class Team {
   final String id;
   String name;
@@ -84,6 +116,9 @@ class Team {
 
   /// チーム全体の姿勢(メンタリティ)。旧セーブはバランス扱い。
   TeamMentality mentality;
+
+  /// 戦術スタイル。旧セーブは柔軟(中立)扱い。
+  TacticalStyle tacticalStyle;
 
   /// 攻撃の幅（0-100）。高いほどサイドを広く使い攻撃力が上がるが、中央の守備が薄くなる。
   int width;
@@ -142,6 +177,7 @@ class Team {
     this.pressing = 50,
     this.lineHeight = 50,
     this.mentality = TeamMentality.balanced,
+    this.tacticalStyle = TacticalStyle.flexible,
     this.width = 50,
     this.tempo = 50,
     this.captainId,
@@ -200,6 +236,7 @@ class Team {
         'pressing': pressing,
         'lineHeight': lineHeight,
         'mentality': mentality.name,
+        'tacticalStyle': tacticalStyle.name,
         'width': width,
         'tempo': tempo,
         'captainId': captainId,
@@ -242,6 +279,11 @@ class Team {
           TeamMentality.values,
           json['mentality'] as String?,
           TeamMentality.balanced,
+        ),
+        tacticalStyle: enumFromName(
+          TacticalStyle.values,
+          json['tacticalStyle'] as String?,
+          TacticalStyle.flexible,
         ),
         width: json['width'] as int? ?? 50,
         tempo: json['tempo'] as int? ?? 50,

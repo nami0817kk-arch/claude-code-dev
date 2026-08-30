@@ -8,6 +8,7 @@ import '../models/team.dart';
 import '../logic/lineup_utils.dart';
 import '../logic/match_engine.dart';
 import '../logic/rotation_engine.dart';
+import '../logic/style_engine.dart';
 import '../services/feedback_service.dart';
 import '../state/game_state.dart';
 import '../theme/semantic_colors.dart';
@@ -281,6 +282,48 @@ class _TacticsTab extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   team.mentality.description,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('戦術スタイル', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 4),
+                const Text(
+                  '数値はいまの先発での適性。適性が高いほど攻守の補正が大きく、'
+                  '低いスタイルを選ぶと逆効果になる。スタイル間には相性がある'
+                  '(プレス→ポゼッション→カウンター→ウイング→ロングボール→プレス…の順に有利)。',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final s in TacticalStyle.values)
+                      ChoiceChip(
+                        label: Text(
+                          s == TacticalStyle.flexible
+                              ? s.label
+                              : '${s.label} '
+                                  '${(StyleEngine.suitability(team, s) * 100).round()}%',
+                        ),
+                        selected: team.tacticalStyle == s,
+                        onSelected: (_) =>
+                            context.read<GameState>().setTacticalStyle(s),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  team.tacticalStyle.description,
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],

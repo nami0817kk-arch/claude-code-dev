@@ -1,6 +1,8 @@
 import '../models/player.dart';
 import '../models/team.dart';
 import 'match_engine.dart';
+import 'style_engine.dart';
+import 'tactics_ai.dart';
 
 /// アシスタントコーチによる対戦相手のスカウティングレポート。
 class ScoutReport {
@@ -17,6 +19,12 @@ class ScoutReport {
   final String? keyPlayerDetail;
   final String recommendation;
 
+  /// 相手が採用してくると予想される戦術スタイル。
+  final TacticalStyle opponentStyle;
+
+  /// 相手のスタイルに対して相性で有利を取れるスタイル(相手が柔軟ならnull)。
+  final TacticalStyle? counterStyle;
+
   const ScoutReport({
     required this.opponentName,
     required this.opponentOverall,
@@ -30,6 +38,8 @@ class ScoutReport {
     required this.keyPlayerName,
     required this.keyPlayerDetail,
     required this.recommendation,
+    this.opponentStyle = TacticalStyle.flexible,
+    this.counterStyle,
   });
 }
 
@@ -89,6 +99,19 @@ class ScoutReportEngine {
       recommendation = '拮抗した実力差です。試合の流れを重視した戦術が有効でしょう。';
     }
 
+    // CPUが試合前に選ぶロジックと同じ判定で相手のスタイルを予想する
+    // (ユーザー同士の対戦はないため、予想は実際の採用スタイルと一致する)。
+    final oppStyle = CpuTacticsAI.styleFor(opponent);
+    TacticalStyle? counterStyle;
+    if (oppStyle != TacticalStyle.flexible) {
+      for (final entry in StyleEngine.beats.entries) {
+        if (entry.value == oppStyle) {
+          counterStyle = entry.key;
+          break;
+        }
+      }
+    }
+
     return ScoutReport(
       opponentName: opponent.name,
       opponentOverall: opponent.overallRating,
@@ -104,6 +127,8 @@ class ScoutReportEngine {
           ? null
           : '${keyPlayer.position.label} / 総合 ${keyPlayer.overall}',
       recommendation: recommendation,
+      opponentStyle: oppStyle,
+      counterStyle: counterStyle,
     );
   }
 }

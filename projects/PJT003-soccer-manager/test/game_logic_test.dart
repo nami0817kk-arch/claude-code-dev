@@ -29,6 +29,8 @@ import 'package:soccer_manager/logic/scouting_engine.dart';
 import 'package:soccer_manager/logic/season_projection_engine.dart';
 import 'package:soccer_manager/logic/sponsor_engine.dart';
 import 'package:soccer_manager/logic/tactics_ai.dart';
+import 'package:soccer_manager/logic/style_engine.dart';
+import 'package:soccer_manager/logic/youth_match_engine.dart';
 import 'package:soccer_manager/logic/training_engine.dart';
 import 'package:soccer_manager/logic/transfer_market.dart';
 import 'package:soccer_manager/logic/weather_engine.dart';
@@ -9624,5 +9626,173 @@ void main() {
     final legacy = gameState.save!.toJson()..remove('managerContractYears');
     expect(SaveGame.fromJson(legacy).managerContractYears, 0,
         reason: '旧セーブは0(未締結)として読み込み、次のシーズン開始時に締結する');
+  });
+
+  test(
+      'StyleEngine suitability follows squad attributes, the matchup cycle '
+      'is a clean 5-style loop, and styles round-trip through JSON', () {
+    Team makeStyledTeam({required int high, required int low}) {
+      final players = [
+        for (int i = 0; i < 11; i++)
+          PlayerGenerator.generate(position: Position.mc, strengthTier: 55),
+      ];
+      for (final p in players) {
+        for (final k in StyleEngine.keyAttributes[TacticalStyle.possession]!) {
+          p.setAttributeValue(k, high);
+        }
+        for (final k in StyleEngine.keyAttributes[TacticalStyle.longBall]!) {
+          p.setAttributeValue(k, low);
+        }
+      }
+      final t = Team(id: 's', name: 'S', players: players);
+      t.startingXI.addAll(players.map((p) => p.id));
+      return t;
+    }
+
+    final passers = makeStyledTeam(high: 85, low: 25);
+    final possessionFit =
+        StyleEngine.suitability(passers, TacticalStyle.possession);
+    final longBallFit =
+        StyleEngine.suitability(passers, TacticalStyle.longBall);
+    expect(possessionFit, greaterThan(longBallFit),
+        reason: 'パス・技術系が高いスカッドはポゼッション適性が高い');
+    expect(possessionFit, greaterThan(0.8));
+    expect(longBallFit, lessThan(0.2));
+
+    // 相性は5スタイルの一方向の循環: 各スタイルはちょうど1つに勝ち、
+    // ちょうど1つに負ける。柔軟はどの循環にも含まれない。
+    final specialized =
+        TacticalStyle.values.where((s) => s != TacticalStyle.flexible).toSet();
+    expect(StyleEngine.beats.keys.toSet(), specialized);
+    expect(StyleEngine.beats.values.toSet(), specialized,
+        reason: '全ての専門スタイルがちょうど1回ずつ「負ける側」に現れる');
+    for (final entry in StyleEngine.beats.entries) {
+      expect(entry.key, isNot(entry.value));
+      expect(StyleEngine.matchupAttackFactor(entry.key, entry.value),
+          StyleEngine.matchupBonus);
+      expect(StyleEngine.matchupAttackFactor(entry.value, entry.key),
+          StyleEngine.matchupPenalty);
+      expect(StyleEngine.matchupAttackFactor(TacticalStyle.flexible, entry.key),
+          1.0);
+    }
+
+    // 適性が攻守補正へ反映される(柔軟は常に中立)。
+    passers.tacticalStyle = TacticalStyle.possession;
+    expect(StyleEngine.powerFactor(passers), greaterThan(1.0));
+    passers.tacticalStyle = TacticalStyle.longBall;
+    expect(StyleEngine.powerFactor(passers), lessThan(1.0));
+    passers.tacticalStyle = TacticalStyle.flexible;
+    expect(StyleEngine.powerFactor(passers), 1.0);
+
+    // JSON往復と、キーのない旧セーブは柔軟へフォールバック。
+    passers.tacticalStyle = TacticalStyle.gegenpress;
+    final restored = Team.fromJson(passers.toJson());
+    expect(restored.tacticalStyle, TacticalStyle.gegenpress);
+    final legacy = passers.toJson()..remove('tacticalStyle');
+    expect(Team.fromJson(legacy).tacticalStyle, TacticalStyle.flexible);
+  });
+
+  test(
+      'CpuTacticsAI picks the best-fitting tactical style for CPU clubs and '
+      'never rewrites the user team style', () {
+    Team makeTeam(String id, {required List<String> boostKeys}) {
+      final players = [
+        for (int i = 0; i < 11; i++)
+          PlayerGenerator.generate(position: Position.mc, strengthTier: 55),
+      ];
+      for (final p in players) {
+        for (final k in AttributeKeys.all) {
+          p.setAttributeValue(k, 40);
+        }
+        for (final k in boostKeys) {
+          p.setAttributeValue(k, 88);
+        }
+      }
+      final t = Team(id: id, name: id, players: players);
+      t.startingXI.addAll(players.map((p) => p.id));
+      return t;
+    }
+
+    final counterCpu = makeTeam('cpu',
+        boostKeys: StyleEngine.keyAttributes[TacticalStyle.counter]!);
+    expect(CpuTacticsAI.styleFor(counterCpu), TacticalStyle.counter,
+        reason: 'スピード系が突出したCPUはカウンターを選ぶ');
+
+    final user = makeTeam('user',
+        boostKeys: StyleEngine.keyAttributes[TacticalStyle.possession]!);
+    user.tacticalStyle = TacticalStyle.longBall;
+    CpuTacticsAI.applyPreMatch(user, counterCpu, 'user');
+    expect(user.tacticalStyle, TacticalStyle.longBall,
+        reason: 'ユーザーのチームのスタイルはAIが書き換えない');
+    expect(counterCpu.tacticalStyle, TacticalStyle.counter);
+  });
+
+  test(
+      'the intra-squad practice match keeps bench players sharp while '
+      'leaving starters, injured and loaned-out players untouched', () {
+    final players = [
+      for (int i = 0; i < 14; i++)
+        PlayerGenerator.generate(position: Position.mc, strengthTier: 55),
+    ];
+    final team = Team(id: 't', name: 'T', players: players);
+    team.startingXI.addAll(players.take(11).map((p) => p.id));
+    for (final p in players) {
+      p.matchSharpness = 50;
+      p.fatigue = 10;
+    }
+    players[12].injuryWeeks = 2;
+    players[13].loanedOutWeeksRemaining = 4;
+
+    final participants = TrainingEngine.applyIntraSquadMatch(team);
+    expect(participants.map((p) => p.id), [players[11].id],
+        reason: '出場可能なスタメン外の選手だけが紅白戦に参加する');
+    expect(players[11].matchSharpness,
+        50 + TrainingEngine.practiceMatchSharpnessGain);
+    expect(players[11].fatigue, 10 + TrainingEngine.practiceMatchFatigue);
+    for (final p in players.take(11)) {
+      expect(p.matchSharpness, 50, reason: 'スタメンは紅白戦の対象外');
+    }
+    expect(players[12].matchSharpness, 50, reason: '負傷者は参加しない');
+    expect(players[13].matchSharpness, 50, reason: 'ローン放出中は参加しない');
+  });
+
+  test(
+      'the weekly youth match records apps, goals and ratings for every '
+      'prospect, and the new player fields survive JSON with 0 defaults', () {
+    final prospects = [
+      for (int i = 0; i < 6; i++)
+        PlayerGenerator.generate(
+            position: Position.mc, strengthTier: 50, ageOverride: 17),
+    ];
+    expect(YouthMatchEngine.playWeekly([]), isNull);
+
+    final report = YouthMatchEngine.playWeekly(prospects);
+    expect(report, isNotNull);
+    expect(report!.performances.length, prospects.length);
+    var totalGoals = 0;
+    for (final perf in report.performances) {
+      expect(perf.rating, inInclusiveRange(4.0, 10.0));
+      totalGoals += perf.goals;
+    }
+    expect(totalGoals, report.teamGoals, reason: 'チーム得点は必ず誰かの個人得点として配分される');
+    for (final p in prospects) {
+      expect(p.youthMatchApps, 1);
+      expect(p.lastYouthMatchRating, inInclusiveRange(4.0, 10.0));
+    }
+
+    final veteran = report.performances.first.player;
+    final restored = Player.fromJson(veteran.toJson());
+    expect(restored.youthMatchApps, veteran.youthMatchApps);
+    expect(restored.youthMatchGoals, veteran.youthMatchGoals);
+    expect(restored.lastYouthMatchRating, veteran.lastYouthMatchRating);
+
+    final legacy = veteran.toJson()
+      ..remove('youthMatchApps')
+      ..remove('youthMatchGoals')
+      ..remove('lastYouthMatchRating');
+    final old = Player.fromJson(legacy);
+    expect(old.youthMatchApps, 0, reason: '旧セーブは0から始まる');
+    expect(old.youthMatchGoals, 0);
+    expect(old.lastYouthMatchRating, 0);
   });
 }

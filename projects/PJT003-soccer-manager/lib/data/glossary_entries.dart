@@ -359,6 +359,24 @@ final List<GlossaryEntry> glossaryEntries = [
         '全ディビジョンの全選手を名前・ポジション・年齢・総合力で絞り込めるスカウティングツール。補強ターゲットの調査に使い、実際の獲得は移籍市場・フリーエージェント経由で行う。',
   ),
   const GlossaryEntry(
+    term: '戦術スタイル',
+    category: GlossaryCategory.tactics,
+    description:
+        'チームの攻撃の組み立て方の型(柔軟/ポゼッション/ゲーゲンプレス/カウンター/ロングボール/ウイングプレー)。スカッドの関連能力値が高いほど攻守の補正が大きく、向いていないスタイルは逆効果になる。スタイル間には相性(有利・不利の循環)があり、スカウティングレポートで相手の予想スタイルと対策を確認できる。柔軟は補正も弱点もない中立。',
+  ),
+  const GlossaryEntry(
+    term: '紅白戦',
+    category: GlossaryCategory.condition,
+    description:
+        '週次トレーニングの一環として自動で行われるスカッド内の練習試合。スタメン外の選手が実戦感覚(マッチシャープネス)を保ち、実戦経験による成長の機会も得る(そのぶん少し疲労は残る)。負傷・代表招集・ローン放出中の選手は参加できない。',
+  ),
+  const GlossaryEntry(
+    term: 'ユース練習試合',
+    category: GlossaryCategory.club,
+    description:
+        '昇格候補たちが毎週こなす近隣クラブのユースとの練習試合。全員に出場数・得点・評点が記録され、活躍(高評点)した候補は能力がさらに伸びる。戦績はユース画面で確認でき、昇格させるタイミングの判断材料になる。大活躍はクラブニュースにも届く。',
+  ),
+  const GlossaryEntry(
     term: '監督契約',
     category: GlossaryCategory.club,
     description:

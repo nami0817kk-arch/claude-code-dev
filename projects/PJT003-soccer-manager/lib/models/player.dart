@@ -1015,6 +1015,16 @@ class Player {
   /// 直後は大きく下がる。試合エンジンのコンディション算出に用いる。
   int matchSharpness;
 
+  /// ユース練習試合の通算出場数(昇格候補在籍中のみ加算)。昇格後も
+  /// 記録として残る。旧セーブは0。
+  int youthMatchApps;
+
+  /// ユース練習試合の通算得点数。旧セーブは0。
+  int youthMatchGoals;
+
+  /// 直近のユース練習試合の評点(10点満点)。未出場・旧セーブは0。
+  double lastYouthMatchRating;
+
   /// メンター(指導役)に指名されたベテラン選手のID。若手選手の成長率に
   /// ボーナスを与える代わりに、メンター自身の士気も少し上がる。
   String? mentorId;
@@ -1134,6 +1144,9 @@ class Player {
     this.role = PlayerRole.standard,
     Map<String, int>? positionFamiliarity,
     this.matchSharpness = 80,
+    this.youthMatchApps = 0,
+    this.youthMatchGoals = 0,
+    this.lastYouthMatchRating = 0,
     this.mentorId,
     this.drillAttributeKey,
     this.drillAttributeKey2,
@@ -1346,6 +1359,9 @@ class Player {
         'role': role.name,
         'positionFamiliarity': positionFamiliarity,
         'matchSharpness': matchSharpness,
+        'youthMatchApps': youthMatchApps,
+        'youthMatchGoals': youthMatchGoals,
+        'lastYouthMatchRating': lastYouthMatchRating,
         'mentorId': mentorId,
         'drillAttributeKey': drillAttributeKey,
         'drillAttributeKey2': drillAttributeKey2,
@@ -1456,6 +1472,10 @@ class Player {
           ) ??
           {},
       matchSharpness: json['matchSharpness'] as int? ?? 80,
+      youthMatchApps: json['youthMatchApps'] as int? ?? 0,
+      youthMatchGoals: json['youthMatchGoals'] as int? ?? 0,
+      lastYouthMatchRating:
+          (json['lastYouthMatchRating'] as num?)?.toDouble() ?? 0,
       mentorId: json['mentorId'] as String?,
       drillAttributeKey: json['drillAttributeKey'] as String?,
       drillAttributeKey2: json['drillAttributeKey2'] as String?,

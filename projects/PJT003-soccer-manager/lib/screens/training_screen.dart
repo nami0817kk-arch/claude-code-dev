@@ -271,7 +271,11 @@ class _TrainingScreenState extends State<TrainingScreen> {
     if (!context.mounted) return;
     if (ok) {
       FeedbackService.success();
-      _showTrainingResultDialog(context, gameState.lastTrainingResults);
+      _showTrainingResultDialog(
+        context,
+        gameState.lastTrainingResults,
+        practiceMatchCount: gameState.lastPracticeMatchCount,
+      );
     } else {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('今週のトレーニングは実施済みです')));
@@ -280,19 +284,45 @@ class _TrainingScreenState extends State<TrainingScreen> {
 
   void _showTrainingResultDialog(
     BuildContext context,
-    List<PlayerGrowthSummary> results,
-  ) {
+    List<PlayerGrowthSummary> results, {
+    int practiceMatchCount = 0,
+  }) {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('トレーニング結果'),
         content: SizedBox(
           width: double.maxFinite,
-          child: results.isEmpty
+          child: results.isEmpty && practiceMatchCount == 0
               ? const Text('今週は目立った変化のあった選手はいませんでした。')
               : ListView(
                   shrinkWrap: true,
                   children: [
+                    if (practiceMatchCount > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.sports_soccer,
+                              size: 16,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                '紅白戦: スタメン外の$practiceMatchCount人が'
+                                '実戦感覚を維持しました',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (results.isEmpty) const Text('今週は目立った変化のあった選手はいませんでした。'),
                     for (final r in results)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),

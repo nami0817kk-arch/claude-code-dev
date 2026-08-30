@@ -7,6 +7,7 @@ import '../models/team.dart';
 import '../models/match_result.dart';
 import '../models/weather.dart';
 import 'lineup_utils.dart';
+import 'style_engine.dart';
 import 'training_engine.dart';
 
 /// この枚数の警告が貯まると次節出場停止になる(退場は即1試合出場停止)。
@@ -526,6 +527,7 @@ class MatchEngine {
     Team t,
     List<Player> lineup, {
     String? suppressedId,
+    TacticalStyle? opponentStyle,
   }) {
     final relevant = lineup
         .where(
@@ -551,6 +553,10 @@ class MatchEngine {
     final result = (total / relevant.length) *
         t.formation.attackBias *
         t.mentality.attackFactor *
+        StyleEngine.powerFactor(t, lineup: lineup) *
+        (opponentStyle == null
+            ? 1.0
+            : StyleEngine.matchupAttackFactor(t.tacticalStyle, opponentStyle)) *
         lineHeightAttackFactor(t.lineHeight) *
         widthAttackFactor(t.width) *
         tempoAttackFactor(t.tempo, avgStamina);
@@ -581,6 +587,7 @@ class MatchEngine {
     final result = (total / relevant.length) *
         t.formation.defenseBias *
         t.mentality.defenseFactor *
+        StyleEngine.powerFactor(t, lineup: lineup) *
         pressingDefenseFactor(t.pressing, avgWorkRate) *
         lineHeightDefenseRiskFactor(t.lineHeight) *
         widthDefenseRiskFactor(t.width);
@@ -1027,13 +1034,13 @@ class MatchEngine {
     final homeMarkedId = markedTargetId(away, awayLineup, homeLineup);
     final awayMarkedId = markedTargetId(home, homeLineup, awayLineup);
 
-    final homeAttackBase =
-        _attackPower(home, homeLineup, suppressedId: homeMarkedId) *
-            homeAdvantageFactor *
-            weather.attackMultiplier;
-    final awayAttackBase =
-        _attackPower(away, awayLineup, suppressedId: awayMarkedId) *
-            weather.attackMultiplier;
+    final homeAttackBase = _attackPower(home, homeLineup,
+            suppressedId: homeMarkedId, opponentStyle: away.tacticalStyle) *
+        homeAdvantageFactor *
+        weather.attackMultiplier;
+    final awayAttackBase = _attackPower(away, awayLineup,
+            suppressedId: awayMarkedId, opponentStyle: home.tacticalStyle) *
+        weather.attackMultiplier;
     final homeDefenseBase =
         _defensePower(home, homeLineup) * weather.defenseMultiplier;
     final awayDefenseBase =
@@ -1807,13 +1814,13 @@ class MatchEngine {
   static void _recomputeInteractiveBases(InteractiveHalfState s) {
     final homeMarkedId = markedTargetId(s.away, s.awayLineup, s.homeLineup);
     final awayMarkedId = markedTargetId(s.home, s.homeLineup, s.awayLineup);
-    s.homeAttackBase =
-        _attackPower(s.home, s.homeLineup, suppressedId: homeMarkedId) *
-            s.homeAdvantageFactor *
-            s.weather.attackMultiplier;
-    s.awayAttackBase =
-        _attackPower(s.away, s.awayLineup, suppressedId: awayMarkedId) *
-            s.weather.attackMultiplier;
+    s.homeAttackBase = _attackPower(s.home, s.homeLineup,
+            suppressedId: homeMarkedId, opponentStyle: s.away.tacticalStyle) *
+        s.homeAdvantageFactor *
+        s.weather.attackMultiplier;
+    s.awayAttackBase = _attackPower(s.away, s.awayLineup,
+            suppressedId: awayMarkedId, opponentStyle: s.home.tacticalStyle) *
+        s.weather.attackMultiplier;
     s.homeDefenseBase =
         _defensePower(s.home, s.homeLineup) * s.weather.defenseMultiplier;
     s.awayDefenseBase =
@@ -1906,13 +1913,13 @@ class MatchEngine {
     final homeMarkedId = markedTargetId(away, awayLineup, homeLineup);
     final awayMarkedId = markedTargetId(home, homeLineup, awayLineup);
 
-    final homeAttackBase =
-        _attackPower(home, homeLineup, suppressedId: homeMarkedId) *
-            homeAdvantageFactor *
-            weather.attackMultiplier;
-    final awayAttackBase =
-        _attackPower(away, awayLineup, suppressedId: awayMarkedId) *
-            weather.attackMultiplier;
+    final homeAttackBase = _attackPower(home, homeLineup,
+            suppressedId: homeMarkedId, opponentStyle: away.tacticalStyle) *
+        homeAdvantageFactor *
+        weather.attackMultiplier;
+    final awayAttackBase = _attackPower(away, awayLineup,
+            suppressedId: awayMarkedId, opponentStyle: home.tacticalStyle) *
+        weather.attackMultiplier;
     final homeDefenseBase =
         _defensePower(home, homeLineup) * weather.defenseMultiplier;
     final awayDefenseBase =

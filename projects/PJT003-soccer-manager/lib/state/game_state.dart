@@ -63,6 +63,7 @@ import '../logic/super_cup_engine.dart';
 import '../logic/training_engine.dart';
 import '../logic/transfer_market.dart';
 import '../logic/weather_engine.dart';
+import '../logic/youth_match_engine.dart';
 import '../data/name_pool.dart';
 
 const int maxSquadSize = 26;
@@ -164,6 +165,14 @@ class GameState extends ChangeNotifier {
   /// 直近のrunWeeklyTrainingで実際に変化(成長・衰え)があった選手の一覧
   /// (1回表示したら呼び出し側でクリアする想定)。
   List<PlayerGrowthSummary> lastTrainingResults = [];
+
+  /// 直近の週次トレーニングで紅白戦に参加した(=実戦感覚を維持できた)
+  /// スタメン外の選手の人数。トレーニング結果の表示に使う。
+  int lastPracticeMatchCount = 0;
+
+  /// 直近の節送りで行われたユース練習試合の結果(候補が0人ならnull)。
+  /// ユース画面での直近戦の表示に使う(セーブデータには保存しない)。
+  YouthMatchReport? lastYouthMatchReport;
 
   /// 直近のstartNextSeasonで引退した選手名(1回表示したら呼び出し側でクリアする想定)。
   List<String> lastRetirements = [];
@@ -852,6 +861,9 @@ class GameState extends ChangeNotifier {
       injuryFactor: _userInjuryFactor,
       careerGrowthBonus: managerCareerGrowthBonus,
     );
+    // 紅白戦: スタメン外の選手が実戦感覚を維持する(週次トレーニング付随)。
+    lastPracticeMatchCount =
+        TrainingEngine.applyIntraSquadMatch(userTeam).length;
     for (final p in userTeam.players) {
       if (p.hadBreakthroughThisWeek) _save!.breakthroughCount++;
       if (p.acquiredTraitThisWeek != null) _save!.traitsAcquired++;
@@ -959,6 +971,14 @@ class GameState extends ChangeNotifier {
   void setMentality(TeamMentality mentality) {
     if (_save == null) return;
     userTeam.mentality = mentality;
+    notifyListeners();
+    _persist();
+  }
+
+  /// 戦術スタイル(ポゼッション/ゲーゲンプレス等)を変更する。
+  void setTacticalStyle(TacticalStyle style) {
+    if (_save == null) return;
+    userTeam.tacticalStyle = style;
     notifyListeners();
     _persist();
   }
@@ -2902,6 +2922,28 @@ class GameState extends ChangeNotifier {
       _save!.youthProspects,
       _save!.infrastructure.facilityLevel(FacilityType.youthFacility),
     );
+
+    // ユース練習試合: 昇格候補たちが毎週実戦を経験し、出場数・得点・評点を
+    // 積み重ねる。大活躍(複数得点・高評点)はクラブニュースに届く。
+    lastYouthMatchReport = YouthMatchEngine.playWeekly(_save!.youthProspects);
+    final youthReport = lastYouthMatchReport;
+    if (youthReport != null) {
+      for (final perf in youthReport.performances) {
+        if (perf.goals >= 2) {
+          _logNews(
+            'ユースの${perf.player.name}が練習試合で${perf.goals}得点の大活躍'
+            '(評点${perf.rating.toStringAsFixed(1)})',
+            context: 'ユース',
+          );
+        } else if (perf.rating >= 8.5) {
+          _logNews(
+            'ユースの${perf.player.name}が練習試合で圧巻のプレー'
+            '(評点${perf.rating.toStringAsFixed(1)})',
+            context: 'ユース',
+          );
+        }
+      }
+    }
 
     // ローン放出の週次処理(期間終了で自動的にチームへ復帰する)。
     lastLoanReturns = [];

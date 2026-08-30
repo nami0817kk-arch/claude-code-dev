@@ -153,11 +153,34 @@ class ScoutReportScreen extends StatelessWidget {
               color: Theme.of(context).colorScheme.secondaryContainer,
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.lightbulb_outline),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(report.recommendation)),
+                    Row(
+                      children: [
+                        const Icon(Icons.lightbulb_outline),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(report.recommendation)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.style_outlined, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            report.counterStyle == null
+                                ? '予想スタイル: ${report.opponentStyle.label}。'
+                                    '型のない相手なので、こちらの得意な形で戦えます。'
+                                : '予想スタイル: ${report.opponentStyle.label}。'
+                                    '相性で有利を取るなら'
+                                    '「${report.counterStyle!.label}」が刺さります。',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../logic/scouting_engine.dart';
+import '../logic/youth_match_engine.dart';
 import '../models/player.dart';
 import '../models/training_focus.dart';
 import '../services/feedback_service.dart';
@@ -274,10 +275,54 @@ class _YouthScreenState extends State<YouthScreen> {
               child: Text(
                 '昇格候補はユース施設で育成され続けます'
                 '(成長係数 x${gameState.youthAcademyGrowthFactor.toStringAsFixed(2)}。'
-                'ユース施設のレベルを上げるとじっくり育てる価値が高まります)',
+                'ユース施設のレベルを上げるとじっくり育てる価値が高まります)。'
+                '毎週ユース練習試合も行われ、活躍した候補はさらに伸びます',
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
+            if (gameState.lastYouthMatchReport != null) ...[
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Builder(
+                      builder: (context) {
+                        final report = gameState.lastYouthMatchReport!;
+                        final best = report.performances.isEmpty
+                            ? null
+                            : report.performances.first;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '今週のユース練習試合: ${report.scoreLabel} '
+                              '${report.isWin ? '勝利' : report.isDraw ? '引き分け' : '敗戦'}'
+                              '(相手の総合力 ${report.opponentRating})',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            if (best != null)
+                              Text(
+                                'ベストプレイヤー: ${best.player.name}'
+                                '(評点 ${best.rating.toStringAsFixed(1)}'
+                                '${best.goals > 0 ? '・${best.goals}得点' : ''})',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             if (prospects.isEmpty)
               Padding(
@@ -330,6 +375,20 @@ class _YouthScreenState extends State<YouthScreen> {
                         children: [
                           Text(
                             '${p.age}歳 / 総合 ${p.overall} / 潜在 ${p.potential} / 成長 ${p.growthType.label}',
+                          ),
+                          Text(
+                            p.youthMatchApps == 0
+                                ? 'ユース戦: まだ出場なし'
+                                : 'ユース戦: ${p.youthMatchApps}試合'
+                                    ' ${p.youthMatchGoals}得点 / 直近評点'
+                                    ' ${p.lastYouthMatchRating.toStringAsFixed(1)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: p.lastYouthMatchRating >=
+                                      YouthMatchEngine.standoutRatingThreshold
+                                  ? Colors.green
+                                  : Colors.grey,
+                            ),
                           ),
                           Row(
                             children: [
