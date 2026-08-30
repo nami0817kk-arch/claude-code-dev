@@ -51,9 +51,11 @@ class TrainingEngine {
       p.acquiredTraitThisWeek = null;
       final focus = _resolveFocus(p, team.defaultTrainingFocus);
       // ローン放出中の選手は貸出先で練習しているため、自クラブの施設・
-      // スタッフによる成長ボーナスは適用しない。
+      // スタッフによる成長ボーナスは適用せず、貸出先の標準的な環境
+      // ([loanHostGrowthMultiplier])で育つ。
       final isLoanedOut = p.isLoanedOut;
-      final effectiveGrowthMultiplier = isLoanedOut ? 1.0 : growthMultiplier;
+      final effectiveGrowthMultiplier =
+          isLoanedOut ? loanHostGrowthMultiplier : growthMultiplier;
       final effectiveFatigueRecoveryBonus =
           isLoanedOut ? 0 : fatigueRecoveryBonus;
 
@@ -365,7 +367,15 @@ class TrainingEngine {
   /// 若い選手ほど武者修行の効果が大きく、ベテランには効果が薄い。
   /// 自クラブの施設・スタッフのボーナスは引き続き適用されない
   /// ([applyWeeklyTraining]側で除外)。
-  static const double loanDevelopmentYoungFactor = 1.2;
+  /// ローン放出中の選手が貸出先で受ける成長倍率。かつては1.0(施設・
+  /// スタッフの補正なし)で、自クラブの施設をレベル3まで上げていると
+  /// 1.46倍との差が大きく、武者修行に出すと控えに置くより育たなかった
+  /// (実測で4シーズンの成長が武者修行8.4に対し紅白戦つきの控え9.5)。
+  /// 貸出先にもコーチと練習場があるという前提で、自クラブの施設を
+  /// 育てる意味は残しつつ差を縮める。
+  static const double loanHostGrowthMultiplier = 1.35;
+
+  static const double loanDevelopmentYoungFactor = 1.5;
   static const double loanDevelopmentVeteranFactor = 0.6;
   static const int loanDevelopmentSharpnessGain = 6;
 

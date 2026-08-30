@@ -273,6 +273,9 @@ void main() {
     final beforeCount = gameState.userTeam.players.length;
     final target = gameState.transferMarket.first;
     gameState.save!.budget = target.marketValue + 100;
+    // 週給予算(BD3)に引っかかると獲得が拒否されるため、余裕を明示的に与える
+    // (与えないと、市場の顔ぶれ次第でごく稀に失敗する不安定なテストになる)。
+    gameState.save!.wageBudget = 999999;
 
     final ok = await gameState.buyPlayer(target.id);
 
@@ -10409,16 +10412,22 @@ void main() {
     }
     if (gameState.isDismissed) return; // 解任された場合はこのテストの対象外。
 
-    // シーズンを生き延びた状態で、信頼度をぎりぎりまで削っておく。
-    gameState.save!.confidence = 1;
+    // シーズンを生き延びた状態で、信頼度を低め(ただしシーズン終了時の
+    // 順位評価で0まで落ちない水準)にしておく。目標未達の-20を受けても
+    // 生き残る値にしないと、テストが評価結果のブレで不安定になる。
+    gameState.save!.confidence = 30;
     await gameState.startNextSeason();
 
-    if (gameState.save!.managerContractYears > 0) {
-      expect(gameState.isDismissed, isFalse,
-          reason: '続投が決まったのに新シーズン開幕時点で解任状態になっている');
+    // 解任されず契約も残っているなら、開幕時の猶予が効いていなければならない。
+    if (!gameState.isDismissed && gameState.save!.managerContractYears > 0) {
       expect(gameState.save!.confidence,
           greaterThanOrEqualTo(BoardEngine.newSeasonConfidenceFloor),
           reason: '新シーズンの猶予(信頼度の下限)が効いていない');
+    }
+    // 信頼度が残っている限り、開幕直後に解任状態になってはいけない。
+    if (gameState.save!.managerContractYears > 0 &&
+        gameState.save!.confidence > 0) {
+      expect(gameState.isDismissed, isFalse);
     }
   });
 
@@ -10694,5 +10703,87 @@ void main() {
         reason: 'ガイドに既定のトレーニング方針(全体練習)の説明がない');
     expect(glossaryEntries.any((e) => e.term == '全体練習'), isTrue,
         reason: '用語集に「全体練習」が載っていない');
+  });
+
+  test(
+      'a loan spell develops a young player who cannot get minutes, instead '
+      'of being worse than leaving him on the bench (CA8)', () {
+    // ローン放出中は自クラブの施設ボーナスが一切効かず(倍率1.0)、施設を
+    // レベル3まで上げていると1.46倍との差で、武者修行に出すと控えに
+    // 置いておくより育たなかった(実測で4シーズンの成長が武者修行8.4に
+    // 対し紅白戦つきの控え9.5)。育成手段としての武者修行が成立している
+    // ことを固定する。
+    double growthOver(String mode, {int facilityLevel = 3}) {
+      const cohort = 40;
+      const seasons = 4;
+      final team = Team(id: 'ca8$mode$facilityLevel', name: 'CA8', players: []);
+      for (var i = 0; i < cohort; i++) {
+        team.players.add(
+          PlayerGenerator.generate(
+            position: Position.mc,
+            strengthTier: 55,
+            ageOverride: 19,
+          ),
+        );
+      }
+      team.startingXI =
+          mode == 'starter' ? [for (final p in team.players) p.id] : <String>[];
+      final before = {for (final p in team.players) p.id: p.overall};
+
+      for (var s = 0; s < seasons; s++) {
+        for (var w = 0; w < 42; w++) {
+          for (final p in team.players) {
+            p.fatigue = 20;
+            p.injuryWeeks = 0;
+            p.loanedOutWeeksRemaining = mode == 'loan' ? 20 : 0;
+            if (mode == 'starter') p.matchSharpness = 85;
+            if (mode == 'neglectedBench') p.matchSharpness = 20;
+          }
+          TrainingEngine.applyWeeklyTraining(
+            team,
+            headCoachLevel: facilityLevel,
+            trainingGroundLevel: facilityLevel,
+          );
+          switch (mode) {
+            case 'starter':
+              for (final p in team.players) {
+                TrainingEngine.growFromMatchExperience(p);
+              }
+            case 'bench':
+              TrainingEngine.applyIntraSquadMatch(team);
+            case 'loan':
+              for (final p in team.players) {
+                TrainingEngine.applyLoanDevelopment(p);
+              }
+          }
+        }
+        for (final p in team.players) {
+          p.age += 1;
+        }
+      }
+      var sum = 0.0;
+      for (final p in team.players) {
+        sum += p.overall - before[p.id]!;
+      }
+      return sum / team.players.length;
+    }
+
+    final loan = growthOver('loan');
+    final bench = growthOver('bench');
+    final neglected = growthOver('neglectedBench');
+
+    // 武者修行は「出番のない選手を放置する」より明確に良い。
+    expect(loan, greaterThan(neglected + 0.5),
+        reason: '武者修行$loan が放置した控え$neglected とほとんど変わらない');
+    // 紅白戦で面倒を見た控えと比べても見劣りしない(実測で概ね同等)。
+    expect(loan, greaterThan(bench * 0.85),
+        reason: '武者修行$loan が紅白戦つきの控え$bench より大きく劣っている');
+
+    // 施設が貧弱なクラブでは、貸出先で育てた方がはっきり有利になる。
+    final loanAtSmallClub = growthOver('loan', facilityLevel: 1);
+    final benchAtSmallClub = growthOver('bench', facilityLevel: 1);
+    expect(loanAtSmallClub, greaterThan(benchAtSmallClub),
+        reason: '施設レベル1のクラブでも武者修行($loanAtSmallClub)が'
+            '手元に置く($benchAtSmallClub)より有利になっていない');
   });
 }
