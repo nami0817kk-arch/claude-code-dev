@@ -30,6 +30,7 @@ import 'package:soccer_manager/logic/season_projection_engine.dart';
 import 'package:soccer_manager/logic/sponsor_engine.dart';
 import 'package:soccer_manager/logic/tactics_ai.dart';
 import 'package:soccer_manager/logic/style_engine.dart';
+import 'package:soccer_manager/logic/development_advisor.dart';
 import 'package:soccer_manager/logic/youth_match_engine.dart';
 import 'package:soccer_manager/logic/training_engine.dart';
 import 'package:soccer_manager/logic/transfer_market.dart';
@@ -9794,5 +9795,96 @@ void main() {
     expect(old.youthMatchApps, 0, reason: '旧セーブは0から始まる');
     expect(old.youthMatchGoals, 0);
     expect(old.lastYouthMatchRating, 0);
+  });
+
+  test(
+      'loan development keeps a loaned-out player sharp and growing, and '
+      'the new loan/history fields survive JSON with safe defaults', () {
+    final p = PlayerGenerator.generate(
+        position: Position.mc, strengthTier: 50, ageOverride: 19);
+    p.matchSharpness = 40;
+
+    // 若手は数十週の武者修行で目に見えて成長する(成長は確率的なので
+    // 多めの週数を回して総量で検証する)。
+    final before = p.overall;
+    for (var week = 0; week < 30; week++) {
+      TrainingEngine.applyLoanDevelopment(p);
+    }
+    expect(p.matchSharpness, greaterThan(40), reason: '貸出先で実戦に出ている分、実戦感覚が保たれる');
+    expect(p.overall, greaterThanOrEqualTo(before), reason: '武者修行で能力が下がることはない');
+
+    // JSON往復と旧セーブ互換。
+    p.loanStartOverall = 55;
+    TrainingEngine.recordOverallHistory(p);
+    final restored = Player.fromJson(p.toJson());
+    expect(restored.loanStartOverall, 55);
+    expect(restored.overallHistory, p.overallHistory);
+    final legacy = p.toJson()
+      ..remove('loanStartOverall')
+      ..remove('overallHistory');
+    final old = Player.fromJson(legacy);
+    expect(old.loanStartOverall, 0);
+    expect(old.overallHistory, isEmpty);
+  });
+
+  test(
+      'recordOverallHistory appends weekly snapshots and trims the oldest '
+      'entries beyond the retention limit', () {
+    final p = PlayerGenerator.generate(position: Position.mc, strengthTier: 55);
+    for (var i = 0; i < TrainingEngine.overallHistoryLimit + 10; i++) {
+      TrainingEngine.recordOverallHistory(p);
+    }
+    expect(p.overallHistory.length, TrainingEngine.overallHistoryLimit,
+        reason: '上限を超えた古い記録は捨てられる');
+    expect(p.overallHistory.last, p.overall);
+  });
+
+  test(
+      'DevelopmentAdvisor flags fatigue, low sharpness, untapped potential '
+      'and missing mentors, and stays quiet for well-managed squads', () {
+    Player make({required int age}) {
+      final p = PlayerGenerator.generate(
+          position: Position.mc, strengthTier: 55, ageOverride: age);
+      p.fatigue = 10;
+      p.matchSharpness = 80;
+      p.drillAttributeKey = AttributeKeys.passing;
+      p.mentorId = 'vet';
+      return p;
+    }
+
+    final veteran = make(age: 30);
+    final tired = make(age: 27)..fatigue = 90;
+    final rusty = make(age: 27)..matchSharpness = 20;
+    final rawTalent = make(age: 19)
+      ..drillAttributeKey = null
+      ..developmentTargetRole = null;
+    rawTalent.setAttributeValue(AttributeKeys.finishing, 30);
+    final noMentorKid = make(age: 19)..mentorId = null;
+    final team = Team(
+      id: 't',
+      name: 'T',
+      players: [veteran, tired, rusty, rawTalent, noMentorKid],
+    );
+
+    final advices = DevelopmentAdvisor.advise(team);
+    final kindsFor = <String, Set<AdviceKind>>{};
+    for (final a in advices) {
+      kindsFor.putIfAbsent(a.playerId, () => {}).add(a.kind);
+    }
+    expect(kindsFor[tired.id], contains(AdviceKind.highFatigue));
+    expect(kindsFor[rusty.id], contains(AdviceKind.lowSharpness));
+    if (rawTalent.potential - rawTalent.overall >=
+        DevelopmentAdvisor.potentialGapThreshold) {
+      expect(kindsFor[rawTalent.id], contains(AdviceKind.unusedPotential));
+    }
+    expect(kindsFor[noMentorKid.id], contains(AdviceKind.noMentor));
+    expect(kindsFor[veteran.id], isNull, reason: 'ケアの行き届いた選手には指摘が出ない');
+    expect(advices.length, lessThanOrEqualTo(DevelopmentAdvisor.maxAdvices));
+
+    // 重要度順(疲労が最優先)に並ぶ。
+    for (var i = 1; i < advices.length; i++) {
+      expect(advices[i].kind.index,
+          greaterThanOrEqualTo(advices[i - 1].kind.index));
+    }
   });
 }

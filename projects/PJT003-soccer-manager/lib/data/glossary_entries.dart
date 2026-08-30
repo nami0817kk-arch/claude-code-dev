@@ -359,6 +359,24 @@ final List<GlossaryEntry> glossaryEntries = [
         '全ディビジョンの全選手を名前・ポジション・年齢・総合力で絞り込めるスカウティングツール。補強ターゲットの調査に使い、実際の獲得は移籍市場・フリーエージェント経由で行う。',
   ),
   const GlossaryEntry(
+    term: '武者修行(ローン育成)',
+    category: GlossaryCategory.contractTransfer,
+    description:
+        'ローン放出中の選手は貸出先で毎週実戦に出て成長する(24歳未満は特に効果が大きい)。自クラブの施設・スタッフのボーナスは効かないが、実戦感覚を保ちながら能力が伸びるため、出番のない若手の育成手段になる。復帰時には放出中の成長がニュースで報告される。',
+  ),
+  const GlossaryEntry(
+    term: '成長推移',
+    category: GlossaryCategory.condition,
+    description:
+        '選手の総合力を節送りごとに記録した週次の推移。選手詳細画面に折れ線グラフで表示され、伸びている選手・停滞している選手が一目で分かる。自クラブの選手とユース昇格候補が対象で、概ね1シーズン分を保持する。',
+  ),
+  const GlossaryEntry(
+    term: '育成アドバイザー',
+    category: GlossaryCategory.condition,
+    description:
+        'コーチ陣が育成面で手を打つべき選手を挙げてくれるトレーニング画面の提案。疲労が濃い選手、実戦感覚が落ちて成長が鈍っている選手、伸びしろが手つかずの若手(特訓ドリル・育成プラン未設定)、メンターのいない若手を検知する。',
+  ),
+  const GlossaryEntry(
     term: '戦術スタイル',
     category: GlossaryCategory.tactics,
     description:

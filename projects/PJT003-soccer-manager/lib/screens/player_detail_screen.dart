@@ -15,6 +15,7 @@ import '../state/game_state.dart';
 import '../theme/semantic_colors.dart';
 import 'glossary_screen.dart';
 import '../widgets/attribute_radar.dart';
+import '../widgets/growth_sparkline.dart';
 import '../widgets/player_face_avatar.dart';
 import '../widgets/stat_bar.dart';
 
@@ -394,6 +395,29 @@ class PlayerDetailScreen extends StatelessWidget {
                 fontSize: 12,
                 color: Colors.amber,
                 fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+          if (p.overallHistory.length >= 2) ...[
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '成長推移(直近${p.overallHistory.length}節): '
+                      '総合 ${p.overallHistory.first} → ${p.overallHistory.last}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    GrowthSparkline(history: p.overallHistory),
+                  ],
+                ),
               ),
             ),
           ],

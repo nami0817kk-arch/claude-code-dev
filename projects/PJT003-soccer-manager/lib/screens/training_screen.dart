@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../logic/calendar_engine.dart';
+import '../logic/development_advisor.dart';
 import '../logic/player_generator.dart';
 import '../logic/training_engine.dart';
 import '../models/attributes.dart';
@@ -112,6 +113,49 @@ class _TrainingScreenState extends State<TrainingScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            Builder(
+              builder: (context) {
+                final advices = DevelopmentAdvisor.advise(team);
+                if (advices.isEmpty) return const SizedBox.shrink();
+                return Card(
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.tips_and_updates_outlined,
+                                size: 18),
+                            const SizedBox(width: 6),
+                            Text(
+                              '育成アドバイザー',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'コーチ陣が育成面で手を打つべき選手を挙げています。',
+                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 8),
+                        for (final a in advices)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              '・[${a.kind.label}] ${a.playerName}: ${a.message}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),

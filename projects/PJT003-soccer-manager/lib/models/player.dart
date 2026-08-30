@@ -1025,6 +1025,15 @@ class Player {
   /// 直近のユース練習試合の評点(10点満点)。未出場・旧セーブは0。
   double lastYouthMatchRating;
 
+  /// ローン放出(武者修行)を開始した時点の総合力。復帰時の成長レポート
+  /// に使い、復帰後は0に戻す。0はローン中でない(旧セーブ含む)ことを表す。
+  int loanStartOverall;
+
+  /// 総合力の週次スナップショット(節送りごとに末尾へ追加、古い順)。
+  /// 上限はTrainingEngine.overallHistoryLimit。自クラブの選手とユース
+  /// 昇格候補のみ記録され、選手詳細の成長推移グラフに使う。旧セーブは空。
+  List<int> overallHistory;
+
   /// メンター(指導役)に指名されたベテラン選手のID。若手選手の成長率に
   /// ボーナスを与える代わりに、メンター自身の士気も少し上がる。
   String? mentorId;
@@ -1145,6 +1154,8 @@ class Player {
     Map<String, int>? positionFamiliarity,
     this.matchSharpness = 80,
     this.youthMatchApps = 0,
+    this.loanStartOverall = 0,
+    List<int>? overallHistory,
     this.youthMatchGoals = 0,
     this.lastYouthMatchRating = 0,
     this.mentorId,
@@ -1161,7 +1172,8 @@ class Player {
   })  : secondaryPositions = secondaryPositions ?? [],
         attributes = attributes ?? {for (final k in AttributeKeys.all) k: 50},
         positionFamiliarity = positionFamiliarity ?? {},
-        injuryHistoryCounts = injuryHistoryCounts ?? {};
+        injuryHistoryCounts = injuryHistoryCounts ?? {},
+        overallHistory = overallHistory ?? [];
 
   /// このポジション（主・副とも）を無理なくこなせるか。
   bool canPlay(Position pos) =>
@@ -1360,6 +1372,8 @@ class Player {
         'positionFamiliarity': positionFamiliarity,
         'matchSharpness': matchSharpness,
         'youthMatchApps': youthMatchApps,
+        'loanStartOverall': loanStartOverall,
+        'overallHistory': overallHistory,
         'youthMatchGoals': youthMatchGoals,
         'lastYouthMatchRating': lastYouthMatchRating,
         'mentorId': mentorId,
@@ -1473,6 +1487,10 @@ class Player {
           {},
       matchSharpness: json['matchSharpness'] as int? ?? 80,
       youthMatchApps: json['youthMatchApps'] as int? ?? 0,
+      loanStartOverall: json['loanStartOverall'] as int? ?? 0,
+      overallHistory:
+          (json['overallHistory'] as List?)?.map((e) => e as int).toList() ??
+              [],
       youthMatchGoals: json['youthMatchGoals'] as int? ?? 0,
       lastYouthMatchRating:
           (json['lastYouthMatchRating'] as num?)?.toDouble() ?? 0,

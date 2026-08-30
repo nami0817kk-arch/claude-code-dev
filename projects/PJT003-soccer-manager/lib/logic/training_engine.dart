@@ -306,6 +306,39 @@ class TrainingEngine {
     }
   }
 
+  /// ローン放出中(武者修行中)の選手が貸出先で毎週得る成長。貸出先で
+  /// 実戦に出場している前提のため、実戦感覚(マッチシャープネス)を保ち、
+  /// ポジション・育成方針に応じた能力と実戦経験によるメンタルが伸びる。
+  /// 若い選手ほど武者修行の効果が大きく、ベテランには効果が薄い。
+  /// 自クラブの施設・スタッフのボーナスは引き続き適用されない
+  /// ([applyWeeklyTraining]側で除外)。
+  static const double loanDevelopmentYoungFactor = 1.2;
+  static const double loanDevelopmentVeteranFactor = 0.6;
+  static const int loanDevelopmentSharpnessGain = 6;
+
+  static void applyLoanDevelopment(Player p) {
+    p.matchSharpness =
+        (p.matchSharpness + loanDevelopmentSharpnessGain).clamp(0, 100);
+    growFromMatchExperience(p);
+    final factor =
+        p.age < 24 ? loanDevelopmentYoungFactor : loanDevelopmentVeteranFactor;
+    for (final k in _youthGrowthKeysFor(p)) {
+      _grow(p, k, 0.5 * factor);
+    }
+  }
+
+  /// 成長推移([Player.overallHistory])として保存する週次スナップショットの
+  /// 上限数。おおむね1シーズン分を保持し、古いものから捨てる。
+  static const int overallHistoryLimit = 40;
+
+  /// 現在の総合力を成長推移の末尾に記録する(節送りごとに1回呼ばれる)。
+  static void recordOverallHistory(Player p) {
+    p.overallHistory.add(p.overall);
+    while (p.overallHistory.length > overallHistoryLimit) {
+      p.overallHistory.removeAt(0);
+    }
+  }
+
   /// 紅白戦(スカッド内の練習試合)によるマッチシャープネスの回復量。
   static const int practiceMatchSharpnessGain = 8;
 

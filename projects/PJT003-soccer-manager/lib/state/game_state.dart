@@ -1947,6 +1947,8 @@ class GameState extends ChangeNotifier {
       loanOutMaxWeeks,
     );
     player.loanedOutToClubName = destination.name;
+    // 復帰時の成長レポートのために放出時点の総合力を記録しておく。
+    player.loanStartOverall = player.overall;
     final wasStarter = team.startingXI.remove(player.id);
     if (wasStarter) {
       LineupUtils.autoFill(team);
@@ -2948,11 +2950,33 @@ class GameState extends ChangeNotifier {
     // ローン放出の週次処理(期間終了で自動的にチームへ復帰する)。
     lastLoanReturns = [];
     for (final p in userTeam.players.where((p) => p.isLoanedOut)) {
+      // 武者修行: 貸出先で毎週実戦に出て成長する(若手ほど効果大)。
+      TrainingEngine.applyLoanDevelopment(p);
       p.loanedOutWeeksRemaining -= 1;
       if (p.loanedOutWeeksRemaining <= 0) {
+        final loanClub = p.loanedOutToClubName;
         p.loanedOutToClubName = null;
         lastLoanReturns.add(p.name);
+        if (p.loanStartOverall > 0) {
+          final delta = p.overall - p.loanStartOverall;
+          _logNews(
+            '${p.name}が武者修行(${loanClub ?? 'ローン先'})から復帰。'
+            '総合 ${p.loanStartOverall}→${p.overall}'
+            '${delta > 0 ? '(+$delta成長)' : ''}',
+            context: 'ローン復帰',
+          );
+          p.loanStartOverall = 0;
+        }
       }
+    }
+
+    // 成長推移の記録(自クラブの選手とユース昇格候補のみ)。選手詳細の
+    // 成長グラフと、ユースの昇格判断に使う。
+    for (final p in userTeam.players) {
+      TrainingEngine.recordOverallHistory(p);
+    }
+    for (final p in _save!.youthProspects) {
+      TrainingEngine.recordOverallHistory(p);
     }
 
     final md = next.matchday;
