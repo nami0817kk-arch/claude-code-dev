@@ -467,7 +467,16 @@ class MatchEngine {
         )
         .toList()
       ..sort((a, b) => b.overall.compareTo(a.overall));
-    return available.take(11).toList();
+    if (available.isNotEmpty) return available.take(11).toList();
+    // 負傷・出場停止・ローン放出が重なって出場可能な選手が1人もいない場合、
+    // 空のスタメンを返すと試合エンジンが得点者を選べず落ちる(実測で
+    // 「全員負傷」「全員出場停止」「全員ローン放出中」のいずれでも
+    // Null check operator の例外になることを確認)。現実のクラブが
+    // 満身創痍でもピッチに11人を並べるのと同じように、状態を問わず
+    // 総合力上位から緊急編成する。
+    final emergency = [...t.players]
+      ..sort((a, b) => b.overall.compareTo(a.overall));
+    return emergency.take(11).toList();
   }
 
   /// スカウティングレポート・マンマーク指令の対象となる「キープレイヤー」
@@ -2229,6 +2238,10 @@ class MatchEngine {
           isInteractiveOpenPlay = true;
         }
       }
+
+      // スカッドが空でスタメンを組めない場合、得点者が選べない。判断を
+      // 求めようがないので自動解決に任せる(ここで握らないと落ちる)。
+      if (scorer == null) isInteractiveOpenPlay = false;
 
       if (isInteractiveOpenPlay) {
         if (attackingTeam.id == s.interactiveTeamId) {

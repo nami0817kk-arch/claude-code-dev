@@ -71,10 +71,21 @@ class RetirementEngine {
   /// 生成基準はチーム力+6。PlayerGeneratorの年齢係数(この年齢帯で平均
   /// 約0.88)と掛け合わせると、入団時の現在能力がほぼチーム平均と釣り合い、
   /// リーグ平均戦力が世代交代のたびに漸減も漸増もしない(長期実測で調整)。
+  /// CPUクラブの補充選手を、クラブの現在の水準に対してどれだけ上に振るか。
+  /// 補充選手の強さはクラブの現在値を基準に決まるため、この上乗せがそのまま
+  /// 「補充するたびにクラブが強くなり、次の補充がさらに強くなる」正の
+  /// フィードバックの利得になる。かつては+6で、育成強化(CA4)によって
+  /// 選手が実際にポテンシャルへ届くようになった結果、24シーズンでリーグ
+  /// 平均が42.5→61.0と際限なく上がり続けていた(実測)。+3にすると最初の
+  /// 10シーズンほどで+5前後まで上がったあと頭打ちになり、24シーズン
+  /// 走らせても+6程度で安定する。0まで下げると今度は長期的に下がり始める
+  /// (リーグデフレ)ため、この値が均衡点になる。
+  static const int cpuRecruitStrengthBias = 3;
+
   static Player _generateCpuRecruit(Team team, Position position) =>
       PlayerGenerator.generate(
         position: position,
-        strengthTier: team.overallRating + 6,
+        strengthTier: team.overallRating + cpuRecruitStrengthBias,
         ageOverride: 21 + _rng.nextInt(7),
       );
 }
