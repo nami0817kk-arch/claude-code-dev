@@ -29,6 +29,12 @@ const _slides = [
     description: '選手の獲得・放出、契約交渉、スタッフ・施設への投資でクラブを長期的に強化していきます。',
   ),
   _OnboardingSlide(
+    icon: Icons.live_tv,
+    title: '試合をライブで観戦・采配',
+    description: 'ライブ観戦では決定機の判断・交代・試合中の指示を自分で下せます。'
+        'カップ戦のPK戦も1本ずつ見届けられます。おまかせのクイック消化も選べます。',
+  ),
+  _OnboardingSlide(
     icon: Icons.emoji_events,
     title: '通算成績を積み重ねよう',
     description: '監督キャリア画面で通算成績やトロフィーを確認できます。この設定はいつでも「設定」からもう一度見返せます。',

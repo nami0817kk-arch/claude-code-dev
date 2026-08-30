@@ -441,3 +441,69 @@ class ManOfTheMatchBanner extends StatelessWidget {
     );
   }
 }
+
+/// 試合終了時に、自クラブ選手の特性がこの試合で発動した(好調・不調の
+/// 補正がかかった)ことを可視化するバナー。[MatchEngine]が試合開始時に
+/// 算出した[Player.matchFormMultiplier]を読み、1.0から外れた選手を
+/// チップで並べる。誰も発動していなければ何も表示しない。
+class TraitActivationBanner extends StatelessWidget {
+  final Team userTeam;
+
+  const TraitActivationBanner({super.key, required this.userTeam});
+
+  @override
+  Widget build(BuildContext context) {
+    final activated = userTeam.players
+        .where(
+          (p) =>
+              p.trait != null &&
+              p.matchFormRolledThisMatch &&
+              (p.matchFormMultiplier - 1.0).abs() >= 0.005,
+        )
+        .toList()
+      ..sort(
+        (a, b) => b.matchFormMultiplier.compareTo(a.matchFormMultiplier),
+      );
+    if (activated.isEmpty) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('特性発動', style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(height: 2),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              for (final p in activated)
+                Semantics(
+                  label: '${p.name}の特性${p.trait!.label}が'
+                      '${p.matchFormMultiplier > 1.0 ? 'プラス' : 'マイナス'}に発動',
+                  child: Chip(
+                    avatar: Icon(
+                      p.matchFormMultiplier > 1.0
+                          ? Icons.trending_up
+                          : Icons.trending_down,
+                      size: 16,
+                      color: p.matchFormMultiplier > 1.0
+                          ? Colors.green
+                          : Colors.redAccent,
+                    ),
+                    label: Text(
+                      '${p.name}: ${p.trait!.label}',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    backgroundColor: scheme.surfaceContainerHighest,
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

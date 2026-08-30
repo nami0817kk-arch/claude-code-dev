@@ -20,6 +20,7 @@ import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
 import 'calendar_screen.dart';
 import 'cup_screen.dart';
+import 'finance_screen.dart';
 import 'live_match_screen.dart';
 import 'match_screen.dart';
 import 'player_detail_screen.dart';
@@ -346,6 +347,25 @@ class HomeScreen extends StatelessWidget {
                               ),
                             ),
                       ],
+                    ),
+                  ),
+                ),
+              // スポンサー未契約のまま気づかず収入を取りこぼすことが多いため、
+              // オファーが届いている間はホームに警告カードを常設する。
+              if (save.sponsorDeal == null &&
+                  save.pendingSponsorOffers.isNotEmpty)
+                Card(
+                  color: scheme.tertiaryContainer,
+                  child: ListTile(
+                    leading: const Icon(Icons.handshake),
+                    title: const Text('スポンサー未契約'),
+                    subtitle: Text(
+                      'スポンサーオファーが${save.pendingSponsorOffers.length}件届いています。'
+                      '契約すると毎週の収入が増えます。',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const FinanceScreen()),
                     ),
                   ),
                 ),
@@ -920,6 +940,16 @@ class HomeScreen extends StatelessWidget {
         SnackBar(content: Text(message), duration: const Duration(seconds: 5)),
       );
       gameState.lastDivisionChangeMessage = null;
+    }
+    final boardBonus = gameState.lastBoardBonusNote;
+    if (context.mounted && boardBonus != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(boardBonus),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      gameState.lastBoardBonusNote = null;
     }
     final retirees = gameState.lastRetirements;
     if (context.mounted && retirees.isNotEmpty) {

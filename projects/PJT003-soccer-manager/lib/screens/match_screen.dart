@@ -123,6 +123,8 @@ class _MatchScreenState extends State<MatchScreen> {
               homeTeamName: home.name,
               awayTeamName: away.name,
             ),
+          if (_finished)
+            TraitActivationBanner(userTeam: context.read<GameState>().userTeam),
           const SizedBox(height: 8),
           AspectRatio(
             aspectRatio: 3 / 2,

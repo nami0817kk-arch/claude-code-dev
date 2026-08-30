@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../game/pitch_game.dart';
+import '../logic/cup_engine.dart';
 import '../logic/match_engine.dart';
 import '../models/attributes.dart';
 import '../models/formation.dart';
@@ -571,6 +572,12 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
               ),
             if (finished)
               FullTimeBanner(userTeamId: _userTeamId, result: _finalResult),
+            if (finished && context.read<GameState>().lastShootout != null)
+              _PenaltyShootoutBoard(
+                shootout: context.read<GameState>().lastShootout!,
+                home: home,
+                away: away,
+              ),
             if (finished && context.read<GameState>().lastLiveCupNote != null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
@@ -600,6 +607,10 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
                 result: _finalResult!,
                 homeTeamName: home.name,
                 awayTeamName: away.name,
+              ),
+            if (finished)
+              TraitActivationBanner(
+                userTeam: context.read<GameState>().userTeam,
               ),
             AspectRatio(
               aspectRatio: 3 / 2,
@@ -1095,6 +1106,116 @@ class _StartingPlayerTile extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// フルタイム画面でPK戦を1本ずつ順番に明かしていく演出ボード。
+/// [GameState.lastShootout]の記録を、一定間隔で1キックずつ表示する。
+class _PenaltyShootoutBoard extends StatefulWidget {
+  final PenaltyShootoutResult shootout;
+  final Team home;
+  final Team away;
+
+  const _PenaltyShootoutBoard({
+    required this.shootout,
+    required this.home,
+    required this.away,
+  });
+
+  @override
+  State<_PenaltyShootoutBoard> createState() => _PenaltyShootoutBoardState();
+}
+
+class _PenaltyShootoutBoardState extends State<_PenaltyShootoutBoard> {
+  int _shown = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 700), (t) {
+      if (!mounted) return;
+      setState(() => _shown++);
+      if (_shown >= widget.shootout.kicks.length) t.cancel();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Widget _kickIcons(String teamId) {
+    final kicks = widget.shootout.kicks
+        .take(_shown)
+        .where((k) => k.teamId == teamId)
+        .toList();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final k in kicks)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 1),
+            child: Icon(
+              k.scored ? Icons.check_circle : Icons.cancel,
+              size: 16,
+              color: k.scored ? Colors.green : Colors.redAccent,
+            ),
+          ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.shootout;
+    final done = _shown >= s.kicks.length;
+    final last =
+        _shown > 0 && _shown <= s.kicks.length ? s.kicks[_shown - 1] : null;
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Text(
+            done ? 'PK戦 ${s.homeScore} - ${s.awayScore}' : 'PK戦',
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          for (final t in [widget.home, widget.away])
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    t.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                _kickIcons(t.id),
+              ],
+            ),
+          const SizedBox(height: 4),
+          if (!done && last != null)
+            Text(
+              last.scored
+                  ? '${last.kickerName}が決めた!'
+                  : '${last.kickerName}は失敗…',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+        ],
       ),
     );
   }

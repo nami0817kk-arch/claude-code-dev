@@ -8975,4 +8975,141 @@ void main() {
     expect(pool, contains(AttributeKeys.tackling),
         reason: 'フォーカス由来の基本候補群はそのまま残る');
   });
+
+  test(
+      'CupEngine.simulateShootout returns a consistent record: kicks '
+      'alternate starting with the home team, the winner has the higher '
+      'score, and per-team kick counts differ by at most one', () {
+    final home = PlayerGenerator.generateSquad(
+        id: 'home', name: 'Home FC', strengthTier: 60);
+    final away = PlayerGenerator.generateSquad(
+        id: 'away', name: 'Away FC', strengthTier: 60);
+    for (int i = 0; i < 100; i++) {
+      final s = CupEngine.simulateShootout(home, away);
+      expect(s.homeScore == s.awayScore, isFalse, reason: 'PK戦は必ず決着する');
+      expect(s.winnerId, s.homeScore > s.awayScore ? home.id : away.id);
+      for (int k = 0; k < s.kicks.length; k++) {
+        expect(s.kicks[k].teamId, k.isEven ? home.id : away.id,
+            reason: 'キックはホーム先攻で交互に行われる');
+      }
+      final homeKicks = s.kicks.where((k) => k.teamId == home.id).length;
+      final awayKicks = s.kicks.length - homeKicks;
+      expect(homeKicks - awayKicks, anyOf(0, 1), reason: '早期終了してもキック数の差は1本以内');
+      // スコアは記録されたキックの成功数と一致する(30往復の安全弁が発動
+      // した場合のみ、キックなしで1点加算され得る)。
+      final homeScored =
+          s.kicks.where((k) => k.teamId == home.id && k.scored).length;
+      final awayScored =
+          s.kicks.where((k) => k.teamId == away.id && k.scored).length;
+      expect(s.homeScore - homeScored, anyOf(0, 1));
+      expect(s.awayScore - awayScored, anyOf(0, 1));
+    }
+  });
+
+  test(
+      'CupEngine.applyMatchResult keeps a pre-decided penaltyWinnerId (live '
+      'shootout result) instead of re-rolling it on a draw', () {
+    final teams = [
+      PlayerGenerator.generateSquad(id: 'a', name: 'A', strengthTier: 60),
+      PlayerGenerator.generateSquad(id: 'b', name: 'B', strengthTier: 60),
+    ];
+    for (int i = 0; i < 20; i++) {
+      final cup = CupEngine.createKnockout(
+          type: CupType.domestic, name: '国内カップ', teamIds: ['a', 'b']);
+      final match = cup.nextUnplayedMatch!;
+      // ライブ観戦の1本ずつPK戦でアウェイ側が勝った状況を再現する。
+      final preset = match.awayTeamId;
+      match.penaltyWinnerId = preset;
+      CupEngine.applyMatchResult(
+        cup,
+        teams,
+        match,
+        MatchResult(
+          matchday: 0,
+          homeTeamId: match.homeTeamId,
+          awayTeamId: match.awayTeamId,
+          homeGoals: 1,
+          awayGoals: 1,
+          events: [],
+        ),
+      );
+      expect(match.penaltyWinnerId, preset, reason: 'エンジン側の重み付き抽選で上書きされない');
+      expect(match.winnerId, preset);
+    }
+  });
+
+  test(
+      'SaveGame round-trips the achievement counters through JSON and '
+      'defaults them to 0 when loading an older save without those keys', () {
+    final team = Team(id: 'a', name: 'A', players: []);
+    final league = League(teams: [team], fixtures: [], season: 1);
+    final save = SaveGame(clubName: 'テストFC', userTeamId: 'a', league: league)
+      ..negotiationSignings = 2
+      ..breakthroughCount = 11
+      ..traitsAcquired = 4
+      ..liveWins = 12
+      ..careerCupPrize = 1234
+      ..pkShootoutWins = 3;
+
+    final restored = SaveGame.fromJson(save.toJson());
+    expect(restored.negotiationSignings, 2);
+    expect(restored.breakthroughCount, 11);
+    expect(restored.traitsAcquired, 4);
+    expect(restored.liveWins, 12);
+    expect(restored.careerCupPrize, 1234);
+    expect(restored.pkShootoutWins, 3);
+
+    final legacyJson = save.toJson()
+      ..remove('negotiationSignings')
+      ..remove('breakthroughCount')
+      ..remove('traitsAcquired')
+      ..remove('liveWins')
+      ..remove('careerCupPrize')
+      ..remove('pkShootoutWins');
+    final legacy = SaveGame.fromJson(legacyJson);
+    expect(legacy.negotiationSignings, 0);
+    expect(legacy.breakthroughCount, 0);
+    expect(legacy.traitsAcquired, 0);
+    expect(legacy.liveWins, 0);
+    expect(legacy.careerCupPrize, 0);
+    expect(legacy.pkShootoutWins, 0);
+  });
+
+  test(
+      'AchievementEngine unlocks the counter-based achievements exactly at '
+      'their thresholds and not before', () {
+    final team = Team(id: 'a', name: 'A', players: []);
+    final league = League(teams: [team], fixtures: [], season: 1);
+    final save = SaveGame(clubName: 'テストFC', userTeamId: 'a', league: league);
+    const counterIds = {
+      'bargain_hunter',
+      'cup_prize_1000',
+      'breakthrough_10',
+      'trait_teacher',
+      'live_wins_10',
+      'shootout_winner',
+    };
+
+    Set<String> unlockedIds() =>
+        AchievementEngine.evaluate(save, team).map((a) => a.id).toSet();
+
+    expect(unlockedIds().intersection(counterIds), isEmpty);
+
+    // 閾値のひとつ手前では解除されない。
+    save.negotiationSignings = 0;
+    save.careerCupPrize = 999;
+    save.breakthroughCount = 9;
+    save.traitsAcquired = 2;
+    save.liveWins = 9;
+    save.pkShootoutWins = 0;
+    expect(unlockedIds().intersection(counterIds), isEmpty);
+
+    save.negotiationSignings = 1;
+    save.careerCupPrize = 1000;
+    save.breakthroughCount = 10;
+    save.traitsAcquired = 3;
+    save.liveWins = 10;
+    save.pkShootoutWins = 1;
+    expect(unlockedIds(), containsAll(counterIds));
+  });
 }

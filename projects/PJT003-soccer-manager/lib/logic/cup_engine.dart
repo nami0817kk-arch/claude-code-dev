@@ -65,6 +65,109 @@ class CupEngine {
     return cup;
   }
 
+  /// PK戦を1本ずつシミュレートし、キック順の記録つきで勝者を決める。
+  /// ライブ観戦のフルタイム画面で「1本ごとの成否」を演出表示するために使う。
+  /// CPU同士のクイック消化は従来通り[decidePenaltyWinner](重み付き抽選1回)で
+  /// 軽量に決めるため両者の結果分布は厳密には一致しないが、どちらも
+  /// チーム力・キッカーのPK/冷静さ・相手GKの一対一を反映する。
+  static PenaltyShootoutResult simulateShootout(Team home, Team away) {
+    List<Player> kickersOf(Team t) {
+      double kickSkill(Player p) =>
+          p.attributeValue(AttributeKeys.penalties) * 0.7 +
+          p.attributeValue(AttributeKeys.composure) * 0.3;
+      return MatchEngine.lineupOf(t)
+          .where((p) => p.position.group != PositionGroup.gk)
+          .toList()
+        ..sort((a, b) => kickSkill(b).compareTo(kickSkill(a)));
+    }
+
+    double gkSkillOf(Team t) {
+      final gks = MatchEngine.lineupOf(t)
+          .where((p) => p.position.group == PositionGroup.gk)
+          .toList();
+      if (gks.isEmpty) return 50;
+      return gks
+              .map((p) => p.attributeValue(AttributeKeys.oneOnOnes))
+              .reduce((a, b) => a + b) /
+          gks.length;
+    }
+
+    final homeKickers = kickersOf(home);
+    final awayKickers = kickersOf(away);
+    final homeGk = gkSkillOf(home);
+    final awayGk = gkSkillOf(away);
+
+    bool kick(List<Player> kickers, int index, double defendingGk) {
+      if (kickers.isEmpty) return _rng.nextDouble() < 0.5;
+      final k = kickers[index % kickers.length];
+      final skill = k.attributeValue(AttributeKeys.penalties) * 0.7 +
+          k.attributeValue(AttributeKeys.composure) * 0.3;
+      final prob = (0.75 + (skill - 50) / 200 - (defendingGk - 50) / 250)
+          .clamp(0.35, 0.95);
+      return _rng.nextDouble() < prob;
+    }
+
+    String kickerName(List<Player> kickers, int index) =>
+        kickers.isEmpty ? '---' : kickers[index % kickers.length].name;
+
+    final kicks = <PenaltyKick>[];
+    var homeScore = 0;
+    var awayScore = 0;
+    var round = 0; // 完了した「両チーム1本ずつ」の往復数
+    while (true) {
+      final homeScored = kick(homeKickers, round, awayGk);
+      if (homeScored) homeScore++;
+      kicks.add(PenaltyKick(
+        teamId: home.id,
+        kickerName: kickerName(homeKickers, round),
+        scored: homeScored,
+      ));
+      if (round < 5) {
+        // ホームの残り本数は(4 - round)、アウェイはこの往復をまだ蹴って
+        // いないので(5 - round)。届かなくなった時点で即終了する。
+        if (homeScore > awayScore + (5 - round) ||
+            awayScore > homeScore + (4 - round)) {
+          break;
+        }
+      }
+
+      final awayScored = kick(awayKickers, round, homeGk);
+      if (awayScored) awayScore++;
+      kicks.add(PenaltyKick(
+        teamId: away.id,
+        kickerName: kickerName(awayKickers, round),
+        scored: awayScored,
+      ));
+      round++;
+      if (round <= 4) {
+        final rem = 5 - round;
+        if (homeScore > awayScore + rem || awayScore > homeScore + rem) {
+          break;
+        }
+      } else if (homeScore != awayScore) {
+        // 5本ずつ終了後はサドンデス: 往復ごとに差がつけば終了。
+        break;
+      }
+      // 異常系の安全弁: 30往復しても決まらなければ重み付き抽選で決める。
+      if (round >= 30) {
+        if (decidePenaltyWinner(home, away) == home.id) {
+          homeScore++;
+        } else {
+          awayScore++;
+        }
+        break;
+      }
+    }
+    return PenaltyShootoutResult(
+      homeId: home.id,
+      awayId: away.id,
+      kicks: kicks,
+      homeScore: homeScore,
+      awayScore: awayScore,
+      winnerId: homeScore > awayScore ? home.id : away.id,
+    );
+  }
+
   /// 引き分け時のPK戦勝者を、チーム総合力に加えてキッカーのPK精度・冷静さと
   /// 相手GKの一対一対応力を反映した重み付き抽選で決める。
   static String decidePenaltyWinner(Team home, Team away) {
@@ -146,7 +249,8 @@ class CupEngine {
     if (result.homeGoals == result.awayGoals) {
       final home = allTeams.firstWhere((t) => t.id == match.homeTeamId);
       final away = allTeams.firstWhere((t) => t.id == match.awayTeamId);
-      match.penaltyWinnerId = decidePenaltyWinner(home, away);
+      // ライブ観戦側で1本ずつのPK戦を先に実施済みの場合はその勝者を尊重する。
+      match.penaltyWinnerId ??= decidePenaltyWinner(home, away);
     }
     _advanceRoundIfComplete(cup);
   }
@@ -194,4 +298,37 @@ class CupEngine {
       _ => '第$round回戦',
     };
   }
+}
+
+/// PK戦の1本ぶんの記録(演出表示用)。
+class PenaltyKick {
+  final String teamId;
+  final String kickerName;
+  final bool scored;
+
+  const PenaltyKick({
+    required this.teamId,
+    required this.kickerName,
+    required this.scored,
+  });
+}
+
+/// PK戦全体の記録。[CupEngine.simulateShootout]が返す。セーブには保存せず、
+/// フルタイム画面の演出にのみ使う一時データ。
+class PenaltyShootoutResult {
+  final String homeId;
+  final String awayId;
+  final List<PenaltyKick> kicks;
+  final int homeScore;
+  final int awayScore;
+  final String winnerId;
+
+  const PenaltyShootoutResult({
+    required this.homeId,
+    required this.awayId,
+    required this.kicks,
+    required this.homeScore,
+    required this.awayScore,
+    required this.winnerId,
+  });
 }

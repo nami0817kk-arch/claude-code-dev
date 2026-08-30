@@ -17,10 +17,11 @@ bool _anyConsecutivePair(
   return false;
 }
 
-/// 実績の全定義とその判定ロジック。既存のセーブデータの状態のみから
-/// 判定できるものに絞り、実績専用の新しい進捗トラッキングは追加しない
-/// (セーブ互換性を壊さず、既存プレイのセーブでも過去の記録から即座に
-/// 実績が解除されるようにするため)。
+/// 実績の全定義とその判定ロジック。基本はセーブデータの既存状態のみから
+/// 判定できるものに絞る。値切り成立数・才能開花数など一部の実績は
+/// [SaveGame]の通算カウンター(fromJsonで`?? 0`により補完される後方互換な
+/// フィールド)を参照するため、既存プレイのセーブでもロードは壊れず、
+/// カウンター系実績はその時点から積み上げが始まる。
 class AchievementEngine {
   static final List<Achievement> all = [
     // --- タイトル ---
@@ -170,6 +171,20 @@ class AchievementEngine {
       description: '理事会の信頼度が90に到達する',
       isUnlocked: (save, team) => save.confidence >= 90,
     ),
+    Achievement(
+      id: 'bargain_hunter',
+      category: AchievementCategory.management,
+      name: '腕利きの交渉人',
+      description: '値切り交渉(市場価値未満のオファー)での獲得を成立させる',
+      isUnlocked: (save, team) => save.negotiationSignings >= 1,
+    ),
+    Achievement(
+      id: 'cup_prize_1000',
+      category: AchievementCategory.management,
+      name: '賞金ハンター',
+      description: 'カップ戦の賞金を通算1000万円獲得する',
+      isUnlocked: (save, team) => save.careerCupPrize >= 1000,
+    ),
 
     // --- 選手・育成 ---
     Achievement(
@@ -210,6 +225,20 @@ class AchievementEngine {
       description: '5人の選手を殿堂入りさせる',
       isUnlocked: (save, team) => save.retiredLegends.length >= 5,
     ),
+    Achievement(
+      id: 'breakthrough_10',
+      category: AchievementCategory.squad,
+      name: '才能の開花請負人',
+      description: '週次トレーニングで才能開花を通算10回発生させる',
+      isUnlocked: (save, team) => save.breakthroughCount >= 10,
+    ),
+    Achievement(
+      id: 'trait_teacher',
+      category: AchievementCategory.squad,
+      name: '特性の伝道師',
+      description: '特訓・伝授で選手に特性を通算3回習得させる',
+      isUnlocked: (save, team) => save.traitsAcquired >= 3,
+    ),
 
     // --- 監督キャリア ---
     Achievement(
@@ -225,6 +254,20 @@ class AchievementEngine {
       name: '世界的名将',
       description: '世間の評価が90に到達する',
       isUnlocked: (save, team) => save.managerReputation >= 90,
+    ),
+    Achievement(
+      id: 'live_wins_10',
+      category: AchievementCategory.career,
+      name: '采配の妙',
+      description: 'ライブ観戦(決定機の判断あり)で通算10勝する',
+      isUnlocked: (save, team) => save.liveWins >= 10,
+    ),
+    Achievement(
+      id: 'shootout_winner',
+      category: AchievementCategory.career,
+      name: 'PK戦を制す',
+      description: 'ライブ観戦のカップ戦でPK戦を制する',
+      isUnlocked: (save, team) => save.pkShootoutWins >= 1,
     ),
   ];
 

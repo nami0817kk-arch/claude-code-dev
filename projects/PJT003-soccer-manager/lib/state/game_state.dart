@@ -831,6 +831,11 @@ class GameState extends ChangeNotifier {
       injuryFactor: _userInjuryFactor,
       careerGrowthBonus: managerCareerGrowthBonus,
     );
+    for (final p in userTeam.players) {
+      if (p.hadBreakthroughThisWeek) _save!.breakthroughCount++;
+      if (p.acquiredTraitThisWeek != null) _save!.traitsAcquired++;
+    }
+    _evaluateAchievements();
     _save!.trainingDoneThisWeek = true;
     lastTrainingResults = _diffTrainingResults(overallBefore, attrsBefore);
     notifyListeners();
@@ -1253,6 +1258,10 @@ class GameState extends ChangeNotifier {
     _save!.budget -= offer;
     userTeam.players.add(player);
     transferMarket.removeWhere((p) => p.id == playerId);
+    if (offer < player.marketValue) {
+      _save!.negotiationSignings++;
+      _evaluateAchievements();
+    }
     notifyListeners();
     await _persist();
     return (attempted: true, accepted: true);
@@ -2447,6 +2456,14 @@ class GameState extends ChangeNotifier {
   /// (フルタイム画面で表示する。次のライブ試合開始時にクリアされる)。
   String? lastLiveCupNote;
 
+  /// 直近のライブ観戦カップ戦がPK戦にもつれた場合の、1本ごとの記録
+  /// (フルタイム画面の演出用。セーブには保存しない一時データ)。
+  PenaltyShootoutResult? lastShootout;
+
+  /// 現在進行中のライブ試合が「決定機の判断あり(インタラクティブ)」で
+  /// 開始されたかどうか。ライブ観戦での勝利数(実績)のカウントに使う。
+  bool _liveWasInteractive = false;
+
   /// ライブ観戦中のカップ試合の要約(なければnull)。LiveMatchScreenが
   /// リーグの[liveFixture]の代わりに参照する。
   ({
@@ -2817,6 +2834,8 @@ class GameState extends ChangeNotifier {
           f.awayTeamId == _save!.userTeamId;
       if (isUserFixture) {
         userFixture = f;
+        _liveWasInteractive = interactive;
+        lastShootout = null;
         final state = MatchEngine.beginInteractiveHalf(
           home: home,
           away: away,
@@ -2941,6 +2960,7 @@ class GameState extends ChangeNotifier {
     final home = _liveHomeTeam!;
     final away = _liveAwayTeam!;
     final weather = _liveWeatherNow;
+    if (interactive) _liveWasInteractive = true;
 
     final state = MatchEngine.beginInteractiveHalf(
       home: home,
@@ -3060,6 +3080,14 @@ class GameState extends ChangeNotifier {
     for (final m in lastMilestones) {
       _save!.trophyHistory.add('シーズン${league.season}: $m');
     }
+    // 決定機の判断ありのライブ観戦で勝った場合のみ、実績用の勝利数を刻む
+    // (クイック消化と区別する)。
+    final userId = _save!.userTeamId;
+    final userWonMatch = (home.id == userId && homeGoals > awayGoals) ||
+        (away.id == userId && awayGoals > homeGoals);
+    if (_liveWasInteractive && userWonMatch) {
+      _save!.liveWins++;
+    }
     _evaluateAchievements();
 
     final merged = MatchResult(
@@ -3123,6 +3151,7 @@ class GameState extends ChangeNotifier {
     _liveFirstHalfState = null;
     _liveSecondHalfState = null;
     _liveSubstitutionsUsed = 0;
+    _liveWasInteractive = false;
 
     notifyListeners();
     await _persist();
@@ -3513,6 +3542,8 @@ class GameState extends ChangeNotifier {
     _liveSubstitutionsUsed = 0;
     lastLiveCupNote = null;
     lastCupPrizeNote = null;
+    lastShootout = null;
+    _liveWasInteractive = true; // カップのライブ観戦は常に決定機の判断あり
     _liveFirstHalfState = MatchEngine.beginInteractiveHalf(
       home: home,
       away: away,
@@ -3537,6 +3568,9 @@ class GameState extends ChangeNotifier {
         final cup = domesticCup;
         final match = _liveCupMatch;
         if (cup == null || match == null) return;
+        if (merged.homeGoals == merged.awayGoals) {
+          match.penaltyWinnerId = _runLiveShootout().winnerId;
+        }
         CupEngine.applyMatchResult(cup, allTeamsForCups, match, merged);
         cup.lastPlayedAtMatchday = _currentLeagueMatchdayMarker;
         _noteLiveCupPenalty(match.penaltyWinnerId, merged);
@@ -3553,6 +3587,19 @@ class GameState extends ChangeNotifier {
         final cup = _save!.continentalCup;
         final tie = _liveCupTie;
         if (cup == null || tie == null) return;
+        // このレグでタイが完了し、合計スコアが同点になる場合のみPK戦。
+        if (tie.legs.length + 1 >= tie.totalLegs) {
+          final mergedForA = merged.homeTeamId == tie.teamAId
+              ? merged.homeGoals
+              : merged.awayGoals;
+          final mergedForB = merged.homeTeamId == tie.teamBId
+              ? merged.homeGoals
+              : merged.awayGoals;
+          if (tie.goalsFor(tie.teamAId) + mergedForA ==
+              tie.goalsFor(tie.teamBId) + mergedForB) {
+            tie.penaltyWinnerId = _runLiveShootout().winnerId;
+          }
+        }
         ContinentalCupEngine.applyKnockoutLegResult(
             cup, allTeamsForCups, tie, merged);
         cup.lastPlayedAtMatchday = _currentLeagueMatchdayMarker;
@@ -3563,22 +3610,40 @@ class GameState extends ChangeNotifier {
         if (match == null) return;
         match.result = merged;
         if (merged.homeGoals == merged.awayGoals) {
-          match.penaltyWinnerId =
-              CupEngine.decidePenaltyWinner(_liveCupHome!, _liveCupAway!);
+          match.penaltyWinnerId = _runLiveShootout().winnerId;
         }
         _noteLiveCupPenalty(match.penaltyWinnerId, merged);
         _afterSuperCupApplied(match);
     }
+    _evaluateAchievements();
+  }
+
+  /// ライブ観戦のカップ戦がPK戦にもつれた際、1本ずつのシュートアウトを
+  /// 実施して勝者を決める。記録は[lastShootout]に保持し、フルタイム画面が
+  /// 1本ごとの成否を演出表示する。自クラブが勝てばPK戦勝利数も記録する。
+  PenaltyShootoutResult _runLiveShootout() {
+    final shootout = CupEngine.simulateShootout(_liveCupHome!, _liveCupAway!);
+    lastShootout = shootout;
+    if (shootout.winnerId == _save!.userTeamId) {
+      _save!.pkShootoutWins++;
+    }
+    return shootout;
   }
 
   /// ライブ観戦したカップ試合が同点でPK戦にもつれた場合、フルタイム画面で
   /// 表示する決着の文言をセットする。
   void _noteLiveCupPenalty(String? penaltyWinnerId, MatchResult merged) {
     if (penaltyWinnerId == null) return;
-    if (merged.homeGoals != merged.awayGoals) return;
-    final winner = teamById(penaltyWinnerId);
+    final shootout = lastShootout;
+    // 2レグ制では最終レグ自体は引き分けでなくても合計同点でPK戦になり得る
+    // ため、シュートアウト記録がある場合はスコア条件を問わず文言を出す。
+    if (shootout == null && merged.homeGoals != merged.awayGoals) return;
+    final winner = teamById(penaltyWinnerId) ??
+        (penaltyWinnerId == _liveCupHome?.id ? _liveCupHome : _liveCupAway);
     if (winner == null) return;
-    lastLiveCupNote = 'PK戦の末、${winner.name}が勝ち上がり!';
+    lastLiveCupNote = shootout != null
+        ? 'PK戦 ${shootout.homeScore}-${shootout.awayScore} の末、${winner.name}が勝ち上がり!'
+        : 'PK戦の末、${winner.name}が勝ち上がり!';
   }
 
   /// 自クラブが関わるカップ試合に、リーグ戦と同じ試合後効果(疲労・負傷・
@@ -3608,6 +3673,10 @@ class GameState extends ChangeNotifier {
   /// SnackBar/ライブのフルタイム画面)が表示後にnullへ戻す。
   String? lastCupPrizeNote;
 
+  /// シーズン終了時に理事会の目標順位を達成した場合の報奨金の通知文。
+  /// UI側(シーズン開始処理後のSnackBar)が表示に使う。
+  String? lastBoardBonusNote;
+
   /// 国内カップの1試合が大会へ適用された後の共通処理(自動消化・ライブ
   /// 共通)。自クラブの勝利賞金・敗退時の信頼度低下・優勝報酬を扱う。
   void _afterDomesticCupMatchApplied(CupMatch match) {
@@ -3620,6 +3689,7 @@ class GameState extends ChangeNotifier {
       if (match.winnerId == userId) {
         final prize = domesticCupWinPrizeFor(match.round);
         _save!.budget += prize;
+        _save!.careerCupPrize += prize;
         lastCupPrizeNote = '勝利賞金として$prize万円を獲得!';
       } else if (cup.isEliminated(userId)) {
         _save!.confidence = (_save!.confidence - 1).clamp(0, 100);
@@ -3628,6 +3698,7 @@ class GameState extends ChangeNotifier {
     if (cup.isComplete && cup.championId == userId && !cup.rewardClaimed) {
       cup.rewardClaimed = true;
       _save!.budget += 700;
+      _save!.careerCupPrize += 700;
       _save!.confidence = (_save!.confidence + 10).clamp(0, 100);
       _save!.trophyHistory.add('シーズン${_save!.league.season}: ${cup.name} 優勝');
     }
@@ -3647,6 +3718,7 @@ class GameState extends ChangeNotifier {
             (r.awayTeamId == userId && r.awayGoals > r.homeGoals));
     if (userWon) {
       _save!.budget += continentalGroupWinPrize;
+      _save!.careerCupPrize += continentalGroupWinPrize;
       lastCupPrizeNote = '勝利賞金として$continentalGroupWinPrize万円を獲得!';
     }
     if (cup.isEliminated(userId)) {
@@ -3663,6 +3735,7 @@ class GameState extends ChangeNotifier {
     if (userInTie) {
       if (tie.isComplete && tie.winnerId == userId) {
         _save!.budget += continentalTieWinPrize;
+        _save!.careerCupPrize += continentalTieWinPrize;
         lastCupPrizeNote = '勝ち上がり賞金として$continentalTieWinPrize万円を獲得!';
       }
       if (cup.isEliminated(userId)) {
@@ -3672,6 +3745,7 @@ class GameState extends ChangeNotifier {
     if (cup.isComplete && cup.championId == userId && !cup.rewardClaimed) {
       cup.rewardClaimed = true;
       _save!.budget += 1500;
+      _save!.careerCupPrize += 1500;
       _save!.confidence = (_save!.confidence + 20).clamp(0, 100);
       _save!.trophyHistory.add('シーズン${_save!.league.season}: ${cup.name} 優勝');
     }
@@ -3792,6 +3866,20 @@ class GameState extends ChangeNotifier {
       targetRank: _save!.boardTargetRank,
     );
     _save!.confidence = (_save!.confidence + confidenceDelta).clamp(0, 100);
+
+    // 理事会の目標達成報奨金: シーズン目標順位を達成すると、リーグ賞金と
+    // 同じティア係数で減衰する報奨金が理事会から支給される。目標を大きく
+    // 上回った場合(3つ以上)は1.5倍に増額し、快挙をしっかり報いる。
+    lastBoardBonusNote = null;
+    if (finalRank <= _save!.boardTargetRank) {
+      var bonus = (300 * pow(0.6, playedTier - 1)).round();
+      final exceeded = _save!.boardTargetRank - finalRank >= 3;
+      if (exceeded) bonus = (bonus * 1.5).round();
+      _save!.budget += bonus;
+      lastBoardBonusNote = exceeded
+          ? '理事会目標を大きく上回り、報奨金$bonus万円が支給されました!'
+          : '理事会目標を達成し、報奨金$bonus万円が支給されました!';
+    }
 
     for (final t in _save!.allTeams) {
       for (final p in t.players) {

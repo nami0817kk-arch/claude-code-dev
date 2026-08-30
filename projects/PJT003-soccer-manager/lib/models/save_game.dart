@@ -122,6 +122,16 @@ class SaveGame {
   int careerLosses;
   int careerSeasons;
 
+  /// 実績(アチーブメント)判定に使う通算カウンター群。旧セーブには
+  /// 存在しないためfromJsonでは0にフォールバックする(過去分は遡って
+  /// 数えられないが、読み込んだ時点からカウントが始まる)。
+  int negotiationSignings; // 値切り交渉で獲得が成立した回数
+  int breakthroughCount; // 自クラブ選手の才能開花を見届けた回数
+  int traitsAcquired; // 特訓・指導で特性を習得させた回数
+  int liveWins; // ライブ観戦(決定機の判断あり)で勝利した回数
+  int careerCupPrize; // カップ戦で獲得した賞金・優勝報酬の通算(万円)
+  int pkShootoutWins; // ライブ観戦のPK戦を制した回数
+
   /// 獲得したタイトルの履歴(リーグ優勝・カップ優勝など)。
   List<String> trophyHistory;
 
@@ -210,6 +220,12 @@ class SaveGame {
     this.careerDraws = 0,
     this.careerLosses = 0,
     this.careerSeasons = 0,
+    this.negotiationSignings = 0,
+    this.breakthroughCount = 0,
+    this.traitsAcquired = 0,
+    this.liveWins = 0,
+    this.careerCupPrize = 0,
+    this.pkShootoutWins = 0,
     List<String>? trophyHistory,
     List<String>? clubHistory,
     List<Player>? freeAgents,
@@ -301,6 +317,12 @@ class SaveGame {
         'careerDraws': careerDraws,
         'careerLosses': careerLosses,
         'careerSeasons': careerSeasons,
+        'negotiationSignings': negotiationSignings,
+        'breakthroughCount': breakthroughCount,
+        'traitsAcquired': traitsAcquired,
+        'liveWins': liveWins,
+        'careerCupPrize': careerCupPrize,
+        'pkShootoutWins': pkShootoutWins,
         'trophyHistory': trophyHistory,
         'clubHistory': clubHistory,
         'freeAgents': freeAgents.map((p) => p.toJson()).toList(),
@@ -418,6 +440,12 @@ class SaveGame {
         careerDraws: json['careerDraws'] as int? ?? 0,
         careerLosses: json['careerLosses'] as int? ?? 0,
         careerSeasons: json['careerSeasons'] as int? ?? 0,
+        negotiationSignings: json['negotiationSignings'] as int? ?? 0,
+        breakthroughCount: json['breakthroughCount'] as int? ?? 0,
+        traitsAcquired: json['traitsAcquired'] as int? ?? 0,
+        liveWins: json['liveWins'] as int? ?? 0,
+        careerCupPrize: json['careerCupPrize'] as int? ?? 0,
+        pkShootoutWins: json['pkShootoutWins'] as int? ?? 0,
         trophyHistory: (json['trophyHistory'] as List?)
                 ?.map((e) => e as String)
                 .toList() ??

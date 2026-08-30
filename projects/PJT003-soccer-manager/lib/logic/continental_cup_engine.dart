@@ -206,7 +206,8 @@ class ContinentalCupEngine {
         tie.goalsFor(tie.teamAId) == tie.goalsFor(tie.teamBId)) {
       final home = allTeams.firstWhere((t) => t.id == result.homeTeamId);
       final away = allTeams.firstWhere((t) => t.id == result.awayTeamId);
-      tie.penaltyWinnerId = CupEngine.decidePenaltyWinner(home, away);
+      // ライブ観戦側で1本ずつのPK戦を先に実施済みの場合はその勝者を尊重する。
+      tie.penaltyWinnerId ??= CupEngine.decidePenaltyWinner(home, away);
     }
     _advanceKnockoutIfRoundComplete(cup);
   }
