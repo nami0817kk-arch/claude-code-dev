@@ -272,10 +272,13 @@ class PlayerGenerator {
     return shuffled.take(count).toList();
   }
 
+  /// [avoidNames]を渡すと、その名前と衝突しない選手名を選ぶ。同じスカッドを
+  /// まとめて生成するとき(generateSquad)に、同姓同名が並ばないようにする。
   static Player generate({
     required Position position,
     required int strengthTier,
     int? ageOverride,
+    Set<String>? avoidNames,
   }) {
     final id = 'pl${_idCounter++}';
     final age = ageOverride ?? (17 + _rng.nextInt(18));
@@ -316,7 +319,7 @@ class PlayerGenerator {
 
     final player = Player(
       id: id,
-      name: NamePool.randomPlayerName(),
+      name: NamePool.randomPlayerName(avoid: avoidNames),
       age: age,
       position: position,
       secondaryPositions: _generateSecondaryPositions(position),
@@ -540,9 +543,16 @@ class PlayerGenerator {
     required int strengthTier,
   }) {
     final players = <Player>[];
+    final usedNames = <String>{};
     _squadComposition.forEach((position, count) {
       for (int i = 0; i < count; i++) {
-        players.add(generate(position: position, strengthTier: strengthTier));
+        final player = generate(
+          position: position,
+          strengthTier: strengthTier,
+          avoidNames: usedNames,
+        );
+        usedNames.add(player.name);
+        players.add(player);
       }
     });
     return Team(id: id, name: name, players: players);

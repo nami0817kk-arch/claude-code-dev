@@ -10,15 +10,24 @@ class TransferMarket {
 
   /// フリーエージェント風の移籍候補選手を生成する。海外の他リーグからスカウトして
   /// きた体で、現所属クラブ名(表示専用)も付与する。
-  static List<Player> generate({int count = 24}) =>
-      [for (int i = 0; i < count; i++) _generateOne()];
+  static List<Player> generate({int count = 24}) {
+    final players = <Player>[];
+    final usedNames = <String>{};
+    for (int i = 0; i < count; i++) {
+      final player = _generateOne(avoidNames: usedNames);
+      usedNames.add(player.name);
+      players.add(player);
+    }
+    return players;
+  }
 
-  static Player _generateOne() {
+  static Player _generateOne({Set<String>? avoidNames}) {
     final position = Position.values[_rng.nextInt(Position.values.length)];
     final tier = 40 + _rng.nextInt(45);
     final player = PlayerGenerator.generate(
       position: position,
       strengthTier: tier,
+      avoidNames: avoidNames,
     );
     final theme = LeagueTheme.values[_rng.nextInt(LeagueTheme.values.length)];
     player.originClubName = NamePool.themedClubNames(theme, 1).first;
@@ -35,8 +44,11 @@ class TransferMarket {
     for (int i = 0; i < leavers; i++) {
       next.removeAt(_rng.nextInt(next.length));
     }
+    final usedNames = next.map((p) => p.name).toSet();
     while (next.length < targetCount) {
-      next.add(_generateOne());
+      final player = _generateOne(avoidNames: usedNames);
+      usedNames.add(player.name);
+      next.add(player);
     }
     return next;
   }

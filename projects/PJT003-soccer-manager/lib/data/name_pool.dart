@@ -115,10 +115,22 @@ class NamePool {
     LeagueTheme.france: ['オランピック', 'AS', 'FC', 'レーシング', 'スタッド'],
   };
 
-  static String randomPlayerName() {
-    final s = _surnames[_rng.nextInt(_surnames.length)];
-    final g = _givenNames[_rng.nextInt(_givenNames.length)];
-    return '$s $g';
+  static String randomPlayerName({Set<String>? avoid}) {
+    String pick() {
+      final s = _surnames[_rng.nextInt(_surnames.length)];
+      final g = _givenNames[_rng.nextInt(_givenNames.length)];
+      return '$s $g';
+    }
+
+    if (avoid == null || avoid.isEmpty) return pick();
+    // 同じスカッド内に同姓同名が並ぶと、スタメン編成や交代で誰を選んで
+    // いるのか分からなくなる。姓名の組合せは十分に多いので、数回引き直せば
+    // ほぼ確実に衝突を避けられる(それでも駄目なら諦めて返す)。
+    for (var attempt = 0; attempt < 12; attempt++) {
+      final name = pick();
+      if (!avoid.contains(name)) return name;
+    }
+    return pick();
   }
 
   static List<String> clubNames(int count) {

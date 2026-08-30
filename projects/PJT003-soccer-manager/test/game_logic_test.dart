@@ -10036,4 +10036,52 @@ void main() {
       expect(gameState.lastPromotionBonus, 0, reason: '昇格していないシーズンはボーナス0');
     }
   });
+
+  test(
+      'a new game is playable on every league theme and difficulty: full '
+      'squad with a keeper, a legal XI, a target in range and no duplicate '
+      'player names', () async {
+    for (final theme in LeagueTheme.values) {
+      for (final difficulty in GameDifficulty.values) {
+        SharedPreferences.setMockInitialValues({});
+        final gameState = GameState();
+        await gameState.startNewGame('検証FC',
+            theme: theme, difficulty: difficulty);
+        final save = gameState.save!;
+        final team = gameState.userTeam;
+        final label = '${theme.name}/${difficulty.name}';
+
+        expect(team.players.length, greaterThanOrEqualTo(minSquadSize),
+            reason: '$label: 最低人数を満たすスカッドで始まる');
+        expect(team.players.any((p) => p.position.group == PositionGroup.gk),
+            isTrue,
+            reason: '$label: GKがいる');
+        expect(MatchEngine.lineupOf(team).length, 11,
+            reason: '$label: 開始時点で11人のスタメンが組める');
+        expect(save.budget, greaterThan(0), reason: '$label: 初期資金がある');
+        expect(
+            save.wageBudget, greaterThan(ContractEngine.weeklyWageBill(team)),
+            reason: '$label: 週給予算に補強余地がある');
+        expect(
+            save.boardTargetRank, inInclusiveRange(1, save.league.teams.length),
+            reason: '$label: 理事会目標が順位の範囲内');
+        expect(save.managerContractYears, greaterThan(0),
+            reason: '$label: 監督契約が結ばれている');
+        expect(gameState.transferMarket, isNotEmpty,
+            reason: '$label: 移籍市場に選手がいる');
+
+        // 同姓同名が並ぶと、スタメン編成や交代で誰を選んでいるか分からなくなる。
+        final squadNames = team.players.map((p) => p.name).toList();
+        expect(squadNames.toSet().length, squadNames.length,
+            reason: '$label: 自クラブ内に同姓同名がいない');
+        final clubNames = save.league.teams.map((t) => t.name).toList();
+        expect(clubNames.toSet().length, clubNames.length,
+            reason: '$label: リーグ内にクラブ名の重複がない');
+        final marketNames =
+            gameState.transferMarket.map((p) => p.name).toList();
+        expect(marketNames.toSet().length, marketNames.length,
+            reason: '$label: 移籍市場に同姓同名が並ばない');
+      }
+    }
+  }, timeout: const Timeout(Duration(minutes: 5)));
 }
