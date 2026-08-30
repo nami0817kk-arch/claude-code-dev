@@ -170,7 +170,7 @@ class Team {
     required this.players,
     this.formation = Formation.f442,
     List<String>? startingXI,
-    this.defaultTrainingFocus = TrainingFocus.rest,
+    this.defaultTrainingFocus = TrainingFocus.balanced,
     this.trainingIntensity = TrainingIntensity.normal,
     this.trainingDayOfWeek = DateTime.tuesday,
     this.autoTrainingEnabled = false,
@@ -263,7 +263,7 @@ class Team {
         defaultTrainingFocus: enumFromName(
           TrainingFocus.values,
           json['defaultTrainingFocus'] as String?,
-          TrainingFocus.rest,
+          TrainingFocus.balanced,
         ),
         trainingIntensity: enumFromName(
           TrainingIntensity.values,

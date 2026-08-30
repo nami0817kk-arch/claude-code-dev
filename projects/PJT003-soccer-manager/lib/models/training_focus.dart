@@ -1,8 +1,10 @@
-enum TrainingFocus { attack, defense, fitness, rest, positionSwitch }
+enum TrainingFocus { balanced, attack, defense, fitness, rest, positionSwitch }
 
 extension TrainingFocusLabel on TrainingFocus {
   String get label {
     switch (this) {
+      case TrainingFocus.balanced:
+        return '全体練習';
       case TrainingFocus.attack:
         return '攻撃強化';
       case TrainingFocus.defense:
@@ -18,6 +20,9 @@ extension TrainingFocusLabel on TrainingFocus {
 
   String get description {
     switch (this) {
+      case TrainingFocus.balanced:
+        return 'ポジションに応じて攻守をバランス良く伸ばす。特化練習ほど尖らないが、'
+            'スカッド全体が着実に成長する既定の方針。';
       case TrainingFocus.attack:
         return 'FW・MFの攻撃力と技術が伸びやすくなる。疲労はやや増加。';
       case TrainingFocus.defense:

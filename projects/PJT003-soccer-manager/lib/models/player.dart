@@ -1443,7 +1443,7 @@ class Player {
           : enumFromName(
               TrainingFocus.values,
               json['individualFocus'] as String?,
-              TrainingFocus.rest,
+              TrainingFocus.balanced,
             ),
       wage: json['wage'] as int? ?? 20,
       contractYearsRemaining: _migrateContractYears(json),
@@ -1508,7 +1508,7 @@ class Player {
             (e) => enumFromName(
               TrainingFocus.values,
               e as String?,
-              TrainingFocus.rest,
+              TrainingFocus.balanced,
             ),
           )
           .toList(),

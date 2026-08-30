@@ -10190,4 +10190,156 @@ void main() {
         reason: 'ライブ観戦のシュート$liveAvg本/試合が速攻シミュレーション'
             '$quickAvg本/試合より大幅に多い');
   }, timeout: const Timeout(Duration(minutes: 5)));
+
+  test(
+      'the default team training focus actually develops players: '
+      'a squad left on the default setting grows over a season (CA4)', () {
+    // 既定方針が「休養」だった頃は、トレーニング画面を開いて方針を変える
+    // まで誰ひとり成長しなかった(実測で20シーズン成長ゼロ)。既定のまま
+    // 遊んでも育つことを保証する。
+    expect(
+        Team(id: 'dft', name: 'Default FC', players: []).defaultTrainingFocus,
+        TrainingFocus.balanced);
+
+    final team = PlayerGenerator.generateSquad(
+        id: 'ca4a', name: 'CA4 Default FC', strengthTier: 55);
+    for (final p in team.players) {
+      p.age = 19;
+    }
+    final before = {for (final p in team.players) p.id: p.overall};
+
+    for (var week = 0; week < 42; week++) {
+      for (final p in team.players) {
+        p.fatigue = 20;
+        p.matchSharpness = 85;
+      }
+      TrainingEngine.applyWeeklyTraining(team);
+    }
+
+    final grown = team.players.where((p) => p.overall > before[p.id]!).length;
+    expect(grown, greaterThan(team.players.length ~/ 2),
+        reason: '既定方針のまま1シーズン練習しても、半数以上の選手が成長していない');
+  });
+
+  test(
+      'weekly training lifts the whole overall-bearing attribute set, so a '
+      'well-managed career actually approaches its potential (CA4)', () {
+    // 重点練習は7項目前後しか伸ばさないのに総合力は28項目前後の加重平均
+    // なので、底上げがないと総合力はポテンシャルの7割強で頭打ちになる
+    // (実測で到達率73%・95%到達者0%)。キャリアを通して育てれば才能を
+    // 出し切れることを保証する。
+    var reached = 0;
+    const cohort = 40;
+    for (var i = 0; i < cohort; i++) {
+      final team = Team(id: 'ca4b$i', name: 'CA4B', players: []);
+      final player = PlayerGenerator.generate(
+        position: Position.dc,
+        strengthTier: 60,
+        ageOverride: 18,
+      );
+      team.players.add(player);
+      // 18歳から27歳まで、出場機会に恵まれた選手として育てる。
+      for (var season = 0; season < 9; season++) {
+        for (var week = 0; week < 42; week++) {
+          player.fatigue = 20;
+          player.matchSharpness = 85;
+          player.injuryWeeks = 0;
+          TrainingEngine.applyWeeklyTraining(team,
+              headCoachLevel: 3, trainingGroundLevel: 3);
+        }
+        player.age += 1;
+      }
+      if (player.overall >= player.potential * 0.9) reached++;
+    }
+    expect(reached, greaterThan(cohort ~/ 2),
+        reason: '丁寧に育ててもポテンシャルの9割に届く選手が半数に満たない');
+  });
+
+  test(
+      'players peak in their prime and decline afterwards instead of '
+      'improving forever (CA4)', () {
+    // 底上げに年齢の歯止めがないと35歳がキャリア最高値になり、衰えが
+    // 弱すぎるとピークからの下落が0.1しかなかった。年齢曲線が山なりに
+    // なることを保証する。
+    var declined = 0;
+    const cohort = 40;
+    for (var i = 0; i < cohort; i++) {
+      final team = Team(id: 'ca4c$i', name: 'CA4C', players: []);
+      final player = PlayerGenerator.generate(
+        position: Position.mc,
+        strengthTier: 60,
+        ageOverride: 20,
+      );
+      player.growthType = PlayerGrowthType.balanced;
+      team.players.add(player);
+
+      var peak = player.overall;
+      void season() {
+        for (var week = 0; week < 42; week++) {
+          player.fatigue = 20;
+          player.matchSharpness = 85;
+          player.injuryWeeks = 0;
+          TrainingEngine.applyWeeklyTraining(team,
+              headCoachLevel: 3, trainingGroundLevel: 3);
+        }
+        if (player.overall > peak) peak = player.overall;
+        player.age += 1;
+      }
+
+      // 20歳から36歳まで、同じ条件で走らせる。
+      while (player.age < 37) {
+        season();
+      }
+      if (player.overall < peak) declined++;
+    }
+    expect(declined, greaterThan(cohort * 3 ~/ 4),
+        reason: '36歳になってもピークを下回らない選手が多すぎる(衰えが効いていない)');
+  });
+
+  test(
+      'CPU squads get the same broad conditioning as the user squad, so the '
+      'user club cannot run away from the league (CA4)', () {
+    // ユーザークラブだけ底上げを入れるとCPUは7割強で頭打ちになり、
+    // 数シーズンでリーグから独走してしまう。両者の伸びが同じ土俵に
+    // あることを確認する。
+    Team squad(String id) {
+      final t =
+          PlayerGenerator.generateSquad(id: id, name: id, strengthTier: 55);
+      for (final p in t.players) {
+        p.age = 20;
+      }
+      return t;
+    }
+
+    double averageOverall(Team t) =>
+        t.players.map((p) => p.overall).reduce((a, b) => a + b) /
+        t.players.length;
+
+    final userTeam = squad('ca4user');
+    final cpuTeam = squad('ca4cpu');
+    final userBefore = averageOverall(userTeam);
+    final cpuBefore = averageOverall(cpuTeam);
+
+    for (var season = 0; season < 5; season++) {
+      for (var week = 0; week < 42; week++) {
+        for (final p in userTeam.players) {
+          p.fatigue = 20;
+          p.matchSharpness = 85;
+        }
+        TrainingEngine.applyWeeklyTraining(userTeam);
+        TrainingEngine.applyPassiveCpuGrowth(cpuTeam);
+      }
+      for (final p in [...userTeam.players, ...cpuTeam.players]) {
+        p.age += 1;
+      }
+    }
+
+    final userGain = averageOverall(userTeam) - userBefore;
+    final cpuGain = averageOverall(cpuTeam) - cpuBefore;
+    // 手をかけたユーザークラブの方が伸びるのは正しいが、CPUが置き去りに
+    // されてはいけない。
+    expect(cpuGain, greaterThan(0), reason: 'CPUクラブがまったく成長していない');
+    expect(cpuGain, greaterThan(userGain * 0.4),
+        reason: 'CPU$cpuGain に対しユーザー$userGain で、リーグが置き去りにされている');
+  });
 }

@@ -113,6 +113,43 @@ class TrainingEngine {
     final effectiveGrowth = growthMultiplier * intensityFactor * mentorBonus;
 
     switch (focus) {
+      case TrainingFocus.balanced:
+        // ポジションに応じた「全体練習」。攻撃特化・守備特化のちょうど中間で、
+        // どのポジションの選手もそれぞれの主戦場の能力を伸ばせる。特化練習の
+        // 0.5に対して0.35なので、狙いを定めた方が伸びは速い。
+        if (p.position.group == PositionGroup.gk) {
+          for (final k in AttributeKeys.goalkeeping) {
+            _grow(p, k, 0.35 * effectiveGrowth);
+          }
+        } else if (p.position.group == PositionGroup.def) {
+          for (final k in [
+            AttributeKeys.tackling,
+            AttributeKeys.marking,
+            AttributeKeys.positioning,
+            AttributeKeys.anticipation,
+          ]) {
+            _grow(p, k, 0.35 * effectiveGrowth);
+          }
+        } else {
+          for (final k in [
+            AttributeKeys.finishing,
+            AttributeKeys.longShots,
+            AttributeKeys.dribbling,
+            AttributeKeys.offTheBall,
+          ]) {
+            _grow(p, k, 0.35 * effectiveGrowth);
+          }
+        }
+        // 技術系はポジションを問わず全員が取り組む。
+        for (final k in [
+          AttributeKeys.passing,
+          AttributeKeys.firstTouch,
+          AttributeKeys.technique,
+        ]) {
+          _grow(p, k, 0.25 * effectiveGrowth);
+        }
+        p.fatigue = (p.fatigue + (10 * intensityFactor).round()).clamp(0, 100);
+        break;
       case TrainingFocus.attack:
         final primary = (p.position.group == PositionGroup.att ||
                 p.position.group == PositionGroup.mid)
@@ -203,6 +240,22 @@ class TrainingEngine {
         p.fatigue = (p.fatigue - 30 - fatigueRecoveryBonus).clamp(0, 100);
         p.morale = (p.morale + 8).clamp(0, 100);
         break;
+    }
+
+    // 日々の全体練習による底上げ。重点練習で伸びるのは7項目前後だが、
+    // 総合力([Player.overall])は28項目前後の加重平均なので、重点練習だけ
+    // では総合力がポテンシャルの7割強で頭打ちになり、どれだけ育てても
+    // 才能を出し切れない(長期実測で到達率73%・95%到達者0%を確認)。
+    // 重点項目より大幅に低い確率で、総合力に効く能力値全体をゆっくり
+    // 底上げすることで、丁寧に育てた選手はキャリアをかけてポテンシャルへ
+    // 近づける。休養週は練習しないので底上げも起きない。
+    if (focus != TrainingFocus.rest) {
+      final taper = _conditioningAgeTaper(p);
+      if (taper > 0) {
+        for (final k in _conditioningKeysFor(p)) {
+          _grow(p, k, _conditioningChance * effectiveGrowth * taper);
+        }
+      }
     }
 
     // ピンポイント特訓ドリル: フォーカスとは無関係に指定した属性を追加で伸ばす。
@@ -385,6 +438,12 @@ class TrainingEngine {
   /// ユーザークラブの育成に近い速度でポテンシャルへ向かって成長させる。
   static const double cpuYouthGrowthBonus = 2.5;
 
+  /// CPUクラブの底上げに掛ける、ユーザークラブに対する割合。ユーザーは
+  /// 施設・メンター・ドリル・育成プランでさらに上乗せできるので、この値が
+  /// 1.0でもユーザーが育成で優位に立てる。逆にここを絞りすぎるとリーグ全体が
+  /// 年々弱くなり、対戦相手として意味を失う。
+  static const double cpuConditioningShare = 0.85;
+
   static void applyPassiveCpuGrowth(Team team) {
     for (final p in team.players) {
       if (p.isLoanedOut) continue;
@@ -410,6 +469,22 @@ class TrainingEngine {
           AttributeKeys.offTheBall,
         ]) {
           _grow(p, k, 0.5 * passiveGrowthFactor * youthBonus);
+        }
+      }
+      // ユーザークラブの全体練習と同じ底上げをCPUにも与える。これがないと
+      // CPU選手は4項目しか伸びず総合力がポテンシャルの7割強で頭打ちになり、
+      // ユーザークラブだけがリーグから抜け出してしまう。重点練習と違い、
+      // 底上げはpassiveGrowthFactor(0.4)ではなくcpuConditioningShareで
+      // 割り引く。0.4まで絞るとリーグ平均が毎シーズン下がり続け、実測で
+      // ユーザークラブとの差が1シーズンあたり1.5ずつ開いていった。
+      final taper = _conditioningAgeTaper(p);
+      if (taper > 0) {
+        for (final k in _conditioningKeysFor(p)) {
+          _grow(
+            p,
+            k,
+            _conditioningChance * cpuConditioningShare * youthBonus * taper,
+          );
         }
       }
       if (p.age >= _declineStartAge(p.growthType) &&
@@ -454,6 +529,7 @@ class TrainingEngine {
           AttributeKeys.acceleration,
           AttributeKeys.strength,
         ];
+      case TrainingFocus.balanced:
       case TrainingFocus.positionSwitch:
       case TrainingFocus.rest:
       case null:
@@ -498,10 +574,14 @@ class TrainingEngine {
       };
 
   /// 衰え開始年齢に達した後、週次で実際に衰えが発生する確率。
+  /// 1回の衰えは能力値1〜2項目が1ずつ下がるだけで、総合力([Player.overall])
+  /// への影響は0.04程度しかない。かつてはこの値が0.1前後で、衰えの総量が
+  /// 年0.2程度にしかならず、ベテランがまったく衰えなかった(実測でピーク
+  /// からの下落0.1)。年1〜1.5程度は落ちる確率に引き上げている。
   static double _declineChance(PlayerGrowthType type) => switch (type) {
-        PlayerGrowthType.early => 0.12,
-        PlayerGrowthType.balanced => 0.1,
-        PlayerGrowthType.late => 0.08,
+        PlayerGrowthType.early => 0.45,
+        PlayerGrowthType.balanced => 0.4,
+        PlayerGrowthType.late => 0.3,
       };
 
   /// 成長タイプ・年齢に応じた伸びやすさの倍率。早熟は10代後半〜20代前半で
@@ -596,6 +676,7 @@ class TrainingEngine {
           AttributeKeys.acceleration,
           AttributeKeys.strength,
         ];
+      case TrainingFocus.balanced:
       case TrainingFocus.positionSwitch:
       case TrainingFocus.rest:
         return p.position.group == PositionGroup.def
@@ -756,6 +837,79 @@ class TrainingEngine {
     }
   }
 
+  /// 全体練習による底上げの1項目あたりの成長確率。重点練習(0.35〜0.5)の
+  /// 10分の1程度に抑えており、方針を選ぶ意味は失われない。
+  static const double _conditioningChance = 0.04;
+
+  /// 全体的な底上げが効かなくなっていく年齢カーブ。重点練習は年を取っても
+  /// ある程度は効く(ベテランが一芸を磨くのは自然)が、全体的な地力の
+  /// 底上げは選手としてのピークを過ぎると止まる。これがないと総合力が
+  /// 生涯上がり続け、35歳がキャリア最高という不自然なカーブになる
+  /// (実測でピーク年齢29〜34歳・ピークからの下落0.1を確認)。
+  static double _conditioningAgeTaper(Player p) {
+    final peakAge = switch (p.growthType) {
+      PlayerGrowthType.early => 25,
+      PlayerGrowthType.balanced => 27,
+      PlayerGrowthType.late => 29,
+    };
+    if (p.age <= peakAge) return 1.0;
+    return (1.0 - (p.age - peakAge) * 0.34).clamp(0.0, 1.0);
+  }
+
+  /// 総合力([Player.overall])の算出に使われる能力値。ここを底上げしないと
+  /// 総合力が頭打ちになるため、全体練習の対象にする。
+  static List<String> _conditioningKeysFor(Player p) {
+    if (p.position.group == PositionGroup.gk) {
+      return const [
+        ...AttributeKeys.goalkeeping,
+        AttributeKeys.tackling,
+        AttributeKeys.marking,
+        AttributeKeys.positioning,
+        AttributeKeys.anticipation,
+        AttributeKeys.strength,
+        AttributeKeys.concentration,
+        AttributeKeys.bravery,
+        AttributeKeys.stamina,
+        AttributeKeys.naturalFitness,
+        AttributeKeys.workRate,
+        AttributeKeys.acceleration,
+      ];
+    }
+    return const [
+      // 攻撃力
+      AttributeKeys.finishing,
+      AttributeKeys.longShots,
+      AttributeKeys.dribbling,
+      AttributeKeys.offTheBall,
+      AttributeKeys.composure,
+      AttributeKeys.pace,
+      AttributeKeys.flair,
+      AttributeKeys.balance,
+      // 守備力
+      AttributeKeys.tackling,
+      AttributeKeys.marking,
+      AttributeKeys.positioning,
+      AttributeKeys.anticipation,
+      AttributeKeys.strength,
+      AttributeKeys.aggression,
+      AttributeKeys.concentration,
+      AttributeKeys.bravery,
+      // 技術
+      AttributeKeys.passing,
+      AttributeKeys.firstTouch,
+      AttributeKeys.vision,
+      AttributeKeys.technique,
+      AttributeKeys.crossing,
+      AttributeKeys.decisions,
+      AttributeKeys.teamwork,
+      // スタミナ
+      AttributeKeys.stamina,
+      AttributeKeys.naturalFitness,
+      AttributeKeys.workRate,
+      AttributeKeys.acceleration,
+    ];
+  }
+
   static void _grow(Player p, String key, double chance) {
     final current = p.attributeValue(key);
     if (current >= p.potential) return;
@@ -776,11 +930,17 @@ class TrainingEngine {
     p.setAttributeValue(key, (current + 1).clamp(1, p.potential));
   }
 
+  /// 1回の衰えで下がる能力値の項目数。1項目だけだと総合力への影響が
+  /// 小さすぎるため、2項目まとめて下げる。
+  static const int declineAttributesPerEvent = 2;
+
   static void _decline(Player p) {
     final candidates = _declineCandidates(p);
-    final key = candidates[_rng.nextInt(candidates.length)];
-    final current = p.attributeValue(key);
-    p.setAttributeValue(key, (current - 1).clamp(20, 99));
+    for (var i = 0; i < declineAttributesPerEvent; i++) {
+      final key = candidates[_rng.nextInt(candidates.length)];
+      final current = p.attributeValue(key);
+      p.setAttributeValue(key, (current - 1).clamp(20, 99));
+    }
   }
 
   /// ポジションごとに衰えやすい能力値グループを重み付けした候補リストを返す。
