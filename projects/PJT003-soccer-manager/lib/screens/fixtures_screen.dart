@@ -433,12 +433,17 @@ class _StandingsTab extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            Tr.pick('戦力${team.overallRating}',
-                                'Squad ${team.overallRating}'),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey,
+                          // 末尾の勝点表示が伸びるとこの行に回る幅が減る。
+                          // ゲージは固定幅なので、ラベル側を縮ませる。
+                          Flexible(
+                            child: Text(
+                              Tr.pick('戦力${team.overallRating}',
+                                  'Squad ${team.overallRating}'),
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey,
+                              ),
                             ),
                           ),
                         ],
@@ -446,7 +451,7 @@ class _StandingsTab extends StatelessWidget {
                     ],
                   ),
                   trailing: Text(
-                    '${r.points}pt',
+                    Tr.pick('${r.points}pt', Tr.plural(r.points, 'pt')),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
