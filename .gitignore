@@ -44,3 +44,7 @@ projects/*/data/reports/
 projects/PJT002-ai-blog/output/
 *.accdb
 *.xlsx
+
+# kabu-agari-ranking として切り出す前の残骸（.venv と生成 HTML のみでソースは無い）。
+# 消してよいが、誤コミット防止のためまず除外しておく。
+projects/PJT006-gainer-ranking-site/

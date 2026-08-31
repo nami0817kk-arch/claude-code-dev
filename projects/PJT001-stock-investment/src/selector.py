@@ -125,6 +125,7 @@ def _fundamental_data(ticker: str) -> dict:
                 if -3 <= days <= 30:
                     earnings_str = f"{d.strftime('%m/%d')}({days:+d}日)"
         except Exception:
+            # 決算日はおまけ情報。取れなくても銘柄情報自体は返す（意図した振る舞い）
             pass
 
         return {
@@ -418,8 +419,10 @@ def pick_from_news(market: str | None = None, top_n: int = 20) -> dict:
             _, url = future_to_url[fut]
             try:
                 url_to_body[url] = fut.result()
-            except Exception:
-                pass
+            except Exception as e:
+                # 1記事の取得失敗で全体は止めない。ただし黙って落とすと
+                # 「なぜこの銘柄だけニュースが薄いのか」が追えなくなる。
+                print(f"  [WARN] 記事本文の取得に失敗: {url}: {e}")
 
     news_by_ticker: dict[str, list[str]] = {}
     for t in tickers:

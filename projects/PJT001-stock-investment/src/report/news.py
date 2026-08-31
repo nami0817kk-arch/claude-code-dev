@@ -281,8 +281,10 @@ def _load_cache() -> dict:
     if _TRANSCRIPT_CACHE.exists():
         try:
             return json.loads(_TRANSCRIPT_CACHE.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+        except Exception as e:
+            # 壊れたキャッシュは作り直せばよいが、黙って捨てると
+            # 「なぜ毎回取得し直しているのか」が追えなくなる。
+            print(f"  [WARN] 字幕キャッシュを読めなかったため作り直します: {e}")
     return {}
 
 
@@ -320,6 +322,7 @@ def fetch_transcript_cached(video_id: str, max_chars: int = 1500) -> str:
             if (datetime.now(timezone.utc) - dt.astimezone(timezone.utc)) < timedelta(hours=_CACHE_TTL_HOURS):
                 return cache[video_id].get("transcript", "")
         except Exception:
+            # fetched_at が壊れていたらキャッシュ切れ扱いで取得し直す（意図した振る舞い）
             pass
 
     # 新規取得
