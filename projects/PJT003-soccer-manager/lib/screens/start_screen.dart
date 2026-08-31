@@ -214,7 +214,7 @@ class _SlotCard extends StatelessWidget {
                         Text(
                           Tr.pick(
                               '第${slot.season ?? 1}シーズン${slot.divisionTier != null && slot.divisionTier != 1 ? ' ・ ${slot.divisionTier}部' : ''}',
-                              "Season ${slot.season ?? 1}${slot.divisionTier != null && slot.divisionTier != 1 ? ' · tier ${slot.divisionTier}' : ''}"),
+                              "Season ${slot.season ?? 1}${slot.divisionTier != null && slot.divisionTier != 1 ? ' • tier ${slot.divisionTier}' : ''}"),
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
@@ -326,7 +326,9 @@ class _NewClubDialogState extends State<_NewClubDialog> {
               children: LeagueTheme.values
                   .map(
                     (theme) => ChoiceChip(
-                      label: Text('${theme.label}（${theme.flavorLabel}）'),
+                      label: Text(Tr.pick(
+                          '${theme.label}（${theme.flavorLabel}）',
+                          '${theme.label} (${theme.flavorLabel})')),
                       selected: _theme == theme,
                       onSelected: (_) => setState(() => _theme = theme),
                     ),

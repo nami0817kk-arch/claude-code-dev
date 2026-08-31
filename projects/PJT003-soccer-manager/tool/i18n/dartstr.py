@@ -10,6 +10,15 @@ import re
 
 JP = re.compile(r'[぀-ゟ゠-ヿ一-鿿]')
 
+# 全角の約物。かな/漢字ではないので JP には掛からないが、英語表示に
+# 混ざると明確に不自然になる。翻訳済みの断片を全角括弧で連結している
+# 箇所 (例: '${theme.label}（${theme.flavorLabel}）') を捕まえるために、
+# 未翻訳判定ではこちらも日本語として扱う。
+JP_PUNCT = re.compile(r'[（）、。・「」『』〜]')
+
+# 未翻訳リテラルの判定に使う総合パターン。
+JP_ANY = re.compile('|'.join(x.pattern for x in (JP, JP_PUNCT)))
+
 
 def scan_strings(src):
     """Yield (start, end, quote, raw, body) for every top-level string literal.

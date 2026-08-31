@@ -89,7 +89,7 @@ class PlayerDetailScreen extends StatelessWidget {
               Expanded(
                 child: Text(
                   Tr.pick('${p.position.fullLabel} ・ ${p.age}歳',
-                      '${p.position.fullLabel} · ${p.age}'),
+                      '${p.position.fullLabel} • ${p.age}'),
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
@@ -239,7 +239,7 @@ class PlayerDetailScreen extends StatelessWidget {
                       orElse: () => InjuryType.bruise);
                   return Tr.pick(
                       '${type.label}${e.value}回', '${type.label} x${e.value}');
-                }).join(Tr.pick('・', ' · '))}',
+                }).join(Tr.pick('・', ' • '))}',
                 style: const TextStyle(color: Colors.grey, fontSize: 12),
               ),
             ),

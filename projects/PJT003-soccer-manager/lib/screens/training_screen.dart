@@ -160,7 +160,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
                             child: Text(
                               Tr.pick(
                                   '・[${a.kind.label}] ${a.playerName}: ${a.message}',
-                                  '· [${a.kind.label}] ${a.playerName}: ${a.message}'),
+                                  '• [${a.kind.label}] ${a.playerName}: ${a.message}'),
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),

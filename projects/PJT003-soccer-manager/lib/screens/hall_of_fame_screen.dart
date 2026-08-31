@@ -69,7 +69,7 @@ class _LegendCard extends StatelessWidget {
         subtitle: Text(
           Tr.pick(
               '${player.position.fullLabel} ・ 引退時${player.age}歳 ・ 総合${player.overall}',
-              '${player.position.fullLabel} · retired at ${player.age} · overall ${player.overall}'),
+              '${player.position.fullLabel} • retired at ${player.age} • overall ${player.overall}'),
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,

@@ -759,7 +759,9 @@ class _TakerDropdown extends StatelessWidget {
                 DropdownMenuItem<String?>(
                   value: p.id,
                   child: Text(
-                    '${p.name}（$label ${p.attributeValue(attributeKey)}）',
+                    Tr.pick(
+                        '${p.name}（$label ${p.attributeValue(attributeKey)}）',
+                        '${p.name} ($label ${p.attributeValue(attributeKey)})'),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -814,7 +816,9 @@ class _TacticPresetsCard extends StatelessWidget {
                 children: [
                   for (final preset in team.tacticPresets)
                     InputChip(
-                      label: Text('${preset.name}（${preset.formation.label}）'),
+                      label: Text(Tr.pick(
+                          '${preset.name}（${preset.formation.label}）',
+                          '${preset.name} (${preset.formation.label})')),
                       onPressed: () {
                         FeedbackService.tap();
                         context.read<GameState>().applyTacticPreset(
@@ -1297,7 +1301,7 @@ class _SlotChip extends StatelessWidget {
     final p = player;
     final outOfPosition = p != null && p.position != slotPosition;
     final roleSuffix = (p != null && p.role != PlayerRole.standard)
-        ? Tr.pick('・${p.role.label}', ' · ${p.role.label}')
+        ? Tr.pick('・${p.role.label}', ' • ${p.role.label}')
         : '';
     final content = Semantics(
       button: true,

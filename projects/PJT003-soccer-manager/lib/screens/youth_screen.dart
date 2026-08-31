@@ -260,7 +260,7 @@ class _YouthScreenState extends State<YouthScreen> {
                           subtitle: Text(
                             Tr.pick(
                                 '${p.age}歳 / ${p.position.label} / 総合 ${p.overall} / 潜在(推定) ${range.$1}〜${range.$2} / 成長 ${p.growthType.label}',
-                                'Age ${p.age} / ${p.position.label} / overall ${p.overall} / potential (est.) ${range.$1}–${range.$2} / ${p.growthType.label}'),
+                                'Age ${p.age} / ${p.position.label} / overall ${p.overall} / potential (est.) ${range.$1}-${range.$2} / ${p.growthType.label}'),
                           ),
                           trailing: FilledButton(
                             onPressed:

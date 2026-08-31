@@ -144,7 +144,8 @@ class _BestElevenCard extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              '${e.playerName}（${e.teamName}）',
+                              Tr.pick('${e.playerName}（${e.teamName}）',
+                                  '${e.playerName} (${e.teamName})'),
                               style: TextStyle(
                                 fontWeight: (e.teamId != null
                                         ? e.teamId == userTeamId

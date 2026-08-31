@@ -108,7 +108,7 @@ class HomeScreen extends StatelessWidget {
                       Text(
                         Tr.pick(
                             '目標: ${save.boardTargetRank}位以内${gameState.boardCupTargetLabel != null ? '・カップ${gameState.boardCupTargetLabel}進出' : ''}',
-                            "Target: top ${save.boardTargetRank}${gameState.boardCupTargetLabel != null ? ' · reach the ${gameState.boardCupTargetLabel} in the cup' : ''}"),
+                            "Target: top ${save.boardTargetRank}${gameState.boardCupTargetLabel != null ? ' • reach the ${gameState.boardCupTargetLabel} in the cup' : ''}"),
                         style: TextStyle(color: scheme.onSurfaceVariant),
                       ),
                     ],
@@ -535,7 +535,7 @@ class HomeScreen extends StatelessWidget {
                                           Text(
                                             Tr.pick(
                                                 '$oppRank位・総合${opp.overallRating}',
-                                                '$oppRank in the table · overall ${opp.overallRating}'),
+                                                '$oppRank in the table • overall ${opp.overallRating}'),
                                             style: const TextStyle(
                                               fontSize: 12,
                                               color: Colors.grey,
@@ -1517,7 +1517,7 @@ class _ThisWeekCard extends StatelessWidget {
       final derby = gameState.isRivalFixture(next!);
       matchLine = Tr.pick(
           '第${next!.matchday}節 ${isHome ? '(H)' : '(A)'} vs ${opponent.name}${derby ? ' ・ダービー' : ''}',
-          "Matchday ${next!.matchday} ${isHome ? '(H)' : '(A)'} vs ${opponent.name}${derby ? ' · derby' : ''}");
+          "Matchday ${next!.matchday} ${isHome ? '(H)' : '(A)'} vs ${opponent.name}${derby ? ' • derby' : ''}");
     }
 
     return Card(

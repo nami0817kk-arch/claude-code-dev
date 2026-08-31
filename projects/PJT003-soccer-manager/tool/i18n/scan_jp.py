@@ -10,7 +10,7 @@ as are comments -- those are for whoever reads the code, not the player.
 """
 import re, sys, glob, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from dartstr import scan_strings, protected_spans, JP
+from dartstr import scan_strings, protected_spans, JP_ANY
 
 
 # このマーカーを含むリテラルは、UIの文言ではなく意図した日本語データとして
@@ -36,7 +36,7 @@ def scan(path):
         for a, b in prot:
             if start < a and b < end:
                 masked = masked.replace(src[a:b], '')
-        if not JP.search(masked):
+        if not JP_ANY.search(masked):
             continue
         out.append(body)
     return out

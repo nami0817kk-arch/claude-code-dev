@@ -21,18 +21,21 @@ extension LeagueThemeInfo on LeagueTheme {
   }
 
   /// どの国をイメージしたリーグかの補足表示。
+  /// 英語は "Albion League (England-inspired)" だと選択チップの幅に
+  /// 収まらないため、国名だけにする。「風」であることは架空のリーグ名を
+  /// 見れば分かる。
   String get flavorLabel {
     switch (this) {
       case LeagueTheme.england:
-        return Tr.pick('イングランド風', 'England-inspired');
+        return Tr.pick('イングランド風', 'England');
       case LeagueTheme.spain:
-        return Tr.pick('スペイン風', 'Spain-inspired');
+        return Tr.pick('スペイン風', 'Spain');
       case LeagueTheme.germany:
-        return Tr.pick('ドイツ風', 'Germany-inspired');
+        return Tr.pick('ドイツ風', 'Germany');
       case LeagueTheme.italy:
-        return Tr.pick('イタリア風', 'Italy-inspired');
+        return Tr.pick('イタリア風', 'Italy');
       case LeagueTheme.france:
-        return Tr.pick('フランス風', 'France-inspired');
+        return Tr.pick('フランス風', 'France');
     }
   }
 

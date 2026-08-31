@@ -53,7 +53,7 @@ class NewsScreen extends StatelessWidget {
                       title: Text(item.text),
                       subtitle: Text(
                         Tr.pick('シーズン${item.season}・${item.context}',
-                            'Season ${item.season} · ${item.context}'),
+                            'Season ${item.season} • ${item.context}'),
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),

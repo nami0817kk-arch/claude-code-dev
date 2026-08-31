@@ -142,7 +142,8 @@ class AwardsScreen extends StatelessWidget {
                             ),
                             subtitle: a.mvpName == null
                                 ? Text(Tr.pick('該当者なし', 'Not awarded'))
-                                : Text('${a.mvpName}（${a.mvpTeamName}）'),
+                                : Text(Tr.pick('${a.mvpName}（${a.mvpTeamName}）',
+                                    '${a.mvpName} (${a.mvpTeamName})')),
                             onTap: mvpPlayerId == null
                                 ? null
                                 : () => openPlayer(mvpPlayerId),
