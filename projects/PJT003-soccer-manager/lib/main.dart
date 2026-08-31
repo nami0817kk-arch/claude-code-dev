@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'l10n/app_localizations.dart';
+import 'monetization/monetization_controller.dart';
 import 'package:provider/provider.dart';
 
 import 'services/feedback_service.dart';
@@ -166,6 +167,9 @@ class SoccerManagerApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => GameState()..init()),
         ChangeNotifierProvider(create: (_) => SettingsController()..init()),
+        ChangeNotifierProvider(
+          create: (_) => MonetizationController()..initialize(),
+        ),
       ],
       child: Consumer<SettingsController>(
         builder: (context, settings, _) {

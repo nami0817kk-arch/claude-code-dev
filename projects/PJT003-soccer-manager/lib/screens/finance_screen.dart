@@ -9,6 +9,7 @@ import '../services/feedback_service.dart';
 import '../state/game_state.dart';
 import '../theme/semantic_colors.dart';
 import '../widgets/quick_access_drawer.dart';
+import '../widgets/reward_funds_card.dart';
 import '../widgets/responsive_body.dart';
 import 'player_detail_screen.dart';
 
@@ -45,6 +46,8 @@ class FinanceScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // 特典資金。広告も課金も使えない環境では自分で消える。
+            const RewardFundsCard(),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),

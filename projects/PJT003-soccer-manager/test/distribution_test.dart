@@ -107,6 +107,38 @@ void main() {
       expect(bootstrap.readAsStringSync(), contains('canvasKitBaseUrl'));
     });
 
+    test('広告を入れた事実が法務・掲載情報から漏れていない', () {
+      // 実装だけ広告を出して、プライバシーポリシーやストア掲載情報が
+      // 「広告なし」のままだと、虚偽の申告で提出することになる。
+      // 実装と表記が食い違わないよう固定する。
+      final privacy = File('legal/privacy.html').readAsStringSync();
+      expect(privacy, contains('AdMob'),
+          reason: 'プライバシーポリシーが広告配信に触れていない');
+      expect(privacy, contains('広告識別子'),
+          reason: '広告識別子の取得を開示していない');
+
+      for (final path in const [
+        'STORE_LISTING.md',
+        'marketing/landing/index.html',
+        'marketing/ANNOUNCEMENT.md',
+      ]) {
+        final text = File(path).readAsStringSync();
+        expect(text, isNot(contains('広告なし・課金なし')),
+            reason: '$path に「広告なし・課金なし」が残っている');
+        expect(text, isNot(contains('広告も課金も')),
+            reason: '$path に広告・課金が無いという記述が残っている');
+      }
+    });
+
+    test('Androidが広告に必要なインターネット権限を宣言している', () {
+      // 権限が無いと広告SDKは通信できず、リワード広告が永久に
+      // 読み込まれない (押せないボタンだけが残る)。
+      final manifest =
+          File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
+      expect(manifest, contains('android.permission.INTERNET'));
+      expect(manifest, contains('com.google.android.gms.ads.APPLICATION_ID'));
+    });
+
     test('iOSが輸出コンプライアンスを申告している', () {
       final plist = File('ios/Runner/Info.plist').readAsStringSync();
       // これがないと App Store Connect へのアップロードのたびに

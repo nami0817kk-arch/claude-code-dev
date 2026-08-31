@@ -33,6 +33,11 @@ android {
     defaultConfig {
         // Google Play 上のアプリを一意に識別する ID。公開後は変更できない。
         applicationId = "com.kabuagari.soccer_manager"
+        // AdMob のアプリID。リリース時は gradle.properties か
+        // -PADMOB_APP_ID=... で自分のIDを渡す。既定は Google のテスト用ID。
+        manifestPlaceholders["admobAppId"] =
+            project.findProperty("ADMOB_APP_ID") ?: "ca-app-pub-3940256099942544~3347511713"
+
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

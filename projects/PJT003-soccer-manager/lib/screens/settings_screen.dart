@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../state/game_state.dart';
 import '../state/settings_controller.dart';
 import '../widgets/quick_access_drawer.dart';
+import '../widgets/supporter_section.dart';
 import 'onboarding_screen.dart';
 import 'start_screen.dart';
 
@@ -189,6 +190,7 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
           ],
+          const SupporterSection(),
           const SizedBox(height: 20),
           Text('アプリ情報', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),

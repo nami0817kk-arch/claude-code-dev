@@ -1,8 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 広告の配信に必要。これを追加するまで、このアプリは
+         ネットワークに一切出られなかった。収益化を入れる以上は
+         避けられないが、追加したことはプライバシーポリシーに明記している。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
         android:label="サッカー経営マネージャー"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- AdMob のアプリID。値は build.gradle の manifestPlaceholders から入る。
+             既定は Google のテスト用IDで、自分のIDを渡し忘れても
+             本物の広告が出ず規約違反にならないようにしてある
+             (渡し方は docs/RELEASE_GUIDE.md を参照)。 -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="${admobAppId}"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"

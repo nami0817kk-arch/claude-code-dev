@@ -276,6 +276,69 @@ Android / iOS 両方のワークフローが起動します。
 
 ---
 
+## 6-2. 収益化の設定（AdMob とアプリ内課金）
+
+**既定値のままでは収益は発生しません。** 広告IDは Google のテスト用IDにしてあり、
+テスト広告しか出ないためです。差し替え忘れても規約違反にならないよう、
+わざとこの既定にしています。
+
+### AdMob
+
+1. https://apps.admob.com でアカウントを作り、アプリを登録する
+   （Android と iOS は別々のアプリとして登録する）
+2. アプリごとに「リワード」広告ユニットを1つ作る
+3. 控えるもの: **アプリID**（`ca-app-pub-xxx~yyy`、`~` 区切り）と
+   **広告ユニットID**（`ca-app-pub-xxx/zzz`、`/` 区切り）
+
+**Android** — アプリIDは Gradle 経由でマニフェストに入る。
+
+```bash
+flutter build appbundle --release \
+  -PADMOB_APP_ID=ca-app-pub-xxxx~yyyy \
+  --dart-define=ADMOB_REWARDED_ANDROID=ca-app-pub-xxxx/zzzz
+```
+
+**iOS** — アプリIDは `ios/Runner/Info.plist` の `GADApplicationIdentifier` を
+自分のIDに書き換える。広告ユニットIDはビルド時に渡す。
+
+```bash
+flutter build ipa --release \
+  --dart-define=ADMOB_REWARDED_IOS=ca-app-pub-xxxx/zzzz \
+  --export-options-plist=ios/ExportOptions.plist
+```
+
+> iOS では AdMob が SKAdNetwork の識別子一覧を `Info.plist` に載せることを
+> 求めています。広告の計測精度に関わる項目で、未設定でも広告は表示されますが、
+> 収益に影響します。最新の一覧は AdMob の公式ドキュメントから取得して
+> `SKAdNetworkItems` として追記してください。
+
+### アプリ内課金（サポーター）
+
+商品IDは実装側で `soccer_manager_supporter` に固定してあります。
+ストア側でこのIDの商品を作ってください。
+
+- **Google Play Console** → 収益化 → アプリ内アイテム →
+  商品ID `soccer_manager_supporter`、タイプは「1回限りの購入」
+- **App Store Connect** → App内課金 → 非消耗型 →
+  製品ID `soccer_manager_supporter`
+
+どちらも審査があり、アプリ本体とは別に承認が必要です。
+価格は各ストアの管理画面で設定します（アプリ側には持たせていません）。
+
+### 動作確認
+
+**この環境では広告も課金も実機確認ができていません。** どちらも
+ストアとネットワークが要るためです。実機で次を確認してください。
+
+- ファイナンス画面に「スポンサーの特別協賛金」カードが出る
+- ボタンを押すとテスト広告が再生され、見終わると資金が増える
+- 途中で閉じると資金が増えず、回数も減らない
+- 上限（無料3回）に達するとボタンが押せなくなる
+- 設定画面からサポーター購入ができ、購入後は広告なしで受け取れる
+- 「購入を復元」が動く（iOS の審査要件）
+
+---
+
 ## 7. バージョンの上げ方
 
 `pubspec.yaml` の 1 行だけを変えます。

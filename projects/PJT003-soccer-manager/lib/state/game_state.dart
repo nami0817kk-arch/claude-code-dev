@@ -66,6 +66,7 @@ import '../logic/weather_engine.dart';
 import '../logic/youth_match_engine.dart';
 import '../data/name_pool.dart';
 import '../models/first_run_step.dart';
+import '../monetization/reward_offer.dart';
 
 const int maxSquadSize = 26;
 
@@ -680,6 +681,26 @@ class GameState extends ChangeNotifier {
     player.individualFocus = focus;
     notifyListeners();
     _persist();
+  }
+
+  /// 現在のディビジョンに応じた特典資金の額(万円)。
+  /// ボタンに「いくら貰えるか」を出すため、受け取り前に参照できるようにする。
+  int get rewardFundsAmount =>
+      RewardOffer.fundsFor(_save?.currentDivisionTier ?? 5);
+
+  /// リワード広告の視聴、またはサポーター購入による特典資金を受け取る。
+  ///
+  /// 広告を見せたか・購入済みかの判定は MonetizationController の責務で、
+  /// ここはゲームの状態を触るだけ。受け取った事実はクラブニュースに残す
+  /// (資金が増えた理由が後から分からないと、収支を追えなくなるため)。
+  int claimRewardFunds() {
+    if (_save == null) return 0;
+    final amount = rewardFundsAmount;
+    _save!.budget += amount;
+    _logNews('スポンサーの特別協賛金として$amount万円を受け取った。');
+    notifyListeners();
+    _persist();
+    return amount;
   }
 
   /// 開発者向けのデバッグ機能。資金を任意の額だけ増減させる

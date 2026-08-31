@@ -13,6 +13,10 @@
 		<!-- 本アプリは OS 標準の HTTPS 以外に暗号化を使わないため、輸出コンプライアンス上の
 	     申告対象外。宣言しておかないと App Store Connect へのアップロードのたびに
 	     手動での回答を求められ、TestFlight への配信が止まる。 -->
+	<!-- AdMob のアプリID。リリース時は自分のIDに置き換える
+	     (既定は Google のテスト用ID。docs/RELEASE_GUIDE.md を参照)。 -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>CFBundleInfoDictionaryVersion</key>
