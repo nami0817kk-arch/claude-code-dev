@@ -39,7 +39,6 @@ dependencies:
   flame: ^1.18.0
   provider: ^6.1.2
   shared_preferences: ^2.3.2
-  google_fonts: ^6.2.1
   url_launcher: ^6.3.1
   package_info_plus: ^8.1.1
 
@@ -92,6 +91,17 @@ flutter:
 
   assets:
     - assets/icon/
+
+  # しっぽり明朝は同梱する。google_fonts 経由だと初回起動時に
+  # fonts.gstatic.com へ取りに行き、利用者のIPアドレスが Google に渡るため
+  # (詳細は assets/fonts/README.md)。
+  fonts:
+    - family: ShipporiMincho
+      fonts:
+        - asset: assets/fonts/ShipporiMincho-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/ShipporiMincho-SemiBold.ttf
+          weight: 600
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'services/feedback_service.dart';
@@ -41,13 +40,17 @@ class SoccerManagerApp extends StatelessWidget {
     );
   }
 
+  /// 見出し用の明朝体。pubspec.yaml の fonts: で宣言した family 名と一致させる。
+  /// アセットとして同梱しているので、表示にあたって外部への通信は発生しない。
+  static const String _serifFamily = 'ShipporiMincho';
+
   /// 大見出しなど「たまにしか出てこない大きな文字」だけ明朝体にする。
   /// titleMedium/titleSmallはListTileの標準スタイルとして選手名などの
   /// 一覧行にも使われるため対象外(可読性優先で本文用ゴシック体のまま)。
   /// headlineMediumは試合スコアの数字表示に使われるため同様に対象外。
   TextTheme _withSerifHeadlines(TextTheme t) {
     TextStyle? serif(TextStyle? s) =>
-        s == null ? null : GoogleFonts.shipporiMincho(textStyle: s);
+        s?.copyWith(fontFamily: _serifFamily);
     return t.copyWith(
       displayLarge: serif(t.displayLarge),
       displayMedium: serif(t.displayMedium),
@@ -97,8 +100,8 @@ class SoccerManagerApp extends StatelessWidget {
       appBarTheme: AppBarTheme(
         backgroundColor: base.colorScheme.surface,
         foregroundColor: base.colorScheme.onSurface,
-        titleTextStyle: GoogleFonts.shipporiMincho(
-          textStyle: base.textTheme.titleLarge,
+        titleTextStyle: base.textTheme.titleLarge?.copyWith(
+          fontFamily: _serifFamily,
           fontWeight: FontWeight.w600,
         ),
         elevation: 0,

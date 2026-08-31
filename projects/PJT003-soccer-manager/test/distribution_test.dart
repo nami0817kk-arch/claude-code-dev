@@ -67,6 +67,46 @@ void main() {
       );
     });
 
+    test('見出しフォントを同梱していて、外部から取得していない', () {
+      // google_fonts 経由だと初回起動時に fonts.gstatic.com へ取りに行き、
+      // 利用者のIPアドレスが Google に渡る。プライバシーポリシーの
+      // 「アプリ版は外部サーバーへの通信を一切行いません」と矛盾するため、
+      // アセットとして同梱する方式に戻さないよう固定する。
+      final pubspec = File('pubspec.yaml').readAsStringSync();
+      expect(
+        pubspec.contains(RegExp(r'^\s*google_fonts:', multiLine: true)),
+        isFalse,
+        reason: 'google_fonts への依存が復活している',
+      );
+      expect(pubspec, contains('family: ShipporiMincho'));
+
+      for (final f in const [
+        'assets/fonts/ShipporiMincho-Regular.ttf',
+        'assets/fonts/ShipporiMincho-SemiBold.ttf',
+        // OFL 1.1 はフォントの再配布に際してライセンス文の同梱を求めている。
+        'assets/fonts/OFL.txt',
+      ]) {
+        expect(File(f).existsSync(), isTrue, reason: '$f が無い');
+      }
+
+      expect(
+        File('lib/main.dart').readAsStringSync(),
+        isNot(contains('GoogleFonts')),
+        reason: 'main.dart が実行時取得のフォントを参照している',
+      );
+    });
+
+    test('Web版がCanvasKitをGoogleのCDNから読み込まない', () {
+      // Flutter Web は既定で CanvasKit (描画エンジン本体) を
+      // www.gstatic.com から読み込むため、ページを開いただけで
+      // 利用者のIPアドレスが Google に渡る。ビルド時に
+      // build/web/canvaskit/ へ出力されるローカルのコピーを使う。
+      final bootstrap = File('web/flutter_bootstrap.js');
+      expect(bootstrap.existsSync(), isTrue,
+          reason: 'ブートストラップの上書きが消えている');
+      expect(bootstrap.readAsStringSync(), contains('canvasKitBaseUrl'));
+    });
+
     test('iOSが輸出コンプライアンスを申告している', () {
       final plist = File('ios/Runner/Info.plist').readAsStringSync();
       // これがないと App Store Connect へのアップロードのたびに
