@@ -77,11 +77,12 @@ class _LegendCard extends StatelessWidget {
           children: [
             Text(
               Tr.pick('${player.careerAppearances}試合',
-                  '${player.careerAppearances} apps'),
+                  Tr.plural(player.careerAppearances, 'app')),
               style: const TextStyle(fontSize: 12),
             ),
             Text(
-              Tr.pick('${player.careerGoals}得点', '${player.careerGoals} goals'),
+              Tr.pick('${player.careerGoals}得点',
+                  Tr.plural(player.careerGoals, 'goal')),
               style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],

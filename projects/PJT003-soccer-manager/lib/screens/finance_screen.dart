@@ -154,7 +154,7 @@ class FinanceScreen extends StatelessWidget {
                         : () => _openPlayer(context, inst.playerId!),
                     title: Text(inst.description),
                     subtitle: Text(Tr.pick('残り${inst.weeksRemaining}週',
-                        '${inst.weeksRemaining} weeks left')),
+                        '${Tr.plural(inst.weeksRemaining, 'week')} left')),
                     trailing: Text(Tr.pick('-${inst.weeklyAmount}万円/週',
                         '-${inst.weeklyAmount} per week')),
                   ),
@@ -175,7 +175,7 @@ class FinanceScreen extends StatelessWidget {
                         '${p.position.label} / 週俸 ${p.wage}万円',
                         '${p.position.label} / wage ${p.wage}')),
                     trailing: Text(Tr.pick('残り${p.loanWeeksRemaining}週',
-                        '${p.loanWeeksRemaining} weeks left')),
+                        '${Tr.plural(p.loanWeeksRemaining, 'week')} left')),
                   ),
                 ),
             ],
@@ -355,7 +355,7 @@ class _LoanSection extends StatelessWidget {
               subtitle: Text(
                 Tr.pick(
                     '残り${loan.weeksRemaining}週 / 返済総額残り${loan.totalRemaining}万円',
-                    '${loan.weeksRemaining} weeks left / ${loan.totalRemaining} still to repay'),
+                    '${Tr.plural(loan.weeksRemaining, 'week')} left / ${loan.totalRemaining} still to repay'),
               ),
               trailing: Text(
                 Tr.pick('-${loan.weeklyRepayment}万円/週',
@@ -459,14 +459,14 @@ class _LoanRequestSheetState extends State<_LoanRequestSheet> {
                 title: Text(
                   Tr.pick(
                       '${term.label}（${term.weeks}週・利率${term.interestRatePercent.toStringAsFixed(0)}%）',
-                      '${term.label} (${term.weeks} weeks, ${term.interestRatePercent.toStringAsFixed(0)}% interest)'),
+                      '${term.label} (${Tr.plural(term.weeks, 'week')}, ${term.interestRatePercent.toStringAsFixed(0)}% interest)'),
                 ),
                 subtitle: Text(
                   amount <= 0
                       ? Tr.pick('借入額を入力してください', 'Enter an amount to borrow')
                       : Tr.pick(
                           '週${LoanEngine.weeklyRepaymentFor(amount, term)}万円 × ${term.weeks}週 = 返済総額${LoanEngine.totalRepaymentFor(amount, term)}万円',
-                          '${LoanEngine.weeklyRepaymentFor(amount, term)} a week x ${term.weeks} weeks = ${LoanEngine.totalRepaymentFor(amount, term)} repaid in total'),
+                          '${LoanEngine.weeklyRepaymentFor(amount, term)} a week x ${Tr.plural(term.weeks, 'week')} = ${LoanEngine.totalRepaymentFor(amount, term)} repaid in total'),
                 ),
                 enabled: amount > 0,
                 onTap:
@@ -518,7 +518,7 @@ class _InvestmentSection extends StatelessWidget {
               subtitle: Text(
                 Tr.pick(
                     '残り${deposit.weeksRemaining}週 / 満期時+${deposit.interestEarned}万円',
-                    '${deposit.weeksRemaining} weeks left / +${deposit.interestEarned} at maturity'),
+                    '${Tr.plural(deposit.weeksRemaining, 'week')} left / +${deposit.interestEarned} at maturity'),
               ),
               trailing: Text(
                 Tr.pick('満期${deposit.maturityValue}万円',
@@ -624,7 +624,7 @@ class _DepositRequestSheetState extends State<_DepositRequestSheet> {
                 title: Text(
                   Tr.pick(
                       '${term.label}（${term.weeks}週・利回り${term.interestRatePercent.toStringAsFixed(0)}%）',
-                      '${term.label} (${term.weeks} weeks, ${term.interestRatePercent.toStringAsFixed(0)}% return)'),
+                      '${term.label} (${Tr.plural(term.weeks, 'week')}, ${term.interestRatePercent.toStringAsFixed(0)}% return)'),
                 ),
                 subtitle: Text(
                   amount <= 0

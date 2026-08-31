@@ -1475,14 +1475,14 @@ class _BenchTile extends StatelessWidget {
         subtitle: Text(
           p.isInjured
               ? Tr.pick('負傷中（あと${p.injuryWeeks}週）',
-                  'Injured (${p.injuryWeeks} weeks)')
+                  'Injured (${Tr.plural(p.injuryWeeks, 'week')})')
               : p.isSuspended
                   ? Tr.pick('出場停止（あと${p.suspendedMatches}試合）',
-                      'Suspended (${p.suspendedMatches} matches)')
+                      'Suspended (${Tr.plural(p.suspendedMatches, 'match', 'matches')})')
                   : p.isOnInternationalDuty
                       ? Tr.pick(
                           '代表召集中（あと${p.internationalDutyWeeksRemaining}週）',
-                          'On international duty (${p.internationalDutyWeeksRemaining} weeks)')
+                          'On international duty (${Tr.plural(p.internationalDutyWeeksRemaining, 'week')})')
                       : Tr.pick(
                           '${p.age}歳 / 総合 ${p.overall}${p.secondaryPositions.isEmpty ? '' : ' / 対応: ${p.secondaryPositions.map((s) => s.label).join(', ')}'}',
                           "Age ${p.age} / overall ${p.overall}${p.secondaryPositions.isEmpty ? '' : ' / also: ${p.secondaryPositions.map((s) => s.label).join(', ')}'}"),

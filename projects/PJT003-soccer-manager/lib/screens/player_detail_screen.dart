@@ -132,7 +132,7 @@ class PlayerDetailScreen extends StatelessWidget {
               child: Text(
                 Tr.pick(
                     '今シーズン: ${seasonStats.appearances}試合 ${seasonStats.goals}得点${seasonStats.yellowCards > 0 ? ' 警告${seasonStats.yellowCards}' : ''}${seasonStats.redCards > 0 ? ' 退場${seasonStats.redCards}' : ''} / 平均採点${seasonStats.averageRating!.toStringAsFixed(1)}',
-                    "This season: ${seasonStats.appearances} apps, ${seasonStats.goals} goals${seasonStats.yellowCards > 0 ? ', ${seasonStats.yellowCards} yellow' : ''}${seasonStats.redCards > 0 ? ', ${seasonStats.redCards} red' : ''} / avg rating ${seasonStats.averageRating!.toStringAsFixed(1)}"),
+                    "This season: ${Tr.plural(seasonStats.appearances, 'app')}, ${Tr.plural(seasonStats.goals, 'goal')}${seasonStats.yellowCards > 0 ? ', ${seasonStats.yellowCards} yellow' : ''}${seasonStats.redCards > 0 ? ', ${seasonStats.redCards} red' : ''} / avg rating ${seasonStats.averageRating!.toStringAsFixed(1)}"),
                 style: const TextStyle(
                   color: Colors.teal,
                   fontWeight: FontWeight.bold,
@@ -144,7 +144,7 @@ class PlayerDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 Tr.pick('通算成績: ${p.careerAppearances}試合 ${p.careerGoals}得点',
-                    'Career: ${p.careerAppearances} apps, ${p.careerGoals} goals'),
+                    'Career: ${Tr.plural(p.careerAppearances, 'app')}, ${Tr.plural(p.careerGoals, 'goal')}'),
                 style: const TextStyle(color: Colors.grey, fontSize: 12),
               ),
             ),
@@ -219,10 +219,10 @@ class PlayerDetailScreen extends StatelessWidget {
               child: Text(
                 p.injuryType == null
                     ? Tr.pick('負傷中（あと${p.injuryWeeks}週は出場不可）',
-                        'Injured (out for another ${p.injuryWeeks} weeks)')
+                        'Injured (out for another ${Tr.plural(p.injuryWeeks, 'week')})')
                     : Tr.pick(
                         '${p.injuryType!.label}で負傷中（あと${p.injuryWeeks}週は出場不可）',
-                        '${p.injuryType!.label} (out for another ${p.injuryWeeks} weeks)'),
+                        '${p.injuryType!.label} (out for another ${Tr.plural(p.injuryWeeks, 'week')})'),
                 style: const TextStyle(
                   color: Colors.redAccent,
                   fontWeight: FontWeight.bold,
@@ -248,7 +248,7 @@ class PlayerDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.only(top: 8),
               child: Text(
                 Tr.pick('出場停止中（あと${p.suspendedMatches}試合は出場不可）',
-                    'Suspended (out for another ${p.suspendedMatches} matches)'),
+                    'Suspended (out for another ${Tr.plural(p.suspendedMatches, 'match', 'matches')})'),
                 style: const TextStyle(
                   color: Colors.redAccent,
                   fontWeight: FontWeight.bold,
@@ -275,7 +275,7 @@ class PlayerDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.only(top: 8),
               child: Text(
                 Tr.pick('代表召集中（あと${p.internationalDutyWeeksRemaining}週は出場不可）',
-                    'On international duty (away for another ${p.internationalDutyWeeksRemaining} weeks)'),
+                    'On international duty (away for another ${Tr.plural(p.internationalDutyWeeksRemaining, 'week')})'),
                 style: const TextStyle(
                   color: Colors.blueAccent,
                   fontWeight: FontWeight.bold,
@@ -363,7 +363,7 @@ class PlayerDetailScreen extends StatelessWidget {
           Text(
             p.isLoan
                 ? Tr.pick('週俸: ${p.wage}万円 / ローン残り${p.loanWeeksRemaining}週',
-                    'Wage: ${p.wage} / ${p.loanWeeksRemaining} weeks left on loan')
+                    'Wage: ${p.wage} / ${Tr.plural(p.loanWeeksRemaining, 'week')} left on loan')
                 : Tr.pick(
                     '週俸: ${p.wage}万円 / ${ContractEngine.yearsLabel(p.contractYearsRemaining)}',
                     'Wage: ${p.wage} / ${ContractEngine.yearsLabel(p.contractYearsRemaining)}'),
@@ -607,7 +607,7 @@ class PlayerDetailScreen extends StatelessWidget {
             label: Text(
               p.reassureCooldownWeeks > 0
                   ? Tr.pick('話し合う（あと${p.reassureCooldownWeeks}週は待つ必要がある）',
-                      'Have a word (you must wait another ${p.reassureCooldownWeeks} weeks)')
+                      'Have a word (you must wait another ${Tr.plural(p.reassureCooldownWeeks, 'week')})')
                   : Tr.pick('話し合う（不満度を和らげる）',
                       'Have a word (eases their unhappiness)'),
             ),
@@ -959,14 +959,14 @@ class PlayerDetailScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(Tr.pick('$weeks週間、他クラブへ貸し出します。期間中の週俸は放出先が負担します。',
-                  'He goes out on loan for $weeks weeks. The other club pays his wages while he is there.')),
+                  'He goes out on loan for ${Tr.plural(weeks, 'week')}. The other club pays his wages while he is there.')),
               Slider(
                 value: weeks.toDouble(),
                 min: GameState.loanOutMinWeeks.toDouble(),
                 max: GameState.loanOutMaxWeeks.toDouble(),
                 divisions:
                     GameState.loanOutMaxWeeks - GameState.loanOutMinWeeks,
-                label: Tr.pick('$weeks週', '$weeks weeks'),
+                label: Tr.pick('$weeks週', Tr.plural(weeks, 'week')),
                 onChanged: (v) => setState(() => weeks = v.round()),
               ),
             ],

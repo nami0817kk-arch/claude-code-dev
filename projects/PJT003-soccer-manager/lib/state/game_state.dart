@@ -3171,7 +3171,7 @@ class GameState extends ChangeNotifier {
       );
       lastBudgetCrisisWarning = Tr.pick(
           '資金マイナスが${_save!.consecutiveNegativeBudgetWeeks}週続いています。理事会の信頼度が低下しました。',
-          "You have been in the red for ${_save!.consecutiveNegativeBudgetWeeks} weeks. The board's confidence has slipped.");
+          "You have been in the red for ${Tr.plural(_save!.consecutiveNegativeBudgetWeeks, 'week')}. The board's confidence has slipped.");
     }
 
     // 移籍市場は全員を作り直さず、数人だけ入れ替える(持続的な市場)。
@@ -3494,7 +3494,7 @@ class GameState extends ChangeNotifier {
       final scored = goalsThisMatch[p.id] ?? 0;
       if (scored >= 3) {
         milestones.add(Tr.pick('${p.name}がハットトリック達成($scored得点)',
-            '${p.name} scored a hat-trick ($scored goals)'));
+            '${p.name} scored a hat-trick (${Tr.plural(scored, 'goal')})'));
       }
       final prev = before[p.id];
       if (prev == null) continue;

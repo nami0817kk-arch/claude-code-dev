@@ -80,7 +80,7 @@ class ManagerCareerScreen extends StatelessWidget {
                     Text(
                       save.managerContractYears > 0
                           ? Tr.pick('監督契約: 残り${save.managerContractYears}年',
-                              'Your contract: ${save.managerContractYears} years left')
+                              'Your contract: ${Tr.plural(save.managerContractYears, 'year')} left')
                           : Tr.pick('監督契約: 次のシーズン開始時に締結予定',
                               'Your contract: to be agreed at the start of next season'),
                       style: const TextStyle(fontSize: 12, color: Colors.grey),

@@ -11,13 +11,14 @@ class ContractEngine {
   /// 残り契約年数の表示ラベル。契約は年単位で結ばれるため、そのまま表示する。
   static String yearsLabel(int yearsRemaining) {
     if (yearsRemaining <= 0) return Tr.pick('契約満了間近', 'Contract almost up');
-    return Tr.pick('契約残り$yearsRemaining年', '$yearsRemaining years left');
+    return Tr.pick(
+        '契約残り$yearsRemaining年', '${Tr.plural(yearsRemaining, 'year')} left');
   }
 
   /// [yearsLabel]の短縮版(トレーリング領域など表示幅が限られる箇所向け)。
   static String yearsShortLabel(int yearsRemaining) {
     if (yearsRemaining <= 0) return Tr.pick('契約満了間近', 'Contract almost up');
-    return Tr.pick('残り$yearsRemaining年', '$yearsRemaining years');
+    return Tr.pick('残り$yearsRemaining年', Tr.plural(yearsRemaining, 'year'));
   }
 
   /// ローン期間(週単位)を1週分消化させ、ローン満了となった選手を

@@ -165,7 +165,7 @@ class _BestElevenCard extends StatelessWidget {
                               ),
                               Text(
                                 Tr.pick('${e.appearances}試合',
-                                    '${e.appearances} apps'),
+                                    Tr.plural(e.appearances, 'app')),
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: Colors.grey,

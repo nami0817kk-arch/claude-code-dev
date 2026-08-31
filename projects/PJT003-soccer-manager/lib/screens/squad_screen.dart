@@ -237,7 +237,7 @@ class _SquadScreenState extends State<SquadScreen> {
                     child: Text(
                       Tr.pick(
                           '契約更新する（基本$renewalCost万円 + サインボーナス$signingBonus万円 / 新契約${ContractEngine.negotiatedYears(p)}年 / 新出場手当$newAppearanceFee万円）',
-                          'Renew (base $renewalCost + signing bonus $signingBonus / ${ContractEngine.negotiatedYears(p)} years / new appearance fee $newAppearanceFee)'),
+                          'Renew (base $renewalCost + signing bonus $signingBonus / ${Tr.plural(ContractEngine.negotiatedYears(p), 'year')} / new appearance fee $newAppearanceFee)'),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -663,19 +663,19 @@ class _SquadScreenState extends State<SquadScreen> {
                                 Text(
                                   p.isInjured
                                       ? Tr.pick('負傷中（あと${p.injuryWeeks}週）',
-                                          'Injured (${p.injuryWeeks} weeks)')
+                                          'Injured (${Tr.plural(p.injuryWeeks, 'week')})')
                                       : p.isSuspended
                                           ? Tr.pick(
                                               '出場停止（あと${p.suspendedMatches}試合）',
-                                              'Suspended (${p.suspendedMatches} matches)')
+                                              'Suspended (${Tr.plural(p.suspendedMatches, 'match', 'matches')})')
                                           : p.isOnInternationalDuty
                                               ? Tr.pick(
                                                   '代表召集中（あと${p.internationalDutyWeeksRemaining}週）',
-                                                  'On international duty (${p.internationalDutyWeeksRemaining} weeks)')
+                                                  'On international duty (${Tr.plural(p.internationalDutyWeeksRemaining, 'week')})')
                                               : p.isLoanedOut
                                                   ? Tr.pick(
                                                       '${p.loanedOutToClubName}へローン放出中（あと${p.loanedOutWeeksRemaining}週）',
-                                                      'On loan at ${p.loanedOutToClubName} (${p.loanedOutWeeksRemaining} weeks left)')
+                                                      'On loan at ${p.loanedOutToClubName} (${Tr.plural(p.loanedOutWeeksRemaining, 'week')} left)')
                                                   : Tr.pick(
                                                       '${p.age}歳 / ${p.position.label} / 総合 ${p.overall}${lastRatings?[p.id] != null ? ' / 前節 ${lastRatings![p.id]!.toStringAsFixed(1)}' : ''}${p.isLoan ? '' : ' / ${ContractEngine.yearsLabel(p.contractYearsRemaining)}'}',
                                                       "Age ${p.age} / ${p.position.label} / overall ${p.overall}${lastRatings?[p.id] != null ? ' / last ${lastRatings![p.id]!.toStringAsFixed(1)}' : ''}${p.isLoan ? '' : ' / ${ContractEngine.yearsLabel(p.contractYearsRemaining)}'}"),
@@ -913,7 +913,7 @@ class _ConditionLine extends StatelessWidget {
         Text(
           Tr.pick(
               '今季${stats.appearances}試合${stats.goals}点${stats.averageRating != null ? '・評点${stats.averageRating!.toStringAsFixed(1)}' : ''}',
-              "${stats.appearances} apps, ${stats.goals} goals${stats.averageRating != null ? ', avg ${stats.averageRating!.toStringAsFixed(1)}' : ''}"),
+              "${Tr.plural(stats.appearances, 'app')}, ${Tr.plural(stats.goals, 'goal')}${stats.averageRating != null ? ', avg ${stats.averageRating!.toStringAsFixed(1)}' : ''}"),
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 11, color: Colors.grey),
         ),

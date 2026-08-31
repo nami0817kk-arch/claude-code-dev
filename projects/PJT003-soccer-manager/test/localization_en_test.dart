@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:soccer_manager/logic/contract_engine.dart';
 import 'package:soccer_manager/data/glossary_entries.dart';
 import 'package:soccer_manager/data/guide_sections.dart';
 import 'package:soccer_manager/data/name_pool.dart';
@@ -105,5 +106,27 @@ void main() {
     expect(Tr.isEnglish, isTrue);
     Tr.resolvedLocaleIsEnglish = false;
     expect(Tr.isEnglish, isFalse);
+  });
+
+  test(
+      'English count labels use the singular form for exactly one, so the UI '
+      'never says "1 years left"', () {
+    Tr.language = AppLanguage.english;
+
+    expect(Tr.plural(1, 'year'), '1 year');
+    expect(Tr.plural(0, 'year'), '0 years');
+    expect(Tr.plural(2, 'year'), '2 years');
+
+    // -s を付けるだけでは作れない語は明示した複数形を使う。
+    expect(Tr.plural(1, 'match', 'matches'), '1 match');
+    expect(Tr.plural(3, 'match', 'matches'), '3 matches');
+
+    // 実際の表示でも単数になっていること。
+    expect(ContractEngine.yearsLabel(1), '1 year left');
+    expect(ContractEngine.yearsLabel(3), '3 years left');
+
+    // 日本語には単複の区別がないので、切り替えても壊れないこと。
+    Tr.language = AppLanguage.japanese;
+    expect(ContractEngine.yearsLabel(1), '契約残り1年');
   });
 }

@@ -318,7 +318,7 @@ class _YouthScreenState extends State<YouthScreen> {
                               Text(
                                 Tr.pick(
                                     'ベストプレイヤー: ${best.player.name}(評点 ${best.rating.toStringAsFixed(1)}${best.goals > 0 ? '・${best.goals}得点' : ''})',
-                                    "Best on the day: ${best.player.name} (rated ${best.rating.toStringAsFixed(1)}${best.goals > 0 ? ', ${best.goals} goals' : ''})"),
+                                    "Best on the day: ${best.player.name} (rated ${best.rating.toStringAsFixed(1)}${best.goals > 0 ? ', ${Tr.plural(best.goals, 'goal')}' : ''})"),
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey,
@@ -395,7 +395,7 @@ class _YouthScreenState extends State<YouthScreen> {
                                     'ユース戦: まだ出場なし', 'Youth matches: none yet')
                                 : Tr.pick(
                                     'ユース戦: ${p.youthMatchApps}試合 ${p.youthMatchGoals}得点 / 直近評点 ${p.lastYouthMatchRating.toStringAsFixed(1)}',
-                                    'Youth matches: ${p.youthMatchApps} apps, ${p.youthMatchGoals} goals / last rating ${p.lastYouthMatchRating.toStringAsFixed(1)}'),
+                                    'Youth matches: ${Tr.plural(p.youthMatchApps, 'app')}, ${Tr.plural(p.youthMatchGoals, 'goal')} / last rating ${p.lastYouthMatchRating.toStringAsFixed(1)}'),
                             style: TextStyle(
                               fontSize: 12,
                               color: p.lastYouthMatchRating >=

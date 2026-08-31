@@ -516,7 +516,7 @@ class _TransferScreenState extends State<TransferScreen>
                 subtitle: Text(
                   Tr.pick(
                       '契約金$loanFee万円・週俸6割・${GameState.loanDurationWeeks}週で契約終了',
-                      '$loanFee fee, 60% of his wages, ending after ${GameState.loanDurationWeeks} weeks'),
+                      '$loanFee fee, 60% of his wages, ending after ${Tr.plural(GameState.loanDurationWeeks, 'week')}'),
                 ),
                 enabled: save.budget >= loanFee,
                 onTap: () {

@@ -115,7 +115,7 @@ class AwardsScreen extends StatelessWidget {
                                 : Text(
                                     Tr.pick(
                                         '${a.topScorerName}（${a.topScorerTeamName}） - ${a.topScorerGoals}得点',
-                                        '${a.topScorerName} (${a.topScorerTeamName}) — ${a.topScorerGoals} goals'),
+                                        '${a.topScorerName} (${a.topScorerTeamName}) — ${Tr.plural(a.topScorerGoals, 'goal')}'),
                                   ),
                             onTap: scorerPlayerId == null
                                 ? null

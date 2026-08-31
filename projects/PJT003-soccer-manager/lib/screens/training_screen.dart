@@ -306,7 +306,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
                   child: Text(
                     team.tacticalMeetingCooldownWeeks > 0
                         ? Tr.pick('あと${team.tacticalMeetingCooldownWeeks}週',
-                            '${team.tacticalMeetingCooldownWeeks} weeks to go')
+                            '${Tr.plural(team.tacticalMeetingCooldownWeeks, 'week')} to go')
                         : Tr.pick('実施する', 'Hold it'),
                   ),
                 ),
@@ -380,7 +380,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
                               child: Text(
                                 Tr.pick(
                                     '紅白戦: スタメン外の$practiceMatchCount人が実戦感覚を維持しました',
-                                    'Practice match: $practiceMatchCount players outside the XI kept their sharpness'),
+                                    'Practice match: ${Tr.plural(practiceMatchCount, 'player')} outside the XI kept their sharpness'),
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey,
@@ -673,7 +673,7 @@ class _PlayerTrainingCard extends StatelessWidget {
                       label: Text(
                         p.talkCooldownWeeks > 0
                             ? Tr.pick('声かけ(あと${p.talkCooldownWeeks}週)',
-                                'Have a word (${p.talkCooldownWeeks} weeks to go)')
+                                'Have a word (${Tr.plural(p.talkCooldownWeeks, 'week')} to go)')
                             : Tr.pick('声かけ', 'Have a word'),
                       ),
                       onPressed: p.talkCooldownWeeks > 0
@@ -881,7 +881,7 @@ class _PlayerTrainingCard extends StatelessWidget {
                       SnackBar(
                           content: Text(Tr.pick(
                               '特訓ドリルは同時に$maxSlots人までしか指定できません',
-                              'You can only run focus drills for $maxSlots players at once'))),
+                              'You can only run focus drills for ${Tr.plural(maxSlots, 'player')} at once'))),
                     );
                   }
                 },
@@ -934,7 +934,7 @@ class _PlayerTrainingCard extends StatelessWidget {
                       SnackBar(
                         content: Text(Tr.pick(
                             '2つ目の特訓ドリルは同時に$maxSlots人までしか指定できません',
-                            'You can only run a second focus drill for $maxSlots players at once')),
+                            'You can only run a second focus drill for ${Tr.plural(maxSlots, 'player')} at once')),
                       ),
                     );
                   }

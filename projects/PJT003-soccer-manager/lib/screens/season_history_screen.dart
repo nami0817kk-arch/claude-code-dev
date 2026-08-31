@@ -145,7 +145,7 @@ class _SeasonRecordCard extends StatelessWidget {
                 Text(
                   Tr.pick(
                       '得点王: ${award!.topScorerName}（${award!.topScorerTeamName ?? '不明'}） ${award!.topScorerGoals}得点',
-                      "Top scorer: ${award!.topScorerName} (${award!.topScorerTeamName ?? 'unknown'}) — ${award!.topScorerGoals} goals"),
+                      "Top scorer: ${award!.topScorerName} (${award!.topScorerTeamName ?? 'unknown'}) — ${Tr.plural(award!.topScorerGoals, 'goal')}"),
                   style: const TextStyle(fontSize: 12),
                 ),
               if (award!.mvpName != null)

@@ -74,4 +74,12 @@ class Tr {
   /// 英語側だけを見て読めない文があれば、それは英語が原文の意図を
   /// 落としているということなので、日本語を正として直す。
   static String pick(String ja, String en) => isEnglish ? en : ja;
+
+  /// 英語の可算名詞を数に合わせて出す。日本語には単複の区別がないので、
+  /// 使うのは Tr.pick の英語側だけ。
+  ///
+  /// 「1 years left」「1 apps, 1 goals」のような表示を避けるためのもの。
+  /// match → matches のように -s を付けるだけで済まない語は [plural] を渡す。
+  static String plural(int n, String singular, [String? plural]) =>
+      '$n ${n == 1 ? singular : (plural ?? '${singular}s')}';
 }
