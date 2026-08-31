@@ -4,6 +4,7 @@ import 'background_match_engine.dart';
 import 'cup_engine.dart';
 import 'fixture_generator.dart';
 import 'match_engine.dart';
+import '../l10n/tr.dart';
 
 /// 昇格プレーオフの1試合(準決勝または決勝)の結果。
 class PromotionPlayoffMatch {
@@ -143,19 +144,19 @@ class PromotionEngine {
           .toList();
 
       final semiA = _playSingleMatch(
-        roundLabel: '昇格プレーオフ 準決勝',
+        roundLabel: Tr.pick('昇格プレーオフ 準決勝', 'Play-off semi-final'),
         home: pool[0],
         away: pool[3],
       );
       final semiB = _playSingleMatch(
-        roundLabel: '昇格プレーオフ 準決勝',
+        roundLabel: Tr.pick('昇格プレーオフ 準決勝', 'Play-off semi-final'),
         home: pool[1],
         away: pool[2],
       );
       final finalHome = pool.firstWhere((t) => t.id == semiA.winnerId);
       final finalAway = pool.firstWhere((t) => t.id == semiB.winnerId);
       final finalMatch = _playSingleMatch(
-        roundLabel: '昇格プレーオフ 決勝',
+        roundLabel: Tr.pick('昇格プレーオフ 決勝', 'Play-off final'),
         home: finalHome,
         away: finalAway,
       );

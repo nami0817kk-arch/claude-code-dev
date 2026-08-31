@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:soccer_manager/l10n/tr.dart';
 import 'package:soccer_manager/logic/achievement_engine.dart';
 import 'package:soccer_manager/logic/ai_transfer_engine.dart';
 import 'package:soccer_manager/logic/calendar_engine.dart';
@@ -69,6 +70,14 @@ import 'package:soccer_manager/widgets/match_widgets.dart'
     show matchCommentaryText;
 
 void main() {
+  // このファイルは「何が起きるか」を検証するもので、表示言語には依存させない。
+  // ただし実績名やニュース文を文字列で突き合わせている箇所があり、原本である
+  // 日本語で書かれている。テスト環境の端末ロケールは en なので、明示的に
+  // 日本語へ固定しておかないと英語が返り、突き合わせが崩れる。
+  // (英語側の表示は localization_en_test.dart で別途確認する)
+  setUp(() => Tr.language = AppLanguage.japanese);
+  tearDown(() => Tr.language = AppLanguage.system);
+
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });

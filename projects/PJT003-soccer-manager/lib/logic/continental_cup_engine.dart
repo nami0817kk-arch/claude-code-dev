@@ -8,6 +8,7 @@ import '../models/team.dart';
 import 'cup_engine.dart';
 import 'match_engine.dart';
 import 'weather_engine.dart';
+import '../l10n/tr.dart';
 
 /// 大陸カップ: グループステージ(4チーム総当たり)+決勝トーナメント
 /// (準決勝はホーム&アウェイ2試合合計、決勝は1試合)を管理する。
@@ -236,10 +237,10 @@ class ContinentalCupEngine {
   static String roundLabel(int round, int totalRounds) {
     final fromFinal = totalRounds - round;
     return switch (fromFinal) {
-      0 => '決勝',
-      1 => '準決勝',
-      2 => '準々決勝',
-      _ => '第$round回戦',
+      0 => Tr.pick('決勝', 'Final'),
+      1 => Tr.pick('準決勝', 'Semi-final'),
+      2 => Tr.pick('準々決勝', 'Quarter-final'),
+      _ => Tr.pick('第$round回戦', 'Round $round'),
     };
   }
 }

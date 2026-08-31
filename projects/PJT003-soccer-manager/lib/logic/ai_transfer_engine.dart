@@ -2,6 +2,7 @@ import 'dart:math';
 
 import '../models/team.dart';
 import 'lineup_utils.dart';
+import '../l10n/tr.dart';
 
 /// ユーザーが関与しないCPUクラブ同士の移籍市場を活性化させるための簡易エンジン。
 /// 資金のやり取りは行わず、選手が移籍する「ニュース」のみを生成する。
@@ -73,7 +74,8 @@ class AiTransferEngine {
       // 反映しつつ、より力のあるクラブへの移籍ならやや上向きにする。
       final moveUp = toTeam.overallRating >= fromTeam.overallRating;
       player.happiness = (player.happiness + (moveUp ? 8 : -8)).clamp(40, 90);
-      return '${player.name}が${fromTeam.name}から${toTeam.name}へ移籍しました。';
+      return Tr.pick('${player.name}が${fromTeam.name}から${toTeam.name}へ移籍しました。',
+          '${player.name} has moved from ${fromTeam.name} to ${toTeam.name}.');
     }
     return null;
   }

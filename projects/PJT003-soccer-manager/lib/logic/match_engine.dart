@@ -9,6 +9,7 @@ import '../models/weather.dart';
 import 'lineup_utils.dart';
 import 'style_engine.dart';
 import 'training_engine.dart';
+import '../l10n/tr.dart';
 
 /// この枚数の警告が貯まると次節出場停止になる(退場は即1試合出場停止)。
 const int yellowCardSuspensionThreshold = 5;
@@ -56,15 +57,17 @@ enum MatchInstruction { balanced, aggressive, cautious }
 
 extension MatchInstructionLabel on MatchInstruction {
   String get label => switch (this) {
-        MatchInstruction.balanced => '通常',
-        MatchInstruction.aggressive => 'リスクを取る',
-        MatchInstruction.cautious => '安全に下がる',
+        MatchInstruction.balanced => Tr.pick('通常', 'Normal'),
+        MatchInstruction.aggressive => Tr.pick('リスクを取る', 'Take risks'),
+        MatchInstruction.cautious => Tr.pick('安全に下がる', 'Sit back'),
       };
 
   String get description => switch (this) {
-        MatchInstruction.balanced => '標準的なバランスで戦う',
-        MatchInstruction.aggressive => '攻撃の成功率が上がるが、守備の負担も増える',
-        MatchInstruction.cautious => '守備は安定するが、攻撃の迫力は落ちる',
+        MatchInstruction.balanced => Tr.pick('標準的なバランスで戦う', 'Play it as it is'),
+        MatchInstruction.aggressive => Tr.pick('攻撃の成功率が上がるが、守備の負担も増える',
+            'Better odds going forward, but more asked of the defence'),
+        MatchInstruction.cautious => Tr.pick('守備は安定するが、攻撃の迫力は落ちる',
+            'A steadier defence, at the cost of attacking threat'),
       };
 }
 

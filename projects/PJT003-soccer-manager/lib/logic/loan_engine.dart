@@ -1,3 +1,5 @@
+import '../l10n/tr.dart';
+
 /// 融資の返済プラン。期間が長いほど利率(総支払額に占める利息の割合)は高くなるが、
 /// 週あたりの返済額は抑えられる。
 class LoanTerm {
@@ -6,7 +8,8 @@ class LoanTerm {
 
   const LoanTerm({required this.weeks, required this.interestRatePercent});
 
-  String get label => weeks <= 12 ? '短期' : '長期';
+  String get label =>
+      weeks <= 12 ? Tr.pick('短期', 'Short term') : Tr.pick('長期', 'Long term');
 }
 
 class LoanEngine {

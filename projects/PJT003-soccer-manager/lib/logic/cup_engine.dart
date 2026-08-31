@@ -7,6 +7,7 @@ import '../models/player.dart';
 import '../models/team.dart';
 import 'match_engine.dart';
 import 'weather_engine.dart';
+import '../l10n/tr.dart';
 
 class CupEngine {
   static final Random _rng = Random();
@@ -21,7 +22,11 @@ class CupEngine {
     required List<String> teamIds,
   }) {
     if (teamIds.length < 2) {
-      throw ArgumentError.value(teamIds, 'teamIds', 'ノックアウト方式のカップには最低2チーム必要です');
+      throw ArgumentError.value(
+          teamIds,
+          'teamIds',
+          Tr.pick('ノックアウト方式のカップには最低2チーム必要です',
+              'A knockout cup needs at least two teams'));
     }
     final shuffled = [...teamIds]..shuffle(_rng);
     int size = 1;
@@ -292,10 +297,10 @@ class CupEngine {
   static String roundLabel(int round, int totalRounds) {
     final fromFinal = totalRounds - round;
     return switch (fromFinal) {
-      0 => '決勝',
-      1 => '準決勝',
-      2 => '準々決勝',
-      _ => '第$round回戦',
+      0 => Tr.pick('決勝', 'Final'),
+      1 => Tr.pick('準決勝', 'Semi-final'),
+      2 => Tr.pick('準々決勝', 'Quarter-final'),
+      _ => Tr.pick('第$round回戦', 'Round $round'),
     };
   }
 }

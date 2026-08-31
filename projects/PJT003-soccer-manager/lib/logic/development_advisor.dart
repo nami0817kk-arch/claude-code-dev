@@ -1,15 +1,16 @@
 import '../models/team.dart';
 import 'training_engine.dart';
+import '../l10n/tr.dart';
 
 /// 育成アドバイスの種類。並び順がそのまま重要度(上ほど急ぎ)になる。
 enum AdviceKind { highFatigue, lowSharpness, unusedPotential, noMentor }
 
 extension AdviceKindInfo on AdviceKind {
   String get label => switch (this) {
-        AdviceKind.highFatigue => '疲労',
-        AdviceKind.lowSharpness => '実戦感覚',
-        AdviceKind.unusedPotential => '伸びしろ',
-        AdviceKind.noMentor => 'メンター',
+        AdviceKind.highFatigue => Tr.pick('疲労', 'Fatigue'),
+        AdviceKind.lowSharpness => Tr.pick('実戦感覚', 'Sharpness'),
+        AdviceKind.unusedPotential => Tr.pick('伸びしろ', 'Potential'),
+        AdviceKind.noMentor => Tr.pick('メンター', 'Mentor'),
       };
 }
 
@@ -61,7 +62,8 @@ class DevelopmentAdvisor {
             kind: AdviceKind.highFatigue,
             playerId: p.id,
             playerName: p.name,
-            message: '疲労${p.fatigue}。休養方針やローテーションで回復を',
+            message: Tr.pick('疲労${p.fatigue}。休養方針やローテーションで回復を',
+                'Fatigue ${p.fatigue}. Rest him or rotate him to bring it back'),
           ),
         );
       }
@@ -71,8 +73,8 @@ class DevelopmentAdvisor {
             kind: AdviceKind.lowSharpness,
             playerId: p.id,
             playerName: p.name,
-            message: '実戦感覚${p.matchSharpness}で成長が鈍っている。'
-                '出場機会かローン武者修行を',
+            message: Tr.pick('実戦感覚${p.matchSharpness}で成長が鈍っている。出場機会かローン武者修行を',
+                'Sharpness ${p.matchSharpness} is holding his growth back. He needs minutes, or a loan'),
           ),
         );
       }
@@ -85,8 +87,9 @@ class DevelopmentAdvisor {
             kind: AdviceKind.unusedPotential,
             playerId: p.id,
             playerName: p.name,
-            message: '伸びしろ${p.potential - p.overall}が手つかず。'
-                '特訓ドリルか育成プランで方向付けを',
+            message: Tr.pick(
+                '伸びしろ${p.potential - p.overall}が手つかず。特訓ドリルか育成プランで方向付けを',
+                '${p.potential - p.overall} of room to grow, untouched. Point him somewhere with a focus drill or a development plan'),
           ),
         );
       }
@@ -96,7 +99,8 @@ class DevelopmentAdvisor {
             kind: AdviceKind.noMentor,
             playerId: p.id,
             playerName: p.name,
-            message: 'メンター未設定。ベテランを付けると成長率が上がる',
+            message: Tr.pick('メンター未設定。ベテランを付けると成長率が上がる',
+                'No mentor. Pairing him with an older player would speed up his growth'),
           ),
         );
       }

@@ -1,5 +1,6 @@
 import '../models/player.dart';
 import '../models/team.dart';
+import '../l10n/tr.dart';
 
 /// 選手検索の1件(所属チームつき)。
 typedef PlayerSearchResult = ({Player player, Team team});
@@ -9,9 +10,9 @@ enum PlayerSearchSort { overall, age, marketValue }
 
 extension PlayerSearchSortInfo on PlayerSearchSort {
   String get label => switch (this) {
-        PlayerSearchSort.overall => '総合力順',
-        PlayerSearchSort.age => '年齢が若い順',
-        PlayerSearchSort.marketValue => '市場価値順',
+        PlayerSearchSort.overall => Tr.pick('総合力順', 'By overall'),
+        PlayerSearchSort.age => Tr.pick('年齢が若い順', 'By age (youngest)'),
+        PlayerSearchSort.marketValue => Tr.pick('市場価値順', 'By value'),
       };
 }
 

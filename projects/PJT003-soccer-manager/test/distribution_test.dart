@@ -102,8 +102,7 @@ void main() {
       // 利用者のIPアドレスが Google に渡る。ビルド時に
       // build/web/canvaskit/ へ出力されるローカルのコピーを使う。
       final bootstrap = File('web/flutter_bootstrap.js');
-      expect(bootstrap.existsSync(), isTrue,
-          reason: 'ブートストラップの上書きが消えている');
+      expect(bootstrap.existsSync(), isTrue, reason: 'ブートストラップの上書きが消えている');
       expect(bootstrap.readAsStringSync(), contains('canvasKitBaseUrl'));
     });
 
@@ -112,10 +111,8 @@ void main() {
       // 「広告なし」のままだと、虚偽の申告で提出することになる。
       // 実装と表記が食い違わないよう固定する。
       final privacy = File('legal/privacy.html').readAsStringSync();
-      expect(privacy, contains('AdMob'),
-          reason: 'プライバシーポリシーが広告配信に触れていない');
-      expect(privacy, contains('広告識別子'),
-          reason: '広告識別子の取得を開示していない');
+      expect(privacy, contains('AdMob'), reason: 'プライバシーポリシーが広告配信に触れていない');
+      expect(privacy, contains('広告識別子'), reason: '広告識別子の取得を開示していない');
 
       for (final path in const [
         'STORE_LISTING.md',

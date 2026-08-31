@@ -3,6 +3,7 @@ import '../models/team.dart';
 import 'match_engine.dart';
 import 'style_engine.dart';
 import 'tactics_ai.dart';
+import '../l10n/tr.dart';
 
 /// アシスタントコーチによる対戦相手のスカウティングレポート。
 class ScoutReport {
@@ -78,10 +79,10 @@ class ScoutReportEngine {
       }
     }
 
-    compare('攻撃力', oppAttack, userAttack);
-    compare('守備力', oppDefense, userDefense);
-    compare('技術', oppTechnique, userTechnique);
-    compare('スタミナ', oppStamina, userStamina);
+    compare(Tr.pick('攻撃力', 'Attack'), oppAttack, userAttack);
+    compare(Tr.pick('守備力', 'Defence'), oppDefense, userDefense);
+    compare(Tr.pick('技術', 'Technical'), oppTechnique, userTechnique);
+    compare(Tr.pick('スタミナ', 'Stamina'), oppStamina, userStamina);
 
     Player? keyPlayer;
     for (final p in oppLineup) {
@@ -90,13 +91,17 @@ class ScoutReportEngine {
 
     final String recommendation;
     if (oppAttack - userDefense > 8) {
-      recommendation = '相手の攻撃力が高いため、守備を固める戦術を推奨します。';
+      recommendation = Tr.pick('相手の攻撃力が高いため、守備を固める戦術を推奨します。',
+          'They carry a real attacking threat, so shoring up the defence is advised.');
     } else if (userAttack - oppDefense > 8) {
-      recommendation = '相手の守備は手薄です。積極的に攻め込みましょう。';
+      recommendation = Tr.pick(
+          '相手の守備は手薄です。積極的に攻め込みましょう。', 'Their defence is thin. Go at them.');
     } else if (oppStamina - userStamina > 8) {
-      recommendation = '相手はスタミナに優れています。終盤の運動量低下に注意してください。';
+      recommendation = Tr.pick('相手はスタミナに優れています。終盤の運動量低下に注意してください。',
+          'They are strong on stamina. Watch for your side dropping off late on.');
     } else {
-      recommendation = '拮抗した実力差です。試合の流れを重視した戦術が有効でしょう。';
+      recommendation = Tr.pick('拮抗した実力差です。試合の流れを重視した戦術が有効でしょう。',
+          'There is little between the sides. Tactics that play the momentum should serve you well.');
     }
 
     // CPUが試合前に選ぶロジックと同じ判定で相手のスタイルを予想する
@@ -125,7 +130,8 @@ class ScoutReportEngine {
       keyPlayerName: keyPlayer?.name,
       keyPlayerDetail: keyPlayer == null
           ? null
-          : '${keyPlayer.position.label} / 総合 ${keyPlayer.overall}',
+          : Tr.pick('${keyPlayer.position.label} / 総合 ${keyPlayer.overall}',
+              '${keyPlayer.position.label} / overall ${keyPlayer.overall}'),
       recommendation: recommendation,
       opponentStyle: oppStyle,
       counterStyle: counterStyle,

@@ -3,6 +3,7 @@ import '../models/cup.dart';
 import '../models/league.dart';
 import '../models/team.dart';
 import 'continental_cup_engine.dart';
+import '../l10n/tr.dart';
 
 /// カレンダー表示用の1日分の情報。
 class CalendarDayInfo {
@@ -58,7 +59,17 @@ class CalendarEngine {
 
   static DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
-  static const _weekdayLabels = ['月', '火', '水', '木', '金', '土', '日'];
+  // const にできないのは、曜日名が表示時の言語で決まるため。static final に
+  // すると最初のアクセスで言語が固定され、設定で切り替えても反映されない。
+  static List<String> get _weekdayLabels => [
+        Tr.pick('月', 'Mon'),
+        Tr.pick('火', 'Tue'),
+        Tr.pick('水', 'Wed'),
+        Tr.pick('木', 'Thu'),
+        Tr.pick('金', 'Fri'),
+        Tr.pick('土', 'Sat'),
+        Tr.pick('日', 'Sun')
+      ];
 
   /// DateTime.weekday(1=月〜7=日)に対応する日本語の曜日1文字。
   static String weekdayLabel(int weekday) => _weekdayLabels[weekday - 1];
@@ -94,10 +105,13 @@ class CalendarEngine {
     final date = dateOnly(dateForMatchday(league.season, eligibleMatchday));
     final involvesUser =
         match.homeTeamId == userTeamId || match.awayTeamId == userTeamId;
-    if (!involvesUser) return (date, '${cup.name}: 消化可能');
+    if (!involvesUser) {
+      return (date, Tr.pick('${cup.name}: 消化可能', '${cup.name}: tie available'));
+    }
     final isHome = match.homeTeamId == userTeamId;
     final opponentId = isHome ? match.awayTeamId : match.homeTeamId;
-    final opponentName = _teamNameFor(opponentId, league, extraTeams) ?? '未定';
+    final opponentName =
+        _teamNameFor(opponentId, league, extraTeams) ?? Tr.pick('未定', 'TBC');
     return (date, '${cup.name}: ${isHome ? '(H)' : '(A)'} vs $opponentName');
   }
 
@@ -136,9 +150,12 @@ class CalendarEngine {
     final eligibleMatchday = (cup.lastPlayedAtMatchday ?? 0) + 1;
     final date = dateOnly(dateForMatchday(league.season, eligibleMatchday));
     final involvesUser = homeId == userTeamId || awayId == userTeamId;
-    if (!involvesUser) return (date, '${cup.name}: 消化可能');
+    if (!involvesUser) {
+      return (date, Tr.pick('${cup.name}: 消化可能', '${cup.name}: tie available'));
+    }
     final opponentId = homeId == userTeamId ? awayId : homeId;
-    final opponentName = _teamNameFor(opponentId, league, extraTeams) ?? '未定';
+    final opponentName =
+        _teamNameFor(opponentId, league, extraTeams) ?? Tr.pick('未定', 'TBC');
     final sideLabel = isHome == null ? '' : (isHome ? '(H)' : '(A)');
     return (date, '${cup.name}: $sideLabel vs $opponentName');
   }

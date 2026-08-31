@@ -67,6 +67,7 @@ import '../logic/youth_match_engine.dart';
 import '../data/name_pool.dart';
 import '../models/first_run_step.dart';
 import '../monetization/reward_offer.dart';
+import '../l10n/tr.dart';
 
 const int maxSquadSize = 26;
 
@@ -241,15 +242,21 @@ class GameState extends ChangeNotifier {
 
   /// UI表示用の移籍ウィンドウ状態文言。
   String get transferWindowStatusLabel {
-    if (isTransferWindowOpen) return '移籍ウィンドウ: オープン中';
+    if (isTransferWindowOpen) {
+      return Tr.pick('移籍ウィンドウ: オープン中', 'Transfer window: open');
+    }
     final nextMd = _save?.league.nextUnplayedFixture?.matchday;
     final total = _totalMatchdaysThisSeason;
-    if (nextMd == null || total == 0) return '移籍ウィンドウ: クローズ中';
+    if (nextMd == null || total == 0) {
+      return Tr.pick('移籍ウィンドウ: クローズ中', 'Transfer window: closed');
+    }
     final midStart = total ~/ 2;
     if (nextMd < midStart) {
-      return '移籍ウィンドウ: クローズ中(第$midStart節に再開)';
+      return Tr.pick('移籍ウィンドウ: クローズ中(第$midStart節に再開)',
+          'Transfer window: closed (reopens on matchday $midStart)');
     }
-    return '移籍ウィンドウ: クローズ中(来シーズン開幕前に再開)';
+    return Tr.pick('移籍ウィンドウ: クローズ中(来シーズン開幕前に再開)',
+        'Transfer window: closed (reopens before next season)');
   }
 
   Future<void> init() async {
@@ -384,7 +391,8 @@ class GameState extends ChangeNotifier {
       }
       lastSaveError = null;
     } catch (e) {
-      lastSaveError = 'セーブデータの保存に失敗しました。端末の空き容量を確認してください。';
+      lastSaveError = Tr.pick('セーブデータの保存に失敗しました。端末の空き容量を確認してください。',
+          'The game could not be saved. Check the free space on your device.');
       notifyListeners();
     }
   }
@@ -697,7 +705,8 @@ class GameState extends ChangeNotifier {
     if (_save == null) return 0;
     final amount = rewardFundsAmount;
     _save!.budget += amount;
-    _logNews('スポンサーの特別協賛金として$amount万円を受け取った。');
+    _logNews(Tr.pick('スポンサーの特別協賛金として$amount万円を受け取った。',
+        'You received $amount in special sponsorship.'));
     notifyListeners();
     _persist();
     return amount;
@@ -1420,7 +1429,9 @@ class GameState extends ChangeNotifier {
       0,
       NewsItem(
         season: _save!.league.season,
-        context: context ?? '第$_currentLeagueMatchdayMarker節',
+        context: context ??
+            Tr.pick('第$_currentLeagueMatchdayMarker節',
+                'Matchday $_currentLeagueMatchdayMarker'),
         text: text,
       ),
     );
@@ -1453,7 +1464,10 @@ class GameState extends ChangeNotifier {
         p.happiness =
             (p.happiness - DynamicsEngine.leaderSalePenalty).clamp(0, 100);
       }
-      _logNews('チームリーダーの${player.name}を放出。ロッカールームに動揺が走っている', context: '移籍');
+      _logNews(
+          Tr.pick('チームリーダーの${player.name}を放出。ロッカールームに動揺が走っている',
+              "You sold ${player.name}, one of the dressing room's leaders, and it has unsettled the squad"),
+          context: Tr.pick('移籍', 'Transfer'));
     }
     notifyListeners();
     await _persist();
@@ -1478,8 +1492,9 @@ class GameState extends ChangeNotifier {
     player.contractYearsRemaining = 2 + _transferOfferRng.nextInt(3);
     player.happiness = (player.happiness + 5).clamp(40, 90);
     dest.players.add(player);
-    lastSaleNews = '${player.name}は${dest.name}へ移籍した。';
-    _logNews(lastSaleNews!, context: '移籍');
+    lastSaleNews = Tr.pick('${player.name}は${dest.name}へ移籍した。',
+        '${player.name} has joined ${dest.name}.');
+    _logNews(lastSaleNews!, context: Tr.pick('移籍', 'Transfer'));
   }
 
   int renewalCostFor(String playerId) {
@@ -1699,7 +1714,8 @@ class GameState extends ChangeNotifier {
     final remaining = total - downPayment;
     _save!.pendingInstallments.add(
       Installment(
-        description: '${player.name} 分割払い残金',
+        description: Tr.pick(
+            '${player.name} 分割払い残金', '${player.name} instalments outstanding'),
         weeklyAmount: (remaining / weeks).ceil(),
         weeksRemaining: weeks,
         playerId: player.id,
@@ -2313,8 +2329,9 @@ class GameState extends ChangeNotifier {
 
   /// 画面表示用のリーグ名(2部以下所属時は「〇〇リーグ2部」のように部を付記する)。
   String get leagueDisplayName => currentDivisionTier == 1
-      ? _save?.leagueName ?? 'リーグ'
-      : '${_save!.leagueName}$currentDivisionTier部';
+      ? _save?.leagueName ?? Tr.pick('リーグ', 'League')
+      : Tr.pick('${_save!.leagueName}$currentDivisionTier部',
+          '${_save!.leagueName} tier $currentDivisionTier');
 
   /// 保存されているリーグ名から国風テーマを逆引きする(テーマ自体は
   /// SaveGameに保持していないため、開幕時に確定した表示名から復元する)。
@@ -2514,9 +2531,9 @@ class GameState extends ChangeNotifier {
   bool _wageBudgetAllowsSigning(int addedWeeklyWage) {
     final cap = wageBudgetCap;
     if (weeklyWageBill + addedWeeklyWage <= cap) return true;
-    lastSigningBlockReason = '週給予算オーバー: 現在の週給総額$weeklyWageBill万円に'
-        '新加入の$addedWeeklyWage万円を加えると、理事会の上限$cap万円を超えます。'
-        '放出や施設スタッフの見直しで枠を空けてください。';
+    lastSigningBlockReason = Tr.pick(
+        '週給予算オーバー: 現在の週給総額$weeklyWageBill万円に新加入の$addedWeeklyWage万円を加えると、理事会の上限$cap万円を超えます。放出や施設スタッフの見直しで枠を空けてください。',
+        "Over the wage budget: your current bill of $weeklyWageBill plus $addedWeeklyWage for the new signing would pass the board's cap of $cap. Sell someone or review your staff to make room.");
     return false;
   }
 
@@ -2661,11 +2678,12 @@ class GameState extends ChangeNotifier {
       awayTeamId: _liveCupAway!.id,
       weather: _liveCupWeather ?? Weather.clear,
       competitionLabel: switch (kind) {
-        LiveCupKind.domestic => domesticCup?.name ?? '国内カップ',
+        LiveCupKind.domestic =>
+          domesticCup?.name ?? Tr.pick('国内カップ', 'Domestic Cup'),
         LiveCupKind.continentalGroup ||
         LiveCupKind.continentalKnockout =>
-          _save?.continentalCup?.name ?? '大陸カップ',
-        LiveCupKind.superCup => 'スーパーカップ',
+          _save?.continentalCup?.name ?? Tr.pick('大陸カップ', 'Continental Cup'),
+        LiveCupKind.superCup => Tr.pick('スーパーカップ', 'Super Cup'),
       },
     );
   }
@@ -2984,15 +3002,17 @@ class GameState extends ChangeNotifier {
       for (final perf in youthReport.performances) {
         if (perf.goals >= 2) {
           _logNews(
-            'ユースの${perf.player.name}が練習試合で${perf.goals}得点の大活躍'
-            '(評点${perf.rating.toStringAsFixed(1)})',
-            context: 'ユース',
+            Tr.pick(
+                'ユースの${perf.player.name}が練習試合で${perf.goals}得点の大活躍(評点${perf.rating.toStringAsFixed(1)})',
+                'Academy player ${perf.player.name} scored ${perf.goals} in the youth match (rated ${perf.rating.toStringAsFixed(1)})'),
+            context: Tr.pick('ユース', 'Youth'),
           );
         } else if (perf.rating >= 8.5) {
           _logNews(
-            'ユースの${perf.player.name}が練習試合で圧巻のプレー'
-            '(評点${perf.rating.toStringAsFixed(1)})',
-            context: 'ユース',
+            Tr.pick(
+                'ユースの${perf.player.name}が練習試合で圧巻のプレー(評点${perf.rating.toStringAsFixed(1)})',
+                'Academy player ${perf.player.name} was outstanding in the youth match (rated ${perf.rating.toStringAsFixed(1)})'),
+            context: Tr.pick('ユース', 'Youth'),
           );
         }
       }
@@ -3011,10 +3031,10 @@ class GameState extends ChangeNotifier {
         if (p.loanStartOverall > 0) {
           final delta = p.overall - p.loanStartOverall;
           _logNews(
-            '${p.name}が武者修行(${loanClub ?? 'ローン先'})から復帰。'
-            '総合 ${p.loanStartOverall}→${p.overall}'
-            '${delta > 0 ? '(+$delta成長)' : ''}',
-            context: 'ローン復帰',
+            Tr.pick(
+                '${p.name}が武者修行(${loanClub ?? 'ローン先'})から復帰。総合 ${p.loanStartOverall}→${p.overall}${delta > 0 ? '(+$delta成長)' : ''}',
+                "${p.name} is back from his loan at ${loanClub ?? 'his loan club'}. Overall ${p.loanStartOverall}→${p.overall}${delta > 0 ? ' (+$delta)' : ''}"),
+            context: Tr.pick('ローン復帰', 'Loan return'),
           );
           p.loanStartOverall = 0;
         }
@@ -3149,8 +3169,9 @@ class GameState extends ChangeNotifier {
         0,
         100,
       );
-      lastBudgetCrisisWarning =
-          '資金マイナスが${_save!.consecutiveNegativeBudgetWeeks}週続いています。理事会の信頼度が低下しました。';
+      lastBudgetCrisisWarning = Tr.pick(
+          '資金マイナスが${_save!.consecutiveNegativeBudgetWeeks}週続いています。理事会の信頼度が低下しました。',
+          "You have been in the red for ${_save!.consecutiveNegativeBudgetWeeks} weeks. The board's confidence has slipped.");
     }
 
     // 移籍市場は全員を作り直さず、数人だけ入れ替える(持続的な市場)。
@@ -3160,25 +3181,38 @@ class GameState extends ChangeNotifier {
 
     // 今節発生した一過性の通知をクラブニュース履歴にも記録する
     // (表示側のSnackBar/ダイアログは従来どおり別途フィールドをクリアする)。
-    final newsWeek = '第$md節';
+    final newsWeek = Tr.pick('第$md節', 'Matchday $md');
     if (lastReleaseClauseSales.isNotEmpty) {
-      _logNews('リリース条項が発動し移籍が成立: ${lastReleaseClauseSales.join('、')}',
+      _logNews(
+          Tr.pick('リリース条項が発動し移籍が成立: ${lastReleaseClauseSales.join('、')}',
+              "Release clauses triggered, transfers completed: ${lastReleaseClauseSales.join(', ')}"),
           context: newsWeek);
     }
     if (lastInternationalCallUps.isNotEmpty) {
-      _logNews('代表召集: ${lastInternationalCallUps.join('、')}',
+      _logNews(
+          Tr.pick('代表召集: ${lastInternationalCallUps.join('、')}',
+              "Called up for international duty: ${lastInternationalCallUps.join(', ')}"),
           context: newsWeek);
     }
     if (lastLoanReturns.isNotEmpty) {
-      _logNews('ローン放出から復帰: ${lastLoanReturns.join('、')}', context: newsWeek);
+      _logNews(
+          Tr.pick('ローン放出から復帰: ${lastLoanReturns.join('、')}',
+              "Back from loan: ${lastLoanReturns.join(', ')}"),
+          context: newsWeek);
     }
     if (lastMaturedDeposits.isNotEmpty) {
       final maturedTotal =
           lastMaturedDeposits.fold<int>(0, (s, d) => s + d.maturityValue);
-      _logNews('定期預金が満期を迎え、$maturedTotal万円が払い戻されました', context: newsWeek);
+      _logNews(
+          Tr.pick('定期預金が満期を迎え、$maturedTotal万円が払い戻されました',
+              'Your deposit matured and $maturedTotal was paid back'),
+          context: newsWeek);
     }
     if (lastAiTransferNews != null) {
-      _logNews('移籍市場: $lastAiTransferNews', context: newsWeek);
+      _logNews(
+          Tr.pick('移籍市場: $lastAiTransferNews',
+              'Transfer market: $lastAiTransferNews'),
+          context: newsWeek);
     }
     if (lastBudgetCrisisWarning != null) {
       _logNews(lastBudgetCrisisWarning!, context: newsWeek);
@@ -3195,7 +3229,10 @@ class GameState extends ChangeNotifier {
               e.scorerId != null &&
               e.scorerName != null &&
               watched.contains(e.scorerId)) {
-            _logNews('ウォッチ中の${e.scorerName}が今節ゴールを決めた', context: newsWeek);
+            _logNews(
+                Tr.pick('ウォッチ中の${e.scorerName}が今節ゴールを決めた',
+                    '${e.scorerName}, on your watchlist, scored this matchday'),
+                context: newsWeek);
           }
         }
       }
@@ -3348,7 +3385,8 @@ class GameState extends ChangeNotifier {
     );
     lastMilestones = _detectMilestones(userTeam, allEvents, statsBefore);
     for (final m in lastMilestones) {
-      _save!.trophyHistory.add('シーズン${league.season}: $m');
+      _save!.trophyHistory.add(
+          Tr.pick('シーズン${league.season}: $m', 'Season ${league.season}: $m'));
     }
     // 決定機の判断ありのライブ観戦で勝った場合のみ、実績用の勝利数を刻む
     // (クイック消化と区別する)。
@@ -3388,10 +3426,16 @@ class GameState extends ChangeNotifier {
           toMatchday: f.matchday,
         );
         if (winnerName == userTeam.name) {
-          final label = '第$fromMatchday-${f.matchday}節';
-          _save!.trophyHistory.add('シーズン${league.season} 月間最優秀監督賞($label)');
+          final label = Tr.pick('第$fromMatchday-${f.matchday}節',
+              'Matchdays $fromMatchday-${f.matchday}');
+          _save!.trophyHistory.add(Tr.pick(
+              'シーズン${league.season} 月間最優秀監督賞($label)',
+              'Season ${league.season} Manager of the Month ($label)'));
           lastMonthlyManagerAward = label;
-          _logNews('月間最優秀監督賞を受賞($label)!', context: '表彰');
+          _logNews(
+              Tr.pick('月間最優秀監督賞を受賞($label)!',
+                  'You won Manager of the Month ($label)!'),
+              context: Tr.pick('表彰', 'Award'));
         }
         _save!.lastManagerOfMonthCheckpoint = f.matchday;
       }
@@ -3449,18 +3493,21 @@ class GameState extends ChangeNotifier {
     for (final p in team.players) {
       final scored = goalsThisMatch[p.id] ?? 0;
       if (scored >= 3) {
-        milestones.add('${p.name}がハットトリック達成($scored得点)');
+        milestones.add(Tr.pick('${p.name}がハットトリック達成($scored得点)',
+            '${p.name} scored a hat-trick ($scored goals)'));
       }
       final prev = before[p.id];
       if (prev == null) continue;
       for (final m in _goalMilestones) {
         if (prev.goals < m && p.careerGoals >= m) {
-          milestones.add('${p.name}が通算$m得点を達成');
+          milestones.add(Tr.pick(
+              '${p.name}が通算$m得点を達成', '${p.name} reached $m career goals'));
         }
       }
       for (final m in _appearanceMilestones) {
         if (prev.apps < m && p.careerAppearances >= m) {
-          milestones.add('${p.name}が通算$m試合出場を達成');
+          milestones.add(Tr.pick('${p.name}が通算$m試合出場を達成',
+              '${p.name} reached $m career appearances'));
         }
       }
     }
@@ -3477,7 +3524,8 @@ class GameState extends ChangeNotifier {
     final recordedSeason = season ?? _save!.league.season;
     for (final a in newly) {
       _save!.unlockedAchievements[a.id] = recordedSeason;
-      _logNews('実績「${a.name}」を達成!', context: '実績');
+      _logNews(Tr.pick('実績「${a.name}」を達成!', 'Achievement unlocked: ${a.name}'),
+          context: Tr.pick('実績', 'Achievement'));
     }
     lastUnlockedAchievements = [...lastUnlockedAchievements, ...newly];
   }
@@ -3929,8 +3977,11 @@ class GameState extends ChangeNotifier {
         (penaltyWinnerId == _liveCupHome?.id ? _liveCupHome : _liveCupAway);
     if (winner == null) return;
     lastLiveCupNote = shootout != null
-        ? 'PK戦 ${shootout.homeScore}-${shootout.awayScore} の末、${winner.name}が勝ち上がり!'
-        : 'PK戦の末、${winner.name}が勝ち上がり!';
+        ? Tr.pick(
+            'PK戦 ${shootout.homeScore}-${shootout.awayScore} の末、${winner.name}が勝ち上がり!',
+            '${winner.name} go through ${shootout.homeScore}-${shootout.awayScore} on penalties!')
+        : Tr.pick('PK戦の末、${winner.name}が勝ち上がり!',
+            '${winner.name} go through on penalties!');
   }
 
   /// 自クラブが関わるカップ試合に、リーグ戦と同じ試合後効果(疲労・負傷・
@@ -4011,8 +4062,9 @@ class GameState extends ChangeNotifier {
         final prize = domesticCupWinPrizeFor(match.round);
         _save!.budget += prize;
         _save!.careerCupPrize += prize;
-        lastCupPrizeNote = '勝利賞金として$prize万円を獲得!';
-        _logNews(lastCupPrizeNote!, context: 'カップ戦');
+        lastCupPrizeNote = Tr.pick(
+            '勝利賞金として$prize万円を獲得!', 'You collected $prize in prize money!');
+        _logNews(lastCupPrizeNote!, context: Tr.pick('カップ戦', 'Cup'));
       } else if (cup.isEliminated(userId)) {
         // 理事会のカップ目標(到達ラウンド)と実際の成績を突き合わせる。
         final reached = match.round;
@@ -4020,10 +4072,16 @@ class GameState extends ChangeNotifier {
         final label = boardCupTargetLabel;
         if (target > 0 && reached >= target) {
           _save!.confidence = (_save!.confidence + 2).clamp(0, 100);
-          _logNews('国内カップは理事会の期待($label進出)に応えた。敗退したが評価は上々だ', context: 'カップ戦');
+          _logNews(
+              Tr.pick('国内カップは理事会の期待($label進出)に応えた。敗退したが評価は上々だ',
+                  "You met the board's expectation in the domestic cup (reaching the $label). You are out, but they are pleased"),
+              context: Tr.pick('カップ戦', 'Cup'));
         } else if (target > 0 && target - reached >= 2) {
           _save!.confidence = (_save!.confidence - 3).clamp(0, 100);
-          _logNews('国内カップで早期敗退。理事会の期待($label進出)を大きく裏切った', context: 'カップ戦');
+          _logNews(
+              Tr.pick('国内カップで早期敗退。理事会の期待($label進出)を大きく裏切った',
+                  "An early exit from the domestic cup, well short of the board's expectation of the $label"),
+              context: Tr.pick('カップ戦', 'Cup'));
         } else {
           _save!.confidence = (_save!.confidence - 1).clamp(0, 100);
         }
@@ -4034,7 +4092,9 @@ class GameState extends ChangeNotifier {
       _save!.budget += 700;
       _save!.careerCupPrize += 700;
       _save!.confidence = (_save!.confidence + 10).clamp(0, 100);
-      _save!.trophyHistory.add('シーズン${_save!.league.season}: ${cup.name} 優勝');
+      _save!.trophyHistory.add(Tr.pick(
+          'シーズン${_save!.league.season}: ${cup.name} 優勝',
+          'Season ${_save!.league.season}: ${cup.name} winners'));
     }
   }
 
@@ -4053,8 +4113,9 @@ class GameState extends ChangeNotifier {
     if (userWon) {
       _save!.budget += continentalGroupWinPrize;
       _save!.careerCupPrize += continentalGroupWinPrize;
-      lastCupPrizeNote = '勝利賞金として$continentalGroupWinPrize万円を獲得!';
-      _logNews(lastCupPrizeNote!, context: 'カップ戦');
+      lastCupPrizeNote = Tr.pick('勝利賞金として$continentalGroupWinPrize万円を獲得!',
+          'You collected $continentalGroupWinPrize in prize money!');
+      _logNews(lastCupPrizeNote!, context: Tr.pick('カップ戦', 'Cup'));
     }
     if (cup.isEliminated(userId)) {
       _save!.confidence = (_save!.confidence - 3).clamp(0, 100);
@@ -4071,8 +4132,9 @@ class GameState extends ChangeNotifier {
       if (tie.isComplete && tie.winnerId == userId) {
         _save!.budget += continentalTieWinPrize;
         _save!.careerCupPrize += continentalTieWinPrize;
-        lastCupPrizeNote = '勝ち上がり賞金として$continentalTieWinPrize万円を獲得!';
-        _logNews(lastCupPrizeNote!, context: 'カップ戦');
+        lastCupPrizeNote = Tr.pick('勝ち上がり賞金として$continentalTieWinPrize万円を獲得!',
+            'You collected $continentalTieWinPrize for going through!');
+        _logNews(lastCupPrizeNote!, context: Tr.pick('カップ戦', 'Cup'));
       }
       if (cup.isEliminated(userId)) {
         _save!.confidence = (_save!.confidence - 3).clamp(0, 100);
@@ -4083,7 +4145,9 @@ class GameState extends ChangeNotifier {
       _save!.budget += 1500;
       _save!.careerCupPrize += 1500;
       _save!.confidence = (_save!.confidence + 20).clamp(0, 100);
-      _save!.trophyHistory.add('シーズン${_save!.league.season}: ${cup.name} 優勝');
+      _save!.trophyHistory.add(Tr.pick(
+          'シーズン${_save!.league.season}: ${cup.name} 優勝',
+          'Season ${_save!.league.season}: ${cup.name} winners'));
     }
   }
 
@@ -4091,7 +4155,8 @@ class GameState extends ChangeNotifier {
   void _afterSuperCupApplied(CupMatch match) {
     if (_save == null) return;
     if (match.winnerId == _save!.userTeamId) {
-      _save!.trophyHistory.add('シーズン${_save!.league.season} スーパーカップ優勝');
+      _save!.trophyHistory.add(Tr.pick('シーズン${_save!.league.season} スーパーカップ優勝',
+          'Season ${_save!.league.season} Super Cup winners'));
     }
     _save!.pendingSuperCup = null;
   }
@@ -4182,14 +4247,18 @@ class GameState extends ChangeNotifier {
     if (finalRank == 1) {
       final divisionLabel = playedTier == 1
           ? _save!.leagueName
-          : '${_save!.leagueName}($playedTier部)';
-      _save!.trophyHistory.add('シーズン${league.season}: $divisionLabel 優勝');
+          : Tr.pick('${_save!.leagueName}($playedTier部)',
+              '${_save!.leagueName} (tier $playedTier)');
+      _save!.trophyHistory.add(Tr.pick(
+          'シーズン${league.season}: $divisionLabel 優勝',
+          'Season ${league.season}: $divisionLabel champions'));
     }
 
     // 年間最優秀監督賞: 総合力から見た期待順位を最も上回ったクラブに贈られる。
     lastSeasonManagerAwardWon = false;
     if (AwardsEngine.computeManagerOfSeason(league) == userTeam.name) {
-      _save!.trophyHistory.add('シーズン${league.season} 年間最優秀監督賞');
+      _save!.trophyHistory.add(Tr.pick('シーズン${league.season} 年間最優秀監督賞',
+          'Season ${league.season} Manager of the Year'));
       lastSeasonManagerAwardWon = true;
     }
 
@@ -4216,15 +4285,18 @@ class GameState extends ChangeNotifier {
       if (exceeded) bonus = (bonus * 1.5).round();
       _save!.budget += bonus;
       lastBoardBonusNote = exceeded
-          ? '理事会目標を大きく上回り、報奨金$bonus万円が支給されました!'
-          : '理事会目標を達成し、報奨金$bonus万円が支給されました!';
+          ? Tr.pick('理事会目標を大きく上回り、報奨金$bonus万円が支給されました!',
+              "You beat the board's target comfortably, and they have paid you a $bonus bonus!")
+          : Tr.pick('理事会目標を達成し、報奨金$bonus万円が支給されました!',
+              "You met the board's target, and they have paid you a $bonus bonus!");
     }
 
     // 監督契約(任期)の更新。旧セーブ(0=未導入)はまず2年契約を結ぶ。
     lastManagerContractNote = null;
     if (_save!.managerContractYears <= 0) {
       _save!.managerContractYears = 2;
-      lastManagerContractNote = '理事会と2年の監督契約を結んだ';
+      lastManagerContractNote = Tr.pick(
+          '理事会と2年の監督契約を結んだ', 'You signed a two-year contract with the board');
     } else {
       final outcome = BoardEngine.managerContractAfterSeason(
         yearsRemaining: _save!.managerContractYears,
@@ -4234,15 +4306,19 @@ class GameState extends ChangeNotifier {
       _save!.managerContractYears = outcome.years;
       switch (outcome.event) {
         case ManagerContractEvent.extended:
-          lastManagerContractNote = '目標達成が評価され、監督契約が3年に延長された!';
+          lastManagerContractNote = Tr.pick('目標達成が評価され、監督契約が3年に延長された!',
+              'They liked what they saw, and your contract has been extended to three years!');
         case ManagerContractEvent.renewedOneYear:
-          lastManagerContractNote = '契約満了。理事会は単年契約での続投を提示し、受け入れた';
+          lastManagerContractNote = Tr.pick('契約満了。理事会は単年契約での続投を提示し、受け入れた',
+              'Your contract expired. The board offered a one-year extension, and you took it');
         case ManagerContractEvent.finalYearWarning:
-          lastManagerContractNote = '監督契約は残り1年。今シーズンの成績が去就を左右する';
+          lastManagerContractNote = Tr.pick('監督契約は残り1年。今シーズンの成績が去就を左右する',
+              'One year left on your contract. This season decides your future');
         case ManagerContractEvent.dismissed:
           // 契約非更新=解任。既存の解任フロー(信頼度0)に合流させる。
           _save!.confidence = 0;
-          lastManagerContractNote = '成績不振により契約は更新されなかった(解任)';
+          lastManagerContractNote = Tr.pick('成績不振により契約は更新されなかった(解任)',
+              'Results were not good enough, and your contract was not renewed (sacked)');
         case ManagerContractEvent.none:
           break;
       }
@@ -4370,15 +4446,17 @@ class GameState extends ChangeNotifier {
     );
     lastPromotionPlayoffResults = relevantPlayoffMatches
         .map(
-          (m) => '${m.roundLabel}: ${m.homeName} ${m.homeGoals}-'
-              '${m.awayGoals} ${m.awayName}'
-              '${m.decidedByPenalties ? '(PK: ${m.winnerName}が勝利)' : ''}',
+          (m) => Tr.pick(
+              '${m.roundLabel}: ${m.homeName} ${m.homeGoals}-${m.awayGoals} ${m.awayName}${m.decidedByPenalties ? '(PK: ${m.winnerName}が勝利)' : ''}',
+              "${m.roundLabel}: ${m.homeName} ${m.homeGoals}-${m.awayGoals} ${m.awayName}${m.decidedByPenalties ? ' (pens: ${m.winnerName})' : ''}"),
         )
         .toList();
     userInvolvedInLastPromotionPlayoff = userInPromotionPlayoff;
     lastPromotionBonus = 0;
     if (newTier > playedTier) {
-      lastDivisionChangeMessage = '降格が決まりました。来シーズンは$newTier部リーグでの再出発です。';
+      lastDivisionChangeMessage = Tr.pick(
+          '降格が決まりました。来シーズンは$newTier部リーグでの再出発です。',
+          'You are relegated. Next season starts again in tier $newTier.');
     } else if (newTier < playedTier) {
       // 昇格ボーナス: 上のディビジョンで戦うための補強予算が理事会から
       // 支給される(放映権料・スポンサー収入の増加分)。これがないと
@@ -4387,12 +4465,16 @@ class GameState extends ChangeNotifier {
       _save!.budget += promotionBonus;
       lastPromotionBonus = promotionBonus;
       lastDivisionChangeMessage = userInPromotionPlayoff
-          ? '昇格プレーオフを勝ち抜き、来シーズンは$newTier部リーグに昇格します！'
-              '理事会から補強予算$promotionBonus万円が支給されました。'
-          : '昇格達成！来シーズンは$newTier部リーグに昇格します。'
-              '理事会から補強予算$promotionBonus万円が支給されました。';
+          ? Tr.pick(
+              '昇格プレーオフを勝ち抜き、来シーズンは$newTier部リーグに昇格します！理事会から補強予算$promotionBonus万円が支給されました。',
+              'You came through the play-offs and go up to tier $newTier next season. The board has given you $promotionBonus to strengthen.')
+          : Tr.pick(
+              '昇格達成！来シーズンは$newTier部リーグに昇格します。理事会から補強予算$promotionBonus万円が支給されました。',
+              'Promoted. You go up to tier $newTier next season, and the board has given you $promotionBonus to strengthen.');
     } else if (userInPromotionPlayoff) {
-      lastDivisionChangeMessage = '昇格プレーオフで敗れ、来シーズンも$playedTier部リーグで戦います。';
+      lastDivisionChangeMessage = Tr.pick(
+          '昇格プレーオフで敗れ、来シーズンも$playedTier部リーグで戦います。',
+          'You lost in the play-offs, and stay in tier $playedTier next season.');
     } else {
       lastDivisionChangeMessage = null;
     }
@@ -4562,7 +4644,8 @@ class GameState extends ChangeNotifier {
           }
           final winnerName =
               superCup.winnerId == champion.id ? champion.name : opponent.name;
-          lastSuperCupNews = '$winnerNameがスーパーカップを制した。';
+          lastSuperCupNews = Tr.pick(
+              '$winnerNameがスーパーカップを制した。', '$winnerName won the Super Cup.');
         }
       }
     }
@@ -4579,7 +4662,7 @@ class GameState extends ChangeNotifier {
       final continentalTeams = _generateContinentalTeams();
       _save!.continentalTeams = continentalTeams;
       _save!.continentalCup = ContinentalCupEngine.create(
-        name: '大陸チャンピオンズカップ',
+        name: Tr.pick('大陸チャンピオンズカップ', 'Continental Champions Cup'),
         teamIds: [_save!.userTeamId, ...continentalTeams.map((t) => t.id)],
       );
     } else {
@@ -4601,7 +4684,7 @@ class GameState extends ChangeNotifier {
     };
 
     // シーズン開始レポートに載る通知をクラブニュース履歴にも記録する。
-    const newsCtx = 'シーズン開始';
+    final newsCtx = Tr.pick('シーズン開始', 'Season start');
     if (lastDivisionChangeMessage != null) {
       _logNews(lastDivisionChangeMessage!, context: newsCtx);
     }
@@ -4612,23 +4695,35 @@ class GameState extends ChangeNotifier {
       _logNews(lastManagerContractNote!, context: newsCtx);
     }
     if (lastSeasonManagerAwardWon) {
-      _logNews('年間最優秀監督賞を受賞しました！', context: newsCtx);
+      _logNews(Tr.pick('年間最優秀監督賞を受賞しました！', 'You won Manager of the Year!'),
+          context: newsCtx);
     }
     if (lastSuperCupNews != null) {
       _logNews(lastSuperCupNews!, context: newsCtx);
     }
     if (lastRetirements.isNotEmpty) {
-      _logNews('引退: ${lastRetirements.join('、')}', context: newsCtx);
+      _logNews(
+          Tr.pick('引退: ${lastRetirements.join('、')}',
+              "Retired: ${lastRetirements.join(', ')}"),
+          context: newsCtx);
     }
     if (lastContractExpirations.isNotEmpty) {
-      _logNews('契約満了で退団: ${lastContractExpirations.join('、')}',
+      _logNews(
+          Tr.pick('契約満了で退団: ${lastContractExpirations.join('、')}',
+              "Left on a free: ${lastContractExpirations.join(', ')}"),
           context: newsCtx);
     }
     if (lastContractWarnings.isNotEmpty) {
-      _logNews('契約最終年に突入: ${lastContractWarnings.join('、')}', context: newsCtx);
+      _logNews(
+          Tr.pick('契約最終年に突入: ${lastContractWarnings.join('、')}',
+              "Into the final year of their contract: ${lastContractWarnings.join(', ')}"),
+          context: newsCtx);
     }
     if (lastEmergencySignings.isNotEmpty) {
-      _logNews('緊急補強: ${lastEmergencySignings.join('、')}', context: newsCtx);
+      _logNews(
+          Tr.pick('緊急補強: ${lastEmergencySignings.join('、')}',
+              "Emergency signings: ${lastEmergencySignings.join(', ')}"),
+          context: newsCtx);
     }
 
     isBusy = false;

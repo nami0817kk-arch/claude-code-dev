@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:soccer_manager/l10n/tr.dart';
 import 'package:soccer_manager/monetization/ad_service.dart';
 import 'package:soccer_manager/monetization/monetization_controller.dart';
 import 'package:soccer_manager/monetization/purchase_service.dart';
@@ -67,6 +68,11 @@ Future<MonetizationController> _build({
 }
 
 void main() {
+  // ニュース文を日本語で突き合わせているため、表示言語を固定する。
+  // (テスト環境の端末ロケールは en で、既定のままだと英語が返る)
+  setUp(() => Tr.language = AppLanguage.japanese);
+  tearDown(() => Tr.language = AppLanguage.system);
+
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('収益化', () {
@@ -145,8 +151,7 @@ void main() {
 
     test('特典額はディビジョンに比例し、下部ほど少ない', () async {
       // 1部の額を5部で配ると序盤の経営判断が消し飛ぶ。
-      expect(RewardOffer.fundsFor(1),
-          greaterThan(RewardOffer.fundsFor(5)));
+      expect(RewardOffer.fundsFor(1), greaterThan(RewardOffer.fundsFor(5)));
       for (var tier = 1; tier < 5; tier++) {
         expect(RewardOffer.fundsFor(tier),
             greaterThan(RewardOffer.fundsFor(tier + 1)));

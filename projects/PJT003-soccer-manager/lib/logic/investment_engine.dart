@@ -1,3 +1,5 @@
+import '../l10n/tr.dart';
+
 /// 定期預金の預入プラン。期間が長いほど利回り(満期時に得られる利息の割合)は
 /// 高くなるが、その間は資金を引き出せず身動きが取れなくなるリスクを伴う。
 class DepositTerm {
@@ -6,7 +8,8 @@ class DepositTerm {
 
   const DepositTerm({required this.weeks, required this.interestRatePercent});
 
-  String get label => weeks <= 12 ? '短期' : '長期';
+  String get label =>
+      weeks <= 12 ? Tr.pick('短期', 'Short term') : Tr.pick('長期', 'Long term');
 }
 
 class InvestmentEngine {

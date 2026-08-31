@@ -16,8 +16,7 @@ void main() {
 
       Tr.language = AppLanguage.system;
       expect(Tr.pick('日本語', 'English'), '日本語');
-      expect(Tr.localeCode, isNull,
-          reason: 'systemのときはFlutterに委ねるためnullを返す');
+      expect(Tr.localeCode, isNull, reason: 'systemのときはFlutterに委ねるためnullを返す');
 
       Tr.language = AppLanguage.english;
       expect(Tr.pick('日本語', 'English'), 'English');
@@ -36,7 +35,8 @@ void main() {
     },
   );
 
-  test('AppLanguage.label is itself localized, so the picker reads correctly '
+  test(
+      'AppLanguage.label is itself localized, so the picker reads correctly '
       'in whichever language is active', () {
     Tr.language = AppLanguage.japanese;
     expect(AppLanguage.system.label, '端末の設定に従う');

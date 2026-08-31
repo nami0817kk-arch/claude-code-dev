@@ -12,8 +12,8 @@ void main() {
       // 片方にキーを足し忘れると、その言語だけ実行時に落ちるか
       // 日本語のまま出てしまう。ARB同士を突き合わせて防ぐ。
       Set<String> keysOf(String path) {
-        final json = jsonDecode(File(path).readAsStringSync())
-            as Map<String, dynamic>;
+        final json =
+            jsonDecode(File(path).readAsStringSync()) as Map<String, dynamic>;
         return json.keys.where((k) => !k.startsWith('@')).toSet();
       }
 
