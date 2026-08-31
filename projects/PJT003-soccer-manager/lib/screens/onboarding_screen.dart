@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/l10n_ext.dart';
 
 class _OnboardingSlide {
   final IconData icon;
@@ -72,7 +73,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               alignment: Alignment.topRight,
               child: TextButton(
                 onPressed: widget.onDone,
-                child: const Text('スキップ'),
+                child: Text(context.l10n.onboardingSkip),
               ),
             ),
             Expanded(
@@ -143,7 +144,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       );
                     }
                   },
-                  child: Text(isLast ? 'はじめる' : '次へ'),
+                  child: Text(isLast ? context.l10n.onboardingStart : context.l10n.onboardingNext),
                 ),
               ),
             ),

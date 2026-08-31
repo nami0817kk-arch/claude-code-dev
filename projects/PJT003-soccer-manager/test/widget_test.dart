@@ -15,6 +15,25 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  // これらのテストは日本語の文言で要素を探す。テスト環境の既定ロケールは
+  // en なので、指定しないと英語のUIが出て見つからなくなる。表示言語を
+  // 日本語に固定して、ロケールに左右されないようにする。
+  // MaterialApp が見るのは locales (複数形) の方なので、そちらも設定する。
+  // 上書きはテストごとに戻るため setUp で毎回入れる。
+  setUp(() {
+    final dispatcher =
+        TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher;
+    dispatcher.localeTestValue = const Locale('ja');
+    dispatcher.localesTestValue = const [Locale('ja')];
+  });
+
+  tearDown(() {
+    final dispatcher =
+        TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher;
+    dispatcher.clearLocaleTestValue();
+    dispatcher.clearLocalesTestValue();
+  });
+
   testWidgets('start screen shows save slot list', (WidgetTester tester) async {
     await tester.pumpWidget(const SoccerManagerApp());
     await tester.pumpAndSettle();

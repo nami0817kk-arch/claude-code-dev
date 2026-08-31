@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'services/feedback_service.dart';
@@ -169,7 +171,11 @@ class SoccerManagerApp extends StatelessWidget {
         builder: (context, settings, _) {
           FeedbackService.attach(settings);
           return MaterialApp(
-            title: 'サッカー経営マネージャー',
+            // 端末の言語が英語なら英語で、それ以外は日本語で表示する。
+            // 日本語が原本で、英語はその翻訳 (l10n.yaml を参照)。
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
             theme: _buildTheme(
               Brightness.light,
               boldText: settings.boldTextMode,

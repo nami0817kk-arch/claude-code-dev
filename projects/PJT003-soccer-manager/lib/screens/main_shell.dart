@@ -7,6 +7,7 @@ import 'fixtures_screen.dart';
 import 'home_screen.dart';
 import 'lineup_screen.dart';
 import 'squad_screen.dart';
+import '../l10n/l10n_ext.dart';
 
 /// ホーム/スカッド/戦術/順位表をボトムナビゲーションのタブとして保持するシェル。
 class MainShell extends StatefulWidget {
@@ -68,22 +69,22 @@ class _MainShellState extends State<MainShell> {
             NavigationDestination(
               icon: homeIcon(false),
               selectedIcon: homeIcon(true),
-              label: 'ホーム',
+              label: context.l10n.navHome,
             ),
-            const NavigationDestination(
-              icon: Icon(Icons.groups_outlined),
-              selectedIcon: Icon(Icons.groups),
-              label: 'スカッド',
+            NavigationDestination(
+              icon: const Icon(Icons.groups_outlined),
+              selectedIcon: const Icon(Icons.groups),
+              label: context.l10n.navSquad,
             ),
-            const NavigationDestination(
-              icon: Icon(Icons.checklist_outlined),
-              selectedIcon: Icon(Icons.checklist),
-              label: '戦術',
+            NavigationDestination(
+              icon: const Icon(Icons.checklist_outlined),
+              selectedIcon: const Icon(Icons.checklist),
+              label: context.l10n.navTactics,
             ),
-            const NavigationDestination(
-              icon: Icon(Icons.leaderboard_outlined),
-              selectedIcon: Icon(Icons.leaderboard),
-              label: '順位表',
+            NavigationDestination(
+              icon: const Icon(Icons.leaderboard_outlined),
+              selectedIcon: const Icon(Icons.leaderboard),
+              label: context.l10n.navStandings,
             ),
           ],
         ),

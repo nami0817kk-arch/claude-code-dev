@@ -1,0 +1,55 @@
+{
+  "@@locale": "ja",
+
+  "appTitle": "サッカー経営マネージャー",
+  "@appTitle": { "description": "アプリ名。ストア表記と揃える" },
+
+  "startTagline": "クラブを率いてリーグ優勝を目指そう",
+  "startSlotLabel": "スロット{number}",
+  "@startSlotLabel": { "placeholders": { "number": { "type": "int" } } },
+  "startEmptySlot": "空きスロット",
+  "startDeleteSlot": "スロット{number}を削除しますか？",
+  "@startDeleteSlot": { "placeholders": { "number": { "type": "int" } } },
+  "startCreateClub": "新規クラブ作成",
+  "startNewClubIn": "スロット{number}に新規クラブを作成",
+  "@startNewClubIn": { "placeholders": { "number": { "type": "int" } } },
+  "startClubNameLabel": "クラブ名",
+  "startLeagueLabel": "所属リーグ",
+  "startDifficultyLabel": "難易度",
+  "startCreate": "創設する",
+  "commonCancel": "キャンセル",
+
+  "onboardingSkip": "スキップ",
+  "onboardingNext": "次へ",
+  "onboardingStart": "はじめる",
+
+  "navHome": "ホーム",
+  "navSquad": "スカッド",
+  "navTactics": "戦術",
+  "navStandings": "順位表",
+
+  "firstRunTitle": "はじめの一歩",
+  "firstRunProgress": "はじめの一歩 ({done}/{total})",
+  "@firstRunProgress": {
+    "placeholders": { "done": { "type": "int" }, "total": { "type": "int" } }
+  },
+  "firstRunClose": "ガイドを閉じる",
+  "firstRunSemantics": "初回ガイドの進捗 {total} ステップ中 {done} ステップ完了",
+  "@firstRunSemantics": {
+    "placeholders": { "done": { "type": "int" }, "total": { "type": "int" } }
+  },
+  "firstRunMatchHint": "このすぐ下の「次の試合」から始められます",
+
+  "firstRunLineupLabel": "スタメンを確認する",
+  "firstRunLineupDesc": "誰がピッチに立つのかを見てみましょう。並びは後からいつでも変えられます。",
+  "firstRunLineupAction": "スタメンへ",
+  "firstRunTrainingLabel": "今週の練習方針を決める",
+  "firstRunTrainingDesc": "練習方針は選手の伸び方を変えます。迷ったら「全体練習」で構いません。",
+  "firstRunTrainingAction": "トレーニングへ",
+  "firstRunMatchLabel": "最初の試合を戦う",
+  "firstRunMatchDesc": "「ライブで戦う」を選ぶと、決定機ごとにあなたが判断を下せます。",
+  "firstRunMatchAction": "試合へ",
+  "firstRunGrowthLabel": "選手の成長を確かめる",
+  "firstRunGrowthDesc": "スカッドから選手を開くと、能力の推移グラフで伸びが確認できます。",
+  "firstRunGrowthAction": "スカッドへ"
+}

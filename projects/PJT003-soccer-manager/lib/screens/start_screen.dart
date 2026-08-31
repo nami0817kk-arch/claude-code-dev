@@ -6,6 +6,7 @@ import '../models/save_game.dart';
 import '../state/game_state.dart';
 import '../widgets/busy_overlay.dart';
 import 'main_shell.dart';
+import '../l10n/l10n_ext.dart';
 
 class StartScreen extends StatefulWidget {
   const StartScreen({super.key});
@@ -57,12 +58,12 @@ class _StartScreenState extends State<StartScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'サッカー経営マネージャー',
+                    context.l10n.appTitle,
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'クラブを率いてリーグ優勝を目指そう',
+                    context.l10n.startTagline,
                     style: Theme.of(context).textTheme.bodyMedium,
                     textAlign: TextAlign.center,
                   ),
@@ -150,12 +151,12 @@ class _StartScreenState extends State<StartScreen> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('スロット${slot.slot + 1}を削除しますか？'),
+        title: Text(context.l10n.startDeleteSlot(slot.slot + 1)),
         content: Text('「${slot.clubName}」のセーブデータは完全に削除されます。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('キャンセル'),
+            child: Text(context.l10n.commonCancel),
           ),
           TextButton(
             onPressed: () async {
@@ -198,7 +199,7 @@ class _SlotCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'スロット${slot.slot + 1}',
+                          context.l10n.startSlotLabel(slot.slot + 1),
                           style: Theme.of(context).textTheme.labelSmall,
                         ),
                         Text(
@@ -228,11 +229,11 @@ class _SlotCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'スロット${slot.slot + 1}',
+                          context.l10n.startSlotLabel(slot.slot + 1),
                           style: Theme.of(context).textTheme.labelSmall,
                         ),
                         Text(
-                          '空きスロット',
+                          context.l10n.startEmptySlot,
                           style: Theme.of(context)
                               .textTheme
                               .bodyMedium
@@ -241,10 +242,19 @@ class _SlotCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: onCreate,
-                    icon: const Icon(Icons.add),
-                    label: const Text('新規クラブ作成'),
+                  // 言語によってラベルの長さが変わる (日本語より英語が長い)。
+                  // 幅に収まらないときは行を折り返さず省略させ、
+                  // ボタンの枠から文字がはみ出さないようにする。
+                  Flexible(
+                    child: OutlinedButton.icon(
+                      onPressed: onCreate,
+                      icon: const Icon(Icons.add),
+                      label: Text(
+                        context.l10n.startCreateClub,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -282,7 +292,7 @@ class _NewClubDialogState extends State<_NewClubDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('スロット${widget.slotLabel}に新規クラブを作成'),
+      title: Text(context.l10n.startNewClubIn(widget.slotLabel)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -290,14 +300,15 @@ class _NewClubDialogState extends State<_NewClubDialog> {
           children: [
             TextField(
               controller: _controller,
-              decoration: const InputDecoration(
-                labelText: 'クラブ名',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.l10n.startClubNameLabel,
+                border: const OutlineInputBorder(),
               ),
               autofocus: true,
             ),
             const SizedBox(height: 16),
-            Text('所属リーグ', style: Theme.of(context).textTheme.titleSmall),
+            Text(context.l10n.startLeagueLabel,
+                style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -313,7 +324,8 @@ class _NewClubDialogState extends State<_NewClubDialog> {
                   .toList(),
             ),
             const SizedBox(height: 16),
-            Text('難易度', style: Theme.of(context).textTheme.titleSmall),
+            Text(context.l10n.startDifficultyLabel,
+                style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -339,7 +351,7 @@ class _NewClubDialogState extends State<_NewClubDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('キャンセル'),
+          child: Text(context.l10n.commonCancel),
         ),
         FilledButton(
           onPressed: () {
@@ -347,7 +359,7 @@ class _NewClubDialogState extends State<_NewClubDialog> {
             if (name.isEmpty) return;
             Navigator.pop(context, _NewClubInput(name, _theme, _difficulty));
           },
-          child: const Text('創設する'),
+          child: Text(context.l10n.startCreate),
         ),
       ],
     );

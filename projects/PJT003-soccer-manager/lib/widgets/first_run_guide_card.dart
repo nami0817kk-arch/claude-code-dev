@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/l10n_ext.dart';
 import '../logic/first_run_guide.dart';
 import '../models/first_run_step.dart';
 import '../screens/lineup_screen.dart';
@@ -29,6 +30,7 @@ class FirstRunGuideCard extends StatelessWidget {
     final done = FirstRunGuide.doneCount(save);
     final total = FirstRunStep.values.length;
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
 
     return Card(
       color: scheme.primaryContainer,
@@ -43,7 +45,7 @@ class FirstRunGuideCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'はじめの一歩 ($done/$total)',
+                    l10n.firstRunProgress(done, total),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: scheme.onPrimaryContainer,
                         ),
@@ -52,7 +54,7 @@ class FirstRunGuideCard extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.close),
                   color: scheme.onPrimaryContainer,
-                  tooltip: 'ガイドを閉じる',
+                  tooltip: l10n.firstRunClose,
                   onPressed: () {
                     FeedbackService.tap();
                     context.read<GameState>().dismissFirstRunGuide();
@@ -63,7 +65,7 @@ class FirstRunGuideCard extends StatelessWidget {
             const SizedBox(height: 4),
             // 済んだステップも並べて見せる。進んでいる実感が続ける動機になる。
             Semantics(
-              label: '初回ガイドの進捗 $total ステップ中 $done ステップ完了',
+              label: l10n.firstRunSemantics(done, total),
               child: Row(
                 children: [
                   for (final s in FirstRunStep.values)
@@ -84,7 +86,7 @@ class FirstRunGuideCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              step.label,
+              step.label(l10n),
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: scheme.onPrimaryContainer,
                     fontWeight: FontWeight.bold,
@@ -92,7 +94,7 @@ class FirstRunGuideCard extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              step.description,
+              step.description(l10n),
               style: TextStyle(color: scheme.onPrimaryContainer),
             ),
             const SizedBox(height: 8),
@@ -123,7 +125,7 @@ class FirstRunGuideCard extends StatelessWidget {
 
     if (target == null) {
       return Text(
-        'このすぐ下の「次の試合」から始められます',
+        context.l10n.firstRunMatchHint,
         style: TextStyle(
           color: Theme.of(context).colorScheme.onPrimaryContainer,
           fontStyle: FontStyle.italic,
@@ -134,7 +136,7 @@ class FirstRunGuideCard extends StatelessWidget {
     final destination = target;
     return FilledButton.icon(
       icon: const Icon(Icons.arrow_forward),
-      label: Text(step.actionLabel),
+      label: Text(step.actionLabel(context.l10n)),
       onPressed: () {
         FeedbackService.tap();
         // ガイドに従って開いた時点で踏んだ扱いにする。戻ってきたときに

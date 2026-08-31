@@ -1,0 +1,45 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "Soccer Club Manager",
+
+  "startTagline": "Take charge of a club and chase the title",
+  "startSlotLabel": "Slot {number}",
+  "startEmptySlot": "Empty slot",
+  "startDeleteSlot": "Delete slot {number}?",
+  "startCreateClub": "New club",
+  "startNewClubIn": "Create a new club in slot {number}",
+  "startClubNameLabel": "Club name",
+  "startLeagueLabel": "League",
+  "startDifficultyLabel": "Difficulty",
+  "startCreate": "Found the club",
+  "commonCancel": "Cancel",
+
+  "onboardingSkip": "Skip",
+  "onboardingNext": "Next",
+  "onboardingStart": "Start",
+
+  "navHome": "Home",
+  "navSquad": "Squad",
+  "navTactics": "Tactics",
+  "navStandings": "Table",
+
+  "firstRunTitle": "First steps",
+  "firstRunProgress": "First steps ({done}/{total})",
+  "firstRunClose": "Dismiss guide",
+  "firstRunSemantics": "First-run guide progress: {done} of {total} steps done",
+  "firstRunMatchHint": "Start from the next fixture just below",
+
+  "firstRunLineupLabel": "Check your starting XI",
+  "firstRunLineupDesc": "See who takes the pitch. You can change the line-up at any time.",
+  "firstRunLineupAction": "Line-up",
+  "firstRunTrainingLabel": "Set this week's training",
+  "firstRunTrainingDesc": "Training changes how players develop. General training is a fine default.",
+  "firstRunTrainingAction": "Training",
+  "firstRunMatchLabel": "Play your first match",
+  "firstRunMatchDesc": "Choose Play live and you decide what happens at every clear chance.",
+  "firstRunMatchAction": "Match",
+  "firstRunGrowthLabel": "See a player improve",
+  "firstRunGrowthDesc": "Open a player from the squad to see their attribute trend over time.",
+  "firstRunGrowthAction": "Squad"
+}

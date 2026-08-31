@@ -58,3 +58,7 @@ ios/Runner/GoogleService-Info.plist
 # ストア API 資格情報
 **/play-store-service-account*.json
 **/AuthKey_*.p8
+
+
+# gen-l10n が出す未翻訳レポート。生成物なので追跡しない。
+l10n_untranslated.json

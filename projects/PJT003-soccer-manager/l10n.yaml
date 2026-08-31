@@ -1,0 +1,8 @@
+# 日本語を原本とし、英語はその翻訳として管理する。
+# テンプレートを app_ja.arb にしているのは、このアプリの文言が
+# 日本語で書かれて日本語で見直されるため。英語側を原本にすると
+# 日本語の細かなニュアンスが英語経由で劣化する。
+arb-dir: lib/l10n
+template-arb-file: app_ja.arb
+output-localization-file: app_localizations.dart
+untranslated-messages-file: l10n_untranslated.json
