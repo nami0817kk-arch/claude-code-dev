@@ -7,6 +7,7 @@ import '../models/weather.dart';
 import '../screens/player_detail_screen.dart';
 import '../theme/semantic_colors.dart';
 import 'club_emblem.dart';
+import '../l10n/tr.dart';
 
 /// 試合当日の天候を表示するバッジ。晴天以外は攻守・チャンス数への
 /// 影響があることを示すため色を変えて目立たせる。
@@ -71,7 +72,7 @@ class TeamHeader extends StatelessWidget {
 /// [event]の分数・選手名などから、テンプレートを一意に選び安定した実況文を
 /// 生成する(乱数を使わず内容から決定するため、再描画されても同じ文になる)。
 String matchCommentaryText(MatchEvent event, String teamName) {
-  final scorer = event.scorerName ?? '選手';
+  final scorer = event.scorerName ?? Tr.pick('選手', 'Players');
   final assist = event.assistName;
   final seed = event.minute * 31 +
       scorer.length * 7 +
@@ -83,55 +84,87 @@ String matchCommentaryText(MatchEvent event, String teamName) {
     case MatchEventType.goal:
       if (assist != null) {
         templates = [
-          '$assistのスルーパスに抜け出した$scorerが流し込む！$teamNameゴール！',
-          '$assistの絶妙なクロスに$scorerが合わせた！$teamNameが加点！',
-          '$assistからのパスを受けた$scorerが冷静に決めた！',
-          '$scorer、$assistとの見事なコンビネーションでゴール！',
-          '$assistが作った決定機を$scorerが確実に仕留める！',
-          '$teamNameお得意の形！$assistのお膳立てに$scorerが応えた！',
-          '一瞬の隙を突いた$assistのパス、$scorerが逃さず沈める！',
-          '$scorerと$assistの息の合った崩しから$teamNameが突き放す！',
+          Tr.pick('$assistのスルーパスに抜け出した$scorerが流し込む！$teamNameゴール！',
+              "$scorer runs onto $assist's through ball and slots it home. Goal for $teamName!"),
+          Tr.pick('$assistの絶妙なクロスに$scorerが合わせた！$teamNameが加点！',
+              '$assist whips it in and $scorer meets it. $teamName add another!'),
+          Tr.pick('$assistからのパスを受けた$scorerが冷静に決めた！',
+              "$scorer takes $assist's pass and finishes calmly."),
+          Tr.pick('$scorer、$assistとの見事なコンビネーションでゴール！',
+              "A lovely one-two between $scorer and $assist, and it's a goal!"),
+          Tr.pick('$assistが作った決定機を$scorerが確実に仕留める！',
+              '$assist makes the chance and $scorer takes it.'),
+          Tr.pick('$teamNameお得意の形！$assistのお膳立てに$scorerが応えた！',
+              'Classic $teamName. $assist lays it on and $scorer obliges!'),
+          Tr.pick('一瞬の隙を突いた$assistのパス、$scorerが逃さず沈める！',
+              '$assist spots the gap, and $scorer makes no mistake!'),
+          Tr.pick('$scorerと$assistの息の合った崩しから$teamNameが突き放す！',
+              '$scorer and $assist carve them open, and $teamName pull clear!'),
         ];
       } else {
         templates = [
-          '$teamName!! $scorerが値千金の一撃！これはゴラッソだ！',
-          '$scorerが冷静にゴールを射抜く！$teamNameに勢いが生まれる！',
-          '$teamNameのチャンス、こぼれ球を$scorerが押し込んだ！',
-          '$scorer、値千金の一撃！$teamNameが加点！',
-          '$scorer、個の力でねじ込んだ！$teamNameスタンドが沸く！',
-          '誰も予想しなかった一撃、$scorerが決めた！',
-          '$teamName会心の攻撃！$scorerが仕留めた！',
-          '$scorer、執念のゴール！$teamNameに流れを引き寄せる一撃！',
+          Tr.pick('$teamName!! $scorerが値千金の一撃！これはゴラッソだ！',
+              '$teamName!! What a strike from $scorer. That is a golazo!'),
+          Tr.pick('$scorerが冷静にゴールを射抜く！$teamNameに勢いが生まれる！',
+              '$scorer picks his spot coolly. $teamName have their tails up!'),
+          Tr.pick('$teamNameのチャンス、こぼれ球を$scorerが押し込んだ！',
+              'It breaks for $teamName, and $scorer bundles it in!'),
+          Tr.pick('$scorer、値千金の一撃！$teamNameが加点！',
+              'A priceless goal from $scorer. $teamName extend it!'),
+          Tr.pick('$scorer、個の力でねじ込んだ！$teamNameスタンドが沸く！',
+              '$scorer forces it home on his own. The $teamName end erupts!'),
+          Tr.pick('誰も予想しなかった一撃、$scorerが決めた！',
+              'Nobody saw that coming. $scorer scores!'),
+          Tr.pick('$teamName会心の攻撃！$scorerが仕留めた！',
+              'A perfect $teamName move, finished by $scorer!'),
+          Tr.pick('$scorer、執念のゴール！$teamNameに流れを引き寄せる一撃！',
+              "$scorer refuses to give up on it. That could turn the game $teamName's way!"),
         ];
       }
       break;
     case MatchEventType.chance:
       templates = [
-        '$scorerのシュートが枠をとらえるもGKが好セーブ！',
-        '$scorer、惜しい！ポストに嫌われた！',
-        '$teamName、$scorerのシュートは決めきれず。',
-        '$scorerのシュートはわずかに枠の外へ…',
-        '$teamNameに決定機！$scorerが放つもGKの正面…',
-        '$scorer渾身の一撃、クロスバーに跳ね返される！',
-        '惜しい！$scorerのシュートはブロックに阻まれた。',
+        Tr.pick('$scorerのシュートが枠をとらえるもGKが好セーブ！',
+            '$scorer hits the target, but the keeper saves well!'),
+        Tr.pick(
+            '$scorer、惜しい！ポストに嫌われた！', 'So close from $scorer, off the post!'),
+        Tr.pick('$teamName、$scorerのシュートは決めきれず。',
+            '$scorer shoots for $teamName, but cannot finish it.'),
+        Tr.pick('$scorerのシュートはわずかに枠の外へ…', "$scorer's effort drifts just wide…"),
+        Tr.pick('$teamNameに決定機！$scorerが放つもGKの正面…',
+            'A big chance for $teamName, but $scorer shoots straight at the keeper…'),
+        Tr.pick('$scorer渾身の一撃、クロスバーに跳ね返される！',
+            '$scorer lets fly, and the crossbar keeps it out!'),
+        Tr.pick('惜しい！$scorerのシュートはブロックに阻まれた。',
+            "So close. $scorer's shot is blocked."),
       ];
       break;
     case MatchEventType.yellowCard:
       templates = [
-        '$scorerに主審からイエローカード。$teamNameは規律が問われる場面。',
-        '$scorer、荒いプレーで警告を受ける。',
-        '$teamNameの$scorerにカード提示。',
-        '$scorer、抗議のあまり警告を受けてしまう。',
-        '際どいタックルの$scorerに主審が笛、イエローが提示される。',
+        Tr.pick('$scorerに主審からイエローカード。$teamNameは規律が問われる場面。',
+            'A yellow for $scorer. $teamName need to keep their discipline.'),
+        Tr.pick('$scorer、荒いプレーで警告を受ける。',
+            '$scorer is booked for a rough challenge.'),
+        Tr.pick('$teamNameの$scorerにカード提示。',
+            '$scorer of $teamName goes into the book.'),
+        Tr.pick('$scorer、抗議のあまり警告を受けてしまう。',
+            '$scorer argues once too often and is booked.'),
+        Tr.pick('際どいタックルの$scorerに主審が笛、イエローが提示される。',
+            "The referee whistles for $scorer's late tackle and shows yellow."),
       ];
       break;
     case MatchEventType.redCard:
       templates = [
-        '$scorerに一発退場が言い渡された！$teamNameは数的不利に…',
-        '$scorer、看過できないプレーで退場処分！',
-        '$teamNameにとって痛恨の退場、$scorerがピッチを去る。',
-        'まさかの一発レッド！$scorerが涙のピッチ退場。',
-        '$scorer、この試合最大の誤算…退場でチームに大きな痛手。',
+        Tr.pick('$scorerに一発退場が言い渡された！$teamNameは数的不利に…',
+            'A straight red for $scorer! $teamName are down to ten…'),
+        Tr.pick('$scorer、看過できないプレーで退場処分！',
+            '$scorer goes for a challenge the referee cannot ignore!'),
+        Tr.pick('$teamNameにとって痛恨の退場、$scorerがピッチを去る。',
+            'A costly red card for $teamName as $scorer walks.'),
+        Tr.pick('まさかの一発レッド！$scorerが涙のピッチ退場。',
+            'A straight red out of nowhere. $scorer leaves the pitch in tears.'),
+        Tr.pick('$scorer、この試合最大の誤算…退場でチームに大きな痛手。',
+            'The moment that decides it: $scorer is sent off, and the team is in trouble.'),
       ];
       break;
   }
@@ -224,7 +257,7 @@ class MatchStatsBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Column(
         children: [
-          _statRow(context, '$hp%', 'ポゼッション', '$ap%'),
+          _statRow(context, '$hp%', Tr.pick('ポゼッション', 'Possession'), '$ap%'),
           const SizedBox(height: 4),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
@@ -248,14 +281,14 @@ class MatchStatsBar extends StatelessWidget {
           _statRow(
             context,
             '${result.homeShots ?? 0}',
-            'シュート',
+            Tr.pick('シュート', 'Shot'),
             '${result.awayShots ?? 0}',
           ),
           const SizedBox(height: 4),
           _statRow(
             context,
             '${result.homeShotsOnTarget ?? 0}',
-            '枠内シュート',
+            Tr.pick('枠内シュート', 'Shots on target'),
             '${result.awayShotsOnTarget ?? 0}',
           ),
         ],
@@ -321,15 +354,15 @@ class FullTimeBanner extends StatelessWidget {
     final Color color;
     final IconData icon;
     if (userGoals > oppGoals) {
-      label = '勝利';
+      label = Tr.pick('勝利', 'Win');
       color = SemanticColors.positive(context);
       icon = Icons.emoji_events;
     } else if (userGoals < oppGoals) {
-      label = '敗北';
+      label = Tr.pick('敗北', 'Defeat');
       color = SemanticColors.negative(context);
       icon = Icons.sentiment_dissatisfied;
     } else {
-      label = '引き分け';
+      label = Tr.pick('引き分け', 'Draw');
       color = SemanticColors.neutral(context);
       icon = Icons.handshake;
     }
@@ -424,7 +457,8 @@ class ManOfTheMatchBanner extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'マン・オブ・ザ・マッチ: ${motm.name}',
+                    Tr.pick('マン・オブ・ザ・マッチ: ${motm.name}',
+                        'Man of the match: ${motm.name}'),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -471,7 +505,8 @@ class TraitActivationBanner extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('特性発動', style: Theme.of(context).textTheme.labelSmall),
+          Text(Tr.pick('特性発動', 'Traits that fired'),
+              style: Theme.of(context).textTheme.labelSmall),
           const SizedBox(height: 2),
           Wrap(
             spacing: 6,
@@ -479,8 +514,9 @@ class TraitActivationBanner extends StatelessWidget {
             children: [
               for (final p in activated)
                 Semantics(
-                  label: '${p.name}の特性${p.trait!.label}が'
-                      '${p.matchFormMultiplier > 1.0 ? 'プラス' : 'マイナス'}に発動',
+                  label: Tr.pick(
+                      '${p.name}の特性${p.trait!.label}が${p.matchFormMultiplier > 1.0 ? 'プラス' : 'マイナス'}に発動',
+                      "${p.name}'s ${p.trait!.label} worked ${p.matchFormMultiplier > 1.0 ? 'for' : 'against'} him"),
                   child: Chip(
                     avatar: Icon(
                       p.matchFormMultiplier > 1.0

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/feedback_service.dart';
 import '../state/game_state.dart';
 import '../widgets/player_face_avatar.dart';
+import '../l10n/tr.dart';
 
 /// シーズン終了時に一括生成されたユースインテーク候補を選抜する画面。
 class YouthIntakeScreen extends StatelessWidget {
@@ -17,7 +18,7 @@ class YouthIntakeScreen extends StatelessWidget {
         gameState.maxYouthProspects - gameState.save!.youthProspects.length;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('ユースインテーク')),
+      appBar: AppBar(title: Text(Tr.pick('ユースインテーク', 'Youth intake'))),
       body: Column(
         children: [
           Padding(
@@ -25,15 +26,18 @@ class YouthIntakeScreen extends StatelessWidget {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '今季のアカデミーから${candidates.length}名の新人が入団を希望しています。'
-                '引き取る選手を選んでください(残り枠: ${slotsLeft.clamp(0, 999)})。',
+                Tr.pick(
+                    '今季のアカデミーから${candidates.length}名の新人が入団を希望しています。引き取る選手を選んでください(残り枠: ${slotsLeft.clamp(0, 999)})。',
+                    "${candidates.length} youngsters from this year's academy intake want to join. Choose who you take on (places left: ${slotsLeft.clamp(0, 999)})."),
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
           ),
           Expanded(
             child: candidates.isEmpty
-                ? const Center(child: Text('選抜は完了しました'))
+                ? Center(
+                    child: Text(
+                        Tr.pick('選抜は完了しました', 'You have finished choosing')))
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: candidates.length,
@@ -48,14 +52,16 @@ class YouthIntakeScreen extends StatelessWidget {
                           ),
                           title: Text(p.name),
                           subtitle: Text(
-                            '${p.age}歳 / 総合 ${p.overall} / 潜在 ${p.potential}',
+                            Tr.pick(
+                                '${p.age}歳 / 総合 ${p.overall} / 潜在 ${p.potential}',
+                                'Age ${p.age} / overall ${p.overall} / potential ${p.potential}'),
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
                                 icon: const Icon(Icons.close),
-                                tooltip: '解雇',
+                                tooltip: Tr.pick('解雇', 'Release'),
                                 onPressed: () =>
                                     _confirmRelease(context, p.id, p.name),
                               ),
@@ -69,7 +75,7 @@ class YouthIntakeScreen extends StatelessWidget {
                                             ? FeedbackService.success()
                                             : FeedbackService.error();
                                       },
-                                child: const Text('引き取る'),
+                                child: Text(Tr.pick('引き取る', 'Take him on')),
                               ),
                             ],
                           ),
@@ -85,7 +91,7 @@ class YouthIntakeScreen extends StatelessWidget {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('完了'),
+                  child: Text(Tr.pick('完了', 'Done')),
                 ),
               ),
             ),
@@ -98,12 +104,13 @@ class YouthIntakeScreen extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('この新人を解雇しますか？'),
-        content: Text('$nameは入団せず解雇されます。この操作は元に戻せません。'),
+        title: Text(Tr.pick('この新人を解雇しますか？', 'Turn this youngster away?')),
+        content: Text(Tr.pick('$nameは入団せず解雇されます。この操作は元に戻せません。',
+            '$name will not join the club. This cannot be undone.')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('キャンセル'),
+            child: Text(Tr.pick('キャンセル', 'Cancel')),
           ),
           FilledButton(
             onPressed: () async {
@@ -113,7 +120,7 @@ class YouthIntakeScreen extends StatelessWidget {
                   );
               FeedbackService.tap();
             },
-            child: const Text('解雇する'),
+            child: Text(Tr.pick('解雇する', 'Release him')),
           ),
         ],
       ),

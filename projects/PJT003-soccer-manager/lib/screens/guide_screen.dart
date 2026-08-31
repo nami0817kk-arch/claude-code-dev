@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/guide_sections.dart';
 import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
+import '../l10n/tr.dart';
 
 /// 各画面の機能や、そこに登場する用語・仕組みを画面単位でまとめたガイド。
 /// 用語をアルファベット/カテゴリ順に並べた用語集(GlossaryScreen)とは異なり、
@@ -14,7 +15,7 @@ class GuideScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ガイド'),
+        title: Text(Tr.pick('ガイド', 'Guide')),
         leading: const BackButton(),
         actions: const [QuickAccessMenuButton()],
       ),

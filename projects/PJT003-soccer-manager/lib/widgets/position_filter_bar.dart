@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/player.dart';
+import '../l10n/tr.dart';
 
 /// ポジション大分類(GK/DEF/MID/ATT)で一覧を絞り込むためのチップ列。
 /// 移籍市場・スカウト画面など、選手リストを扱う画面で共通して使う。
@@ -15,7 +16,7 @@ class PositionFilterBar extends StatelessWidget {
   });
 
   static String labelFor(PositionGroup? g) => switch (g) {
-        null => 'すべて',
+        null => Tr.pick('すべて', 'All'),
         PositionGroup.gk => 'GK',
         PositionGroup.def => 'DF',
         PositionGroup.mid => 'MF',

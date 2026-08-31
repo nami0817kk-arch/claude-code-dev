@@ -14,6 +14,7 @@ import '../widgets/match_widgets.dart';
 import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
 import 'scout_report_screen.dart';
+import '../l10n/tr.dart';
 
 /// 大陸カップ出場資格が得られる順位(GameState.startNextSeasonの`finalRank <= 2`と一致)。
 const int _continentalQualifyCount = 2;
@@ -39,25 +40,26 @@ class FixturesScreen extends StatelessWidget {
       length: 2 + otherDivisions.length,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('日程・順位表'),
+          title: Text(Tr.pick('日程・順位表', 'Fixtures & table')),
           bottom: TabBar(
             isScrollable: otherDivisions.isNotEmpty,
             tabs: [
-              const Tab(text: '順位表'),
-              const Tab(text: '日程'),
-              for (final (tier, _) in otherDivisions) Tab(text: '$tier部順位表'),
+              Tab(text: Tr.pick('順位表', 'Table')),
+              Tab(text: Tr.pick('日程', 'Fixtures')),
+              for (final (tier, _) in otherDivisions)
+                Tab(text: Tr.pick('$tier部順位表', 'Tier $tier table')),
             ],
           ),
           actions: [
             IconButton(
               icon: const Icon(Icons.query_stats),
-              tooltip: '順位予測シミュレーション',
+              tooltip: Tr.pick('順位予測シミュレーション', 'Projected final table'),
               onPressed:
                   seasonComplete ? null : () => _showProjectionSheet(context),
             ),
             IconButton(
               icon: const Icon(Icons.fast_forward),
-              tooltip: 'まとめてシミュレーション',
+              tooltip: Tr.pick('まとめてシミュレーション', 'Sim ahead'),
               onPressed:
                   seasonComplete ? null : () => _showQuickSimDialog(context),
             ),
@@ -97,21 +99,22 @@ class FixturesScreen extends StatelessWidget {
     final choice = await showDialog<int>(
       context: context,
       builder: (dialogContext) => SimpleDialog(
-        title: const Text('まとめてシミュレーション'),
+        title: Text(Tr.pick('まとめてシミュレーション', 'Sim ahead')),
         children: [
           for (final n in [1, 3, 5])
             if (n < remainingMatchdays)
               SimpleDialogOption(
                 onPressed: () => Navigator.pop(dialogContext, n),
-                child: Text('$n節先まで進める'),
+                child: Text(Tr.pick('$n節先まで進める', 'Play $n matchdays')),
               ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(dialogContext, remainingMatchdays),
-            child: const Text('シーズン終了まで進める'),
+            child:
+                Text(Tr.pick('シーズン終了まで進める', 'Play to the end of the season')),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('キャンセル'),
+            child: Text(Tr.pick('キャンセル', 'Cancel')),
           ),
         ],
       ),
@@ -131,7 +134,8 @@ class FixturesScreen extends StatelessWidget {
               children: [
                 const CircularProgressIndicator(),
                 const SizedBox(height: 16),
-                Text('$choice節分をシミュレーションしています…'),
+                Text(Tr.pick('$choice節分をシミュレーションしています…',
+                    'Simulating $choice matchdays…')),
               ],
             ),
           ),
@@ -147,11 +151,12 @@ class FixturesScreen extends StatelessWidget {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('シミュレーション結果'),
+        title: Text(Tr.pick('シミュレーション結果', 'Simulation results')),
         content: SizedBox(
           width: double.maxFinite,
           child: results.isEmpty
-              ? const Text('進行できる試合がありませんでした')
+              ? Text(
+                  Tr.pick('進行できる試合がありませんでした', 'There were no matches to play'))
               : ListView.builder(
                   shrinkWrap: true,
                   itemCount: results.length,
@@ -165,7 +170,8 @@ class FixturesScreen extends StatelessWidget {
                     final oppGoals = isHome ? r.awayGoals : r.homeGoals;
                     return ListTile(
                       dense: true,
-                      title: Text('第${r.matchday}節 vs $opponentName'),
+                      title: Text(Tr.pick('第${r.matchday}節 vs $opponentName',
+                          'Matchday ${r.matchday} vs $opponentName')),
                       trailing: Text(
                         '$userGoals - $oppGoals',
                         style: Theme.of(context).textTheme.titleSmall,
@@ -177,7 +183,7 @@ class FixturesScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('閉じる'),
+            child: Text(Tr.pick('閉じる', 'Close')),
           ),
         ],
       ),
@@ -203,13 +209,14 @@ class FixturesScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '順位予測シミュレーション',
+                Tr.pick('順位予測シミュレーション', 'Projected final table'),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 4),
-              const Text(
-                '現在の総合力をもとに残り試合を簡易シミュレーションした見込みです。実際の結果を保証するものではありません。',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+              Text(
+                Tr.pick('現在の総合力をもとに残り試合を簡易シミュレーションした見込みです。実際の結果を保証するものではありません。',
+                    'A rough projection of the remaining matches based on current squad strength. It is not a guarantee.'),
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
               const SizedBox(height: 8),
               Expanded(
@@ -240,7 +247,8 @@ class FixturesScreen extends StatelessWidget {
                         ),
                         title: Text(team.name),
                         subtitle: Text(
-                          '予測勝点 ${p.avgFinalPoints.toStringAsFixed(1)}',
+                          Tr.pick('予測勝点 ${p.avgFinalPoints.toStringAsFixed(1)}',
+                              'Projected points ${p.avgFinalPoints.toStringAsFixed(1)}'),
                         ),
                         trailing: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -248,7 +256,9 @@ class FixturesScreen extends StatelessWidget {
                           children: [
                             if (p.titleProbability >= 0.01)
                               Text(
-                                '優勝 ${(p.titleProbability * 100).toStringAsFixed(0)}%',
+                                Tr.pick(
+                                    '優勝 ${(p.titleProbability * 100).toStringAsFixed(0)}%',
+                                    'Title ${(p.titleProbability * 100).toStringAsFixed(0)}%'),
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: Colors.amber,
@@ -257,12 +267,16 @@ class FixturesScreen extends StatelessWidget {
                               ),
                             if (p.continentalProbability >= 0.01)
                               Text(
-                                'カップ圏 ${(p.continentalProbability * 100).toStringAsFixed(0)}%',
+                                Tr.pick(
+                                    'カップ圏 ${(p.continentalProbability * 100).toStringAsFixed(0)}%',
+                                    'Continental ${(p.continentalProbability * 100).toStringAsFixed(0)}%'),
                                 style: const TextStyle(fontSize: 11),
                               ),
                             if (p.relegationProbability >= 0.01)
                               Text(
-                                '降格 ${(p.relegationProbability * 100).toStringAsFixed(0)}%',
+                                Tr.pick(
+                                    '降格 ${(p.relegationProbability * 100).toStringAsFixed(0)}%',
+                                    'Relegation ${(p.relegationProbability * 100).toStringAsFixed(0)}%'),
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: SemanticColors.negative(context),
@@ -274,8 +288,9 @@ class FixturesScreen extends StatelessWidget {
                     );
                     if (!isUser) return tile;
                     return Semantics(
-                      label: '自クラブ。${i + 1}位予測: ${team.name}、'
-                          '予測勝点 ${p.avgFinalPoints.toStringAsFixed(1)}',
+                      label: Tr.pick(
+                          '自クラブ。${i + 1}位予測: ${team.name}、予測勝点 ${p.avgFinalPoints.toStringAsFixed(1)}',
+                          'Your club. Projected ${i + 1}: ${team.name}, ${p.avgFinalPoints.toStringAsFixed(1)} points'),
                       child: ExcludeSemantics(child: tile),
                     );
                   },
@@ -322,21 +337,23 @@ class _StandingsTab extends StatelessWidget {
             runSpacing: 4,
             children: [
               if (showContinental)
-                _ZoneLegend(color: Colors.amber.shade700, label: '大陸カップ出場圏'),
+                _ZoneLegend(
+                    color: Colors.amber.shade700,
+                    label: Tr.pick('大陸カップ出場圏', 'Continental qualification')),
               if (showPromotion) ...[
                 _ZoneLegend(
                   color: SemanticColors.positive(context),
-                  label: '自動昇格圏',
+                  label: Tr.pick('自動昇格圏', 'Automatic promotion'),
                 ),
                 _ZoneLegend(
                   color: Colors.deepPurple.shade300,
-                  label: '昇格プレーオフ圏',
+                  label: Tr.pick('昇格プレーオフ圏', 'Promotion play-offs'),
                 ),
               ],
               if (showRelegation)
                 _ZoneLegend(
                   color: SemanticColors.negative(context),
-                  label: '降格圏',
+                  label: Tr.pick('降格圏', 'Relegation'),
                 ),
             ],
           ),
@@ -391,7 +408,9 @@ class _StandingsTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${r.played}試合 勝${r.won} 分${r.draw} 敗${r.lost} 得失点差${r.goalDiff}',
+                        Tr.pick(
+                            '${r.played}試合 勝${r.won} 分${r.draw} 敗${r.lost} 得失点差${r.goalDiff}',
+                            'P${r.played} W${r.won} D${r.draw} L${r.lost} GD${r.goalDiff}'),
                       ),
                       const SizedBox(height: 4),
                       _FormGuide(results: league.recentFormFor(r.teamId)),
@@ -413,7 +432,8 @@ class _StandingsTab extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            '戦力${team.overallRating}',
+                            Tr.pick('戦力${team.overallRating}',
+                                'Squad ${team.overallRating}'),
                             style: const TextStyle(
                               fontSize: 11,
                               color: Colors.grey,
@@ -431,9 +451,9 @@ class _StandingsTab extends StatelessWidget {
               );
               if (!isUser) return row;
               return Semantics(
-                label: '自クラブ。${i + 1}位: ${team.name}、'
-                    '${r.played}試合 勝${r.won} 分${r.draw} 敗${r.lost} 得失点差${r.goalDiff}、'
-                    '${r.points}pt、戦力${team.overallRating}',
+                label: Tr.pick(
+                    '自クラブ。${i + 1}位: ${team.name}、${r.played}試合 勝${r.won} 分${r.draw} 敗${r.lost} 得失点差${r.goalDiff}、${r.points}pt、戦力${team.overallRating}',
+                    'Your club. ${i + 1}: ${team.name}, P${r.played} W${r.won} D${r.draw} L${r.lost} GD${r.goalDiff}, ${r.points} pts, squad ${team.overallRating}'),
                 child: ExcludeSemantics(child: row),
               );
             },
@@ -459,7 +479,8 @@ class _FormGuide extends StatelessWidget {
           _ => SemanticColors.neutral(context),
         };
     return Semantics(
-      label: '直近${results.length}試合のフォーム: ${results.join('、')}',
+      label: Tr.pick('直近${results.length}試合のフォーム: ${results.join('、')}',
+          "Form over the last ${results.length}: ${results.join(', ')}"),
       child: ExcludeSemantics(
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -527,9 +548,11 @@ Future<void> _showFixtureResultDialog(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (goals.isEmpty)
-              const Text('得点者はいませんでした', style: TextStyle(color: Colors.grey))
+              Text(Tr.pick('得点者はいませんでした', 'Nobody scored'),
+                  style: const TextStyle(color: Colors.grey))
             else ...[
-              Text('得点者', style: Theme.of(dialogContext).textTheme.titleSmall),
+              Text(Tr.pick('得点者', 'Scorers'),
+                  style: Theme.of(dialogContext).textTheme.titleSmall),
               const SizedBox(height: 4),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 200),
@@ -540,9 +563,9 @@ Future<void> _showFixtureResultDialog(
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2),
                         child: Text(
-                          '${g.minute}\' ${g.scorerName ?? '不明'}'
-                          '${g.assistName != null ? '（アシスト: ${g.assistName}）' : ''}'
-                          '（${g.teamId == home.id ? home.name : away.name}）',
+                          Tr.pick(
+                              '${g.minute}\' ${g.scorerName ?? '不明'}${g.assistName != null ? '（アシスト: ${g.assistName}）' : ''}（${g.teamId == home.id ? home.name : away.name}）',
+                              "${g.minute}' ${g.scorerName ?? 'Unknown'}${g.assistName != null ? ' (assist: ${g.assistName})' : ''} (${g.teamId == home.id ? home.name : away.name})"),
                         ),
                       ),
                   ],
@@ -560,7 +583,9 @@ Future<void> _showFixtureResultDialog(
                 children: [
                   const Icon(Icons.star, color: Colors.amber, size: 18),
                   const SizedBox(width: 4),
-                  Expanded(child: Text('マン・オブ・ザ・マッチ: $motmName')),
+                  Expanded(
+                      child: Text(Tr.pick('マン・オブ・ザ・マッチ: $motmName',
+                          'Man of the match: $motmName'))),
                 ],
               ),
             ],
@@ -570,7 +595,7 @@ Future<void> _showFixtureResultDialog(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('閉じる'),
+          child: Text(Tr.pick('閉じる', 'Close')),
         ),
       ],
     ),
@@ -650,19 +675,23 @@ class _ScheduleTabState extends State<_ScheduleTab> {
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
             child: Card(
               color: Theme.of(context).colorScheme.tertiaryContainer,
-              child: const ListTile(
-                leading: Icon(Icons.emoji_events_outlined),
-                title: Text('国内カップ戦の出番です'),
-                subtitle: Text('カップ戦画面で次の試合を消化できます'),
+              child: ListTile(
+                leading: const Icon(Icons.emoji_events_outlined),
+                title: Text(
+                    Tr.pick('国内カップ戦の出番です', 'You are up in the domestic cup')),
+                subtitle: Text(Tr.pick('カップ戦画面で次の試合を消化できます',
+                    'Play the next tie from the cup screen')),
               ),
             ),
           ),
         Padding(
           padding: const EdgeInsets.all(12),
           child: SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: false, label: Text('自分の日程')),
-              ButtonSegment(value: true, label: Text('全日程')),
+            segments: [
+              ButtonSegment(
+                  value: false, label: Text(Tr.pick('自分の日程', 'My fixtures'))),
+              ButtonSegment(
+                  value: true, label: Text(Tr.pick('全日程', 'All fixtures'))),
             ],
             selected: {_showFullSchedule},
             onSelectionChanged: (s) =>
@@ -683,7 +712,9 @@ class _ScheduleTabState extends State<_ScheduleTab> {
                 return Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: ChoiceChip(
-                    label: Text(isNext ? '第$md節 •' : '第$md節'),
+                    label: Text(isNext
+                        ? Tr.pick('第$md節 •', 'Matchday $md •')
+                        : Tr.pick('第$md節', 'Matchday $md')),
                     selected: _selectedMatchday == md,
                     onSelected: (_) => setState(() => _selectedMatchday = md),
                   ),
@@ -803,8 +834,9 @@ class _MatchdayList extends StatelessWidget {
         );
         if (!isUserMatch) return row;
         return Semantics(
-          label: '自クラブの試合。${home.name} vs ${away.name}、'
-              '${result == null ? '未消化' : '${result.homeGoals} - ${result.awayGoals}'}',
+          label: Tr.pick(
+              '自クラブの試合。${home.name} vs ${away.name}、${result == null ? '未消化' : '${result.homeGoals} - ${result.awayGoals}'}',
+              "Your match. ${home.name} vs ${away.name}, ${result == null ? 'not played' : '${result.homeGoals} - ${result.awayGoals}'}"),
           child: ExcludeSemantics(child: row),
         );
       },
@@ -876,7 +908,10 @@ class _UserFixtureList extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(width: 44, child: Text('第${f.matchday}節')),
+                  SizedBox(
+                      width: 44,
+                      child: Text(Tr.pick(
+                          '第${f.matchday}節', 'Matchday ${f.matchday}'))),
                   ClubEmblem(
                     teamId: opponent.id,
                     teamName: opponent.name,
@@ -905,7 +940,9 @@ class _UserFixtureList extends StatelessWidget {
             ),
             trailing: result == null
                 ? Text(
-                    isNext ? '次節' : '未消化',
+                    isNext
+                        ? Tr.pick('次節', 'Next')
+                        : Tr.pick('未消化', 'Not played'),
                     style: isNext
                         ? const TextStyle(fontWeight: FontWeight.bold)
                         : null,

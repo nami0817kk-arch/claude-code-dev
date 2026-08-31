@@ -8,6 +8,7 @@ import '../models/team.dart';
 import '../services/feedback_service.dart';
 import '../state/game_state.dart';
 import '../widgets/match_widgets.dart';
+import '../l10n/tr.dart';
 
 class MatchScreen extends StatefulWidget {
   final MatchResult result;
@@ -72,7 +73,9 @@ class _MatchScreenState extends State<MatchScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title ?? '第${widget.result.matchday}節'),
+        title: Text(widget.title ??
+            Tr.pick('第${widget.result.matchday}節',
+                'Matchday ${widget.result.matchday}')),
         automaticallyImplyLeading: false,
       ),
       body: Column(
@@ -90,7 +93,9 @@ class _MatchScreenState extends State<MatchScreen> {
                 Column(
                   children: [
                     Text(
-                      _finished ? '試合終了' : "$_currentMinute'",
+                      _finished
+                          ? Tr.pick('試合終了', 'Full time')
+                          : "$_currentMinute'",
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                             color: _finished ? Colors.redAccent : Colors.grey,
                             fontWeight: FontWeight.bold,
@@ -147,7 +152,7 @@ class _MatchScreenState extends State<MatchScreen> {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('戻る'),
+                  child: Text(Tr.pick('戻る', 'Back')),
                 ),
               ),
             ),
@@ -196,7 +201,7 @@ class _HalfTimeDivider extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
-              '前半終了',
+              Tr.pick('前半終了', 'Half time'),
               style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
             ),
           ),

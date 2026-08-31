@@ -54,8 +54,9 @@ class MonetizationController extends ChangeNotifier {
   /// 表示用の価格。取得できていなければ null。
   String? priceLabel;
 
-  int get dailyLimit =>
-      isSupporter ? RewardOffer.dailyLimitSupporter : RewardOffer.dailyLimitFree;
+  int get dailyLimit => isSupporter
+      ? RewardOffer.dailyLimitSupporter
+      : RewardOffer.dailyLimitFree;
 
   int get remainingToday => (dailyLimit - claimedToday).clamp(0, dailyLimit);
 

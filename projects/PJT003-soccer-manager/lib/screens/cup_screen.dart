@@ -13,6 +13,7 @@ import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
 import 'live_match_screen.dart';
 import 'match_screen.dart';
+import '../l10n/tr.dart';
 
 /// カップ戦のクイック消化後に、自クラブが賞金を獲得していればSnackBarで
 /// 知らせる(表示した通知は消費してnullへ戻す)。ライブ観戦はフルタイム
@@ -34,7 +35,9 @@ Future<void> playCupMatchLive(BuildContext context, LiveCupKind kind) async {
   if (!context.mounted) return;
   if (!started) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('今はライブで開始できません')),
+      SnackBar(
+          content: Text(
+              Tr.pick('今はライブで開始できません', 'You cannot start it live right now'))),
     );
     return;
   }
@@ -51,13 +54,13 @@ class CupScreen extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('カップ戦'),
+          title: Text(Tr.pick('カップ戦', 'Cups')),
           leading: const BackButton(),
           actions: const [QuickAccessMenuButton()],
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
-              Tab(text: '国内カップ'),
-              Tab(text: '大陸カップ'),
+              Tab(text: Tr.pick('国内カップ', 'Domestic Cup')),
+              Tab(text: Tr.pick('大陸カップ', 'Continental Cup')),
             ],
           ),
         ),
@@ -81,10 +84,12 @@ class _DomesticCupTab extends StatelessWidget {
     final cup = gameState.domesticCup;
 
     if (cup == null) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text('カップ戦の情報がありません。', textAlign: TextAlign.center),
+          padding: const EdgeInsets.all(24),
+          child: Text(
+              Tr.pick('カップ戦の情報がありません。', 'There is no cup information yet.'),
+              textAlign: TextAlign.center),
         ),
       );
     }
@@ -112,7 +117,8 @@ class _DomesticCupTab extends StatelessWidget {
                     ? SemanticColors.positive(context)
                     : null,
               ),
-              title: Text('優勝: ${nameOf(cup.championId!)}'),
+              title: Text(Tr.pick('優勝: ${nameOf(cup.championId!)}',
+                  'Winners: ${nameOf(cup.championId!)}')),
             ),
           )
         else if (userEliminated)
@@ -122,8 +128,9 @@ class _DomesticCupTab extends StatelessWidget {
                 Icons.info_outline,
                 color: SemanticColors.negative(context),
               ),
-              title: const Text('自クラブは敗退しました'),
-              subtitle: const Text('他クラブの結果は引き続き更新されます'),
+              title: Text(Tr.pick('自クラブは敗退しました', 'You are out')),
+              subtitle: Text(Tr.pick(
+                  '他クラブの結果は引き続き更新されます', 'The other results keep coming in')),
             ),
           ),
         if (nextMatch != null)
@@ -138,7 +145,8 @@ class _DomesticCupTab extends StatelessWidget {
                       onPressed: () =>
                           playCupMatchLive(context, LiveCupKind.domestic),
                       icon: const Icon(Icons.sports_soccer),
-                      label: const Text('自クラブの試合をライブで戦う'),
+                      label: Text(
+                          Tr.pick('自クラブの試合をライブで戦う', 'Watch your tie live')),
                     ),
                   ),
                 if (gameState.canPlayNextDomesticCupMatchLive)
@@ -148,21 +156,23 @@ class _DomesticCupTab extends StatelessWidget {
                   child: gameState.canPlayNextDomesticCupMatchLive
                       ? OutlinedButton(
                           onPressed: () => _playNext(context),
-                          child: const Text('観戦せず結果だけ確定(クイック消化)'),
+                          child: Text(Tr.pick(
+                              '観戦せず結果だけ確定(クイック消化)', 'Just settle the result')),
                         )
                       : FilledButton(
                           onPressed: gameState.canPlayNextDomesticCupMatch
                               ? () => _playNext(context)
                               : null,
-                          child: const Text('次の試合を消化'),
+                          child: Text(Tr.pick('次の試合を消化', 'Play the next tie')),
                         ),
                 ),
                 if (!gameState.canPlayNextDomesticCupMatch)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      'リーグ戦を1節進めると次の試合を消化できます',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                      Tr.pick('リーグ戦を1節進めると次の試合を消化できます',
+                          'Play one more league matchday and you can take the next tie'),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ),
               ],
@@ -196,8 +206,10 @@ class _DomesticCupTab extends StatelessWidget {
     if (result != null && isUserMatch) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) =>
-              MatchScreen(result: result, teams: teams, title: '国内カップ'),
+          builder: (_) => MatchScreen(
+              result: result,
+              teams: teams,
+              title: Tr.pick('国内カップ', 'Domestic Cup')),
         ),
       );
     }
@@ -213,11 +225,12 @@ class _ContinentalCupTab extends StatelessWidget {
     final cup = gameState.continentalCup;
 
     if (cup == null) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Text(
-            '前シーズンをリーグ2位以内で終えると、翌シーズンは大陸カップに出場できます。',
+            Tr.pick('前シーズンをリーグ2位以内で終えると、翌シーズンは大陸カップに出場できます。',
+                'Finish in the top two and you qualify for the Continental Cup next season.'),
             textAlign: TextAlign.center,
           ),
         ),
@@ -249,7 +262,8 @@ class _ContinentalCupTab extends StatelessWidget {
                     ? SemanticColors.positive(context)
                     : null,
               ),
-              title: Text('優勝: ${nameOf(cup.championId!)}'),
+              title: Text(Tr.pick('優勝: ${nameOf(cup.championId!)}',
+                  'Winners: ${nameOf(cup.championId!)}')),
             ),
           )
         else if (userEliminated)
@@ -259,8 +273,9 @@ class _ContinentalCupTab extends StatelessWidget {
                 Icons.info_outline,
                 color: SemanticColors.negative(context),
               ),
-              title: const Text('自クラブは敗退しました'),
-              subtitle: const Text('他クラブの結果は引き続き更新されます'),
+              title: Text(Tr.pick('自クラブは敗退しました', 'You are out')),
+              subtitle: Text(Tr.pick(
+                  '他クラブの結果は引き続き更新されます', 'The other results keep coming in')),
             ),
           ),
         if (nextGroupMatch != null)
@@ -275,7 +290,8 @@ class _ContinentalCupTab extends StatelessWidget {
                       onPressed: () => playCupMatchLive(
                           context, LiveCupKind.continentalGroup),
                       icon: const Icon(Icons.sports_soccer),
-                      label: const Text('自クラブの試合をライブで戦う'),
+                      label: Text(
+                          Tr.pick('自クラブの試合をライブで戦う', 'Watch your tie live')),
                     ),
                   ),
                 if (gameState.canPlayNextContinentalMatchLive)
@@ -285,21 +301,24 @@ class _ContinentalCupTab extends StatelessWidget {
                   child: gameState.canPlayNextContinentalMatchLive
                       ? OutlinedButton(
                           onPressed: () => _playNextGroup(context),
-                          child: const Text('観戦せず結果だけ確定(クイック消化)'),
+                          child: Text(Tr.pick(
+                              '観戦せず結果だけ確定(クイック消化)', 'Just settle the result')),
                         )
                       : FilledButton(
                           onPressed: gameState.canPlayNextContinentalMatch
                               ? () => _playNextGroup(context)
                               : null,
-                          child: const Text('次のグループステージの試合を消化'),
+                          child: Text(Tr.pick(
+                              '次のグループステージの試合を消化', 'Play the next group match')),
                         ),
                 ),
                 if (!gameState.canPlayNextContinentalMatch)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      'リーグ戦を1節進めると次の試合を消化できます',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                      Tr.pick('リーグ戦を1節進めると次の試合を消化できます',
+                          'Play one more league matchday and you can take the next tie'),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ),
               ],
@@ -317,7 +336,8 @@ class _ContinentalCupTab extends StatelessWidget {
                       onPressed: () => playCupMatchLive(
                           context, LiveCupKind.continentalKnockout),
                       icon: const Icon(Icons.sports_soccer),
-                      label: const Text('自クラブのレグをライブで戦う'),
+                      label: Text(
+                          Tr.pick('自クラブのレグをライブで戦う', 'Watch your leg live')),
                     ),
                   ),
                 if (gameState.canPlayNextContinentalMatchLive)
@@ -327,33 +347,37 @@ class _ContinentalCupTab extends StatelessWidget {
                   child: gameState.canPlayNextContinentalMatchLive
                       ? OutlinedButton(
                           onPressed: () => _playNextKnockoutLeg(context),
-                          child: const Text('観戦せず結果だけ確定(クイック消化)'),
+                          child: Text(Tr.pick(
+                              '観戦せず結果だけ確定(クイック消化)', 'Just settle the result')),
                         )
                       : FilledButton(
                           onPressed: gameState.canPlayNextContinentalMatch
                               ? () => _playNextKnockoutLeg(context)
                               : null,
-                          child: const Text('次の決勝トーナメントのレグを消化'),
+                          child: Text(Tr.pick('次の決勝トーナメントのレグを消化',
+                              'Play the next knockout leg')),
                         ),
                 ),
                 if (!gameState.canPlayNextContinentalMatch)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      'リーグ戦を1節進めると次の試合を消化できます',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                      Tr.pick('リーグ戦を1節進めると次の試合を消化できます',
+                          'Play one more league matchday and you can take the next tie'),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ),
               ],
             ),
           ),
         _RoundSection(
-          title: 'グループステージ',
+          title: Tr.pick('グループステージ', 'Group stage'),
           initiallyExpanded: !groupStageDone,
           children: [
             for (int g = 0; g < cup.groups.length; g++)
               _GroupTable(
-                label: 'グループ${String.fromCharCode(65 + g)}',
+                label: Tr.pick('グループ${String.fromCharCode(65 + g)}',
+                    'Group ${String.fromCharCode(65 + g)}'),
                 groupIndex: g,
                 cup: cup,
                 teams: teams,
@@ -396,7 +420,7 @@ class _ContinentalCupTab extends StatelessWidget {
           builder: (_) => MatchScreen(
             result: result,
             teams: teams,
-            title: '大陸カップ グループステージ',
+            title: Tr.pick('大陸カップ グループステージ', 'Continental Cup group stage'),
           ),
         ),
       );
@@ -422,7 +446,7 @@ class _ContinentalCupTab extends StatelessWidget {
           builder: (_) => MatchScreen(
             result: result,
             teams: teams,
-            title: '大陸カップ 決勝トーナメント',
+            title: Tr.pick('大陸カップ 決勝トーナメント', 'Continental Cup knockout stage'),
           ),
         ),
       );
@@ -448,7 +472,7 @@ class _BracketMatchCard extends StatelessWidget {
     final isUserMatch =
         match.homeTeamId == userId || match.awayTeamId == userId;
     final resultLabel = match.result == null
-        ? '未消化'
+        ? Tr.pick('未消化', 'Not played')
         : '${match.result!.homeGoals} - ${match.result!.awayGoals}';
     final card = Card(
       margin: const EdgeInsets.only(bottom: 6),
@@ -463,18 +487,19 @@ class _BracketMatchCard extends StatelessWidget {
           '${nameOf(match.homeTeamId)} vs ${nameOf(match.awayTeamId)}',
         ),
         subtitle: match.penaltyWinnerId != null
-            ? Text('PK戦: ${nameOf(match.penaltyWinnerId!)}が勝利')
+            ? Text(Tr.pick('PK戦: ${nameOf(match.penaltyWinnerId!)}が勝利',
+                'Shootout: ${nameOf(match.penaltyWinnerId!)} go through'))
             : null,
         trailing: match.result == null
-            ? const Text('未消化')
+            ? Text(Tr.pick('未消化', 'Not played'))
             : Text(resultLabel, style: Theme.of(context).textTheme.titleMedium),
       ),
     );
     if (!isUserMatch) return card;
     return Semantics(
-      label: '自クラブの試合。'
-          '${nameOf(match.homeTeamId)} vs ${nameOf(match.awayTeamId)}、$resultLabel'
-          '${match.penaltyWinnerId != null ? '、PK戦: ${nameOf(match.penaltyWinnerId!)}が勝利' : ''}',
+      label: Tr.pick(
+          '自クラブの試合。${nameOf(match.homeTeamId)} vs ${nameOf(match.awayTeamId)}、$resultLabel${match.penaltyWinnerId != null ? '、PK戦: ${nameOf(match.penaltyWinnerId!)}が勝利' : ''}',
+          "Your match. ${nameOf(match.homeTeamId)} vs ${nameOf(match.awayTeamId)}, $resultLabel${match.penaltyWinnerId != null ? ', shootout won by ${nameOf(match.penaltyWinnerId!)}' : ''}"),
       child: ExcludeSemantics(child: card),
     );
   }
@@ -539,14 +564,17 @@ class _GroupTable extends StatelessWidget {
                         leading: SizedBox(width: 20, child: Text('${i + 1}')),
                         title: Text(teamName),
                         trailing: Text(
-                          '${standings[i].points}pt (${standings[i].played}試合)',
+                          Tr.pick(
+                              '${standings[i].points}pt (${standings[i].played}試合)',
+                              '${standings[i].points} pts (${standings[i].played} played)'),
                         ),
                       ),
                     );
                     if (!isUserRow) return row;
                     return Semantics(
-                      label: '自クラブ。${i + 1}位: $teamName、'
-                          '${standings[i].points}pt (${standings[i].played}試合)',
+                      label: Tr.pick(
+                          '自クラブ。${i + 1}位: $teamName、${standings[i].points}pt (${standings[i].played}試合)',
+                          'Your club. ${i + 1}: $teamName, ${standings[i].points} pts (${standings[i].played} played)'),
                       child: ExcludeSemantics(child: row),
                     );
                   },
@@ -574,13 +602,17 @@ class _TieCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isUserTie = tie.teamAId == userId || tie.teamBId == userId;
     final legsLabel = tie.legs.isEmpty
-        ? '未消化'
+        ? Tr.pick('未消化', 'Not played')
         : tie.legs.map((r) => '${r.homeGoals}-${r.awayGoals}').join(' / ');
     final scoreLabel = tie.singleLeg
-        ? '1試合制: $legsLabel'
-        : '合計スコア: ${tie.goalsFor(tie.teamAId)} - ${tie.goalsFor(tie.teamBId)} ($legsLabel)';
-    final resultLabel =
-        tie.winnerId == null ? '対戦中' : '${nameOf(tie.winnerId!)}が勝利';
+        ? Tr.pick('1試合制: $legsLabel', 'Single leg: $legsLabel')
+        : Tr.pick(
+            '合計スコア: ${tie.goalsFor(tie.teamAId)} - ${tie.goalsFor(tie.teamBId)} ($legsLabel)',
+            'Aggregate: ${tie.goalsFor(tie.teamAId)} - ${tie.goalsFor(tie.teamBId)} ($legsLabel)');
+    final resultLabel = tie.winnerId == null
+        ? Tr.pick('対戦中', 'In progress')
+        : Tr.pick('${nameOf(tie.winnerId!)}が勝利',
+            '${nameOf(tie.winnerId!)} go through');
     final card = Card(
       margin: const EdgeInsets.only(bottom: 6),
       child: ListTile(
@@ -593,14 +625,15 @@ class _TieCard extends StatelessWidget {
         title: Text('${nameOf(tie.teamAId)} vs ${nameOf(tie.teamBId)}'),
         subtitle: Text(scoreLabel),
         trailing: tie.winnerId == null
-            ? const Text('対戦中')
+            ? Text(Tr.pick('対戦中', 'In progress'))
             : Text(resultLabel, style: Theme.of(context).textTheme.titleSmall),
       ),
     );
     if (!isUserTie) return card;
     return Semantics(
-      label: '自クラブの対戦。${nameOf(tie.teamAId)} vs ${nameOf(tie.teamBId)}、'
-          '$scoreLabel、$resultLabel',
+      label: Tr.pick(
+          '自クラブの対戦。${nameOf(tie.teamAId)} vs ${nameOf(tie.teamBId)}、$scoreLabel、$resultLabel',
+          'Your tie. ${nameOf(tie.teamAId)} vs ${nameOf(tie.teamBId)}, $scoreLabel, $resultLabel'),
       child: ExcludeSemantics(child: card),
     );
   }

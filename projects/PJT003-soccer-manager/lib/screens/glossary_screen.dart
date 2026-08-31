@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/glossary_entries.dart';
 import '../widgets/quick_access_drawer.dart';
+import '../l10n/tr.dart';
 
 /// 選手能力値・複合指標・コンディション・契約・戦術など、アプリ内に登場する
 /// 各種指標の意味をまとめた用語集画面。検索とカテゴリ絞り込みに対応する。
@@ -65,7 +66,7 @@ class _GlossaryScreenState extends State<GlossaryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('用語集'),
+        title: Text(Tr.pick('用語集', 'Glossary')),
         leading: const BackButton(),
         actions: const [QuickAccessMenuButton()],
       ),
@@ -78,14 +79,14 @@ class _GlossaryScreenState extends State<GlossaryScreen> {
               controller: _searchController,
               onChanged: (v) => setState(() => _query = v),
               decoration: InputDecoration(
-                hintText: '用語で検索',
+                hintText: Tr.pick('用語で検索', 'Search the glossary'),
                 prefixIcon: const Icon(Icons.search),
                 isDense: true,
                 suffixIcon: _query.isEmpty
                     ? null
                     : IconButton(
                         icon: const Icon(Icons.clear),
-                        tooltip: '検索をクリア',
+                        tooltip: Tr.pick('検索をクリア', 'Clear the search'),
                         onPressed: () {
                           _searchController.clear();
                           setState(() => _query = '');
@@ -103,7 +104,7 @@ class _GlossaryScreenState extends State<GlossaryScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: ChoiceChip(
-                    label: const Text('すべて'),
+                    label: Text(Tr.pick('すべて', 'All')),
                     selected: _category == null,
                     onSelected: (_) => setState(() => _category = null),
                   ),
@@ -123,7 +124,8 @@ class _GlossaryScreenState extends State<GlossaryScreen> {
           const Divider(height: 1),
           Expanded(
             child: filtered.isEmpty
-                ? const Center(child: Text('該当する用語が見つかりません'))
+                ? Center(
+                    child: Text(Tr.pick('該当する用語が見つかりません', 'No entries match')))
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     itemCount: filtered.length,

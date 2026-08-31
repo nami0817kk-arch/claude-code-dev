@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../monetization/monetization_controller.dart';
 import '../services/feedback_service.dart';
 import '../state/game_state.dart';
+import '../l10n/tr.dart';
 
 /// 特典資金を受け取るカード。ファイナンス画面に置く。
 ///
@@ -48,12 +49,13 @@ class _RewardFundsCardState extends State<RewardFundsCard> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'スポンサーの特別協賛金',
+                    Tr.pick('スポンサーの特別協賛金', 'Special sponsorship payment'),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
                 Text(
-                  '本日 ${money.remainingToday}/${money.dailyLimit}',
+                  Tr.pick('本日 ${money.remainingToday}/${money.dailyLimit}',
+                      'Today ${money.remainingToday}/${money.dailyLimit}'),
                   style: TextStyle(color: scheme.onSurfaceVariant),
                 ),
               ],
@@ -61,11 +63,14 @@ class _RewardFundsCardState extends State<RewardFundsCard> {
             const SizedBox(height: 4),
             Text(
               soldOut
-                  ? '本日分は受け取り済みです。日付が変わるとまた受け取れます。'
+                  ? Tr.pick('本日分は受け取り済みです。日付が変わるとまた受け取れます。',
+                      "You have taken today's allowance. It resets tomorrow.")
                   : money.requiresAd
-                      ? '短い動画広告を最後まで見ると$amount万円を受け取れます。'
-                          '見なくてもゲームは最後まで遊べます。'
-                      : 'サポーターとして、広告なしで$amount万円を受け取れます。',
+                      ? Tr.pick(
+                          '短い動画広告を最後まで見ると$amount万円を受け取れます。見なくてもゲームは最後まで遊べます。',
+                          'Watch a short video to the end and receive $amount. You can finish the game without ever watching one.')
+                      : Tr.pick('サポーターとして、広告なしで$amount万円を受け取れます。',
+                          'As a supporter, you receive $amount with no ad.'),
               style: TextStyle(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 12),
@@ -83,10 +88,11 @@ class _RewardFundsCardState extends State<RewardFundsCard> {
                         : Icons.redeem),
                 label: Text(
                   soldOut
-                      ? '本日分は受け取り済み'
+                      ? Tr.pick('本日分は受け取り済み', 'Already taken today')
                       : money.requiresAd
-                          ? '動画を見て$amount万円'
-                          : '$amount万円を受け取る',
+                          ? Tr.pick(
+                              '動画を見て$amount万円', 'Watch a video for $amount')
+                          : Tr.pick('$amount万円を受け取る', 'Receive $amount'),
                 ),
                 onPressed: _busy || soldOut ? null : _claim,
               ),
@@ -108,12 +114,16 @@ class _RewardFundsCardState extends State<RewardFundsCard> {
     setState(() => _busy = false);
 
     final message = switch (result) {
-      ClaimResult.granted =>
-        '特別協賛金${gameState.claimRewardFunds()}万円を受け取りました',
-      ClaimResult.limitReached => '本日分の受け取りは上限に達しています',
+      ClaimResult.granted => Tr.pick(
+          '特別協賛金${gameState.claimRewardFunds()}万円を受け取りました',
+          'You received ${gameState.claimRewardFunds()} in sponsorship'),
+      ClaimResult.limitReached =>
+        Tr.pick('本日分の受け取りは上限に達しています', "You have reached today's limit"),
       // 途中で閉じただけなので、責めるような文言にしない。
-      ClaimResult.adNotCompleted => '広告が最後まで再生されなかったため、受け取れませんでした',
-      ClaimResult.unavailable => 'いま表示できる広告がありません。時間をおいてお試しください',
+      ClaimResult.adNotCompleted => Tr.pick('広告が最後まで再生されなかったため、受け取れませんでした',
+          'The ad did not finish, so nothing was paid'),
+      ClaimResult.unavailable => Tr.pick('いま表示できる広告がありません。時間をおいてお試しください',
+          'No ad is available right now. Please try again later'),
     };
     if (!mounted) return;
     ScaffoldMessenger.of(context)

@@ -5,6 +5,7 @@ import '../state/game_state.dart';
 import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
 import 'player_detail_screen.dart';
+import '../l10n/tr.dart';
 
 /// シーズンごとに確定した個人タイトル(得点王・年間MVP)の履歴を表示する画面。
 class AwardsScreen extends StatelessWidget {
@@ -19,7 +20,7 @@ class AwardsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('個人タイトル'),
+        title: Text(Tr.pick('個人タイトル', 'Individual awards')),
         leading: const BackButton(),
         actions: const [QuickAccessMenuButton()],
       ),
@@ -38,8 +39,9 @@ class AwardsScreen extends StatelessWidget {
                         color: Colors.grey.shade400,
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        'まだ表彰記録がありません(シーズン終了時に確定します)',
+                      Text(
+                        Tr.pick('まだ表彰記録がありません(シーズン終了時に確定します)',
+                            'No awards yet. They are decided at the end of each season'),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -85,7 +87,7 @@ class AwardsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'シーズン${a.season}',
+                            Tr.pick('シーズン${a.season}', 'Season ${a.season}'),
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           const Divider(height: 20),
@@ -97,7 +99,7 @@ class AwardsScreen extends StatelessWidget {
                             ),
                             title: Row(
                               children: [
-                                const Text('得点王'),
+                                Text(Tr.pick('得点王', 'Top scorer')),
                                 if (scorerIsOwnClub) ...[
                                   const SizedBox(width: 6),
                                   const Icon(
@@ -109,9 +111,11 @@ class AwardsScreen extends StatelessWidget {
                               ],
                             ),
                             subtitle: a.topScorerName == null
-                                ? const Text('該当者なし')
+                                ? Text(Tr.pick('該当者なし', 'Not awarded'))
                                 : Text(
-                                    '${a.topScorerName}（${a.topScorerTeamName}） - ${a.topScorerGoals}得点',
+                                    Tr.pick(
+                                        '${a.topScorerName}（${a.topScorerTeamName}） - ${a.topScorerGoals}得点',
+                                        '${a.topScorerName} (${a.topScorerTeamName}) — ${a.topScorerGoals} goals'),
                                   ),
                             onTap: scorerPlayerId == null
                                 ? null
@@ -125,7 +129,7 @@ class AwardsScreen extends StatelessWidget {
                             ),
                             title: Row(
                               children: [
-                                const Text('年間MVP'),
+                                Text(Tr.pick('年間MVP', 'Player of the season')),
                                 if (mvpIsOwnClub) ...[
                                   const SizedBox(width: 6),
                                   const Icon(
@@ -137,7 +141,7 @@ class AwardsScreen extends StatelessWidget {
                               ],
                             ),
                             subtitle: a.mvpName == null
-                                ? const Text('該当者なし')
+                                ? Text(Tr.pick('該当者なし', 'Not awarded'))
                                 : Text('${a.mvpName}（${a.mvpTeamName}）'),
                             onTap: mvpPlayerId == null
                                 ? null
@@ -151,7 +155,7 @@ class AwardsScreen extends StatelessWidget {
                             ),
                             title: Row(
                               children: [
-                                const Text('ゴールデングラブ'),
+                                Text(Tr.pick('ゴールデングラブ', 'Golden Glove')),
                                 if (gloveIsOwnClub) ...[
                                   const SizedBox(width: 6),
                                   const Icon(
@@ -163,10 +167,11 @@ class AwardsScreen extends StatelessWidget {
                               ],
                             ),
                             subtitle: a.goldenGloveName == null
-                                ? const Text('該当者なし')
+                                ? Text(Tr.pick('該当者なし', 'Not awarded'))
                                 : Text(
-                                    '${a.goldenGloveName}（${a.goldenGloveTeamName}） - '
-                                    '無失点${a.goldenGloveCleanSheets}試合',
+                                    Tr.pick(
+                                        '${a.goldenGloveName}（${a.goldenGloveTeamName}） - 無失点${a.goldenGloveCleanSheets}試合',
+                                        '${a.goldenGloveName} (${a.goldenGloveTeamName}) — ${a.goldenGloveCleanSheets} clean sheets'),
                                   ),
                             onTap: glovePlayerId == null
                                 ? null

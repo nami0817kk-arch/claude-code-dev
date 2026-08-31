@@ -11,6 +11,7 @@ import '../widgets/player_face_avatar.dart';
 import '../widgets/position_filter_bar.dart';
 import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
+import '../l10n/tr.dart';
 
 /// 潜在能力と現在能力の差がこの値以上なら、伸びしろの大きい「有望株」として強調する。
 const int _wonderkidGap = 15;
@@ -19,10 +20,11 @@ enum YouthSortOption { overall, potential, age, wonderkidGap }
 
 extension on YouthSortOption {
   String get label => switch (this) {
-        YouthSortOption.overall => '総合力',
-        YouthSortOption.potential => 'ポテンシャル',
-        YouthSortOption.age => '年齢(若い順)',
-        YouthSortOption.wonderkidGap => '伸びしろ(潜在−総合)',
+        YouthSortOption.overall => Tr.pick('総合力', 'Overall'),
+        YouthSortOption.potential => Tr.pick('ポテンシャル', 'Potential'),
+        YouthSortOption.age => Tr.pick('年齢(若い順)', 'Age (youngest)'),
+        YouthSortOption.wonderkidGap =>
+          Tr.pick('伸びしろ(潜在−総合)', 'Room to grow (potential − overall)'),
       };
 }
 
@@ -110,7 +112,7 @@ class _YouthScreenState extends State<YouthScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ユース・スカウト'),
+        title: Text(Tr.pick('ユース・スカウト', 'Youth & scouting')),
         leading: const BackButton(),
         actions: const [QuickAccessMenuButton()],
       ),
@@ -124,10 +126,12 @@ class _YouthScreenState extends State<YouthScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '資金: ${save.budget}万円',
+                    Tr.pick('資金: ${save.budget}万円', 'Funds: ${save.budget}'),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  Text('昇格枠: ${save.youthProspects.length}/$maxProspects'),
+                  Text(Tr.pick(
+                      '昇格枠: ${save.youthProspects.length}/$maxProspects',
+                      'Academy places: ${save.youthProspects.length}/$maxProspects')),
                 ],
               ),
             ),
@@ -138,13 +142,16 @@ class _YouthScreenState extends State<YouthScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      'スカウト網（獲得費用: $scoutCost万円/人・${candidates.length}人閲覧可）',
+                      Tr.pick(
+                          'スカウト網（獲得費用: $scoutCost万円/人・${candidates.length}人閲覧可）',
+                          'Scouting network ($scoutCost per signing, ${candidates.length} to look at)'),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.refresh),
-                    tooltip: '候補を更新する（$refreshCost万円）',
+                    tooltip: Tr.pick('候補を更新する（$refreshCost万円）',
+                        'Refresh the shortlist ($refreshCost)'),
                     onPressed: canRefresh ? () => _refresh(context) : null,
                   ),
                 ],
@@ -156,14 +163,14 @@ class _YouthScreenState extends State<YouthScreen> {
                 controller: _searchController,
                 onChanged: (v) => setState(() => _query = v),
                 decoration: InputDecoration(
-                  hintText: '選手名で検索',
+                  hintText: Tr.pick('選手名で検索', 'Search by name'),
                   prefixIcon: const Icon(Icons.search),
                   isDense: true,
                   suffixIcon: _query.isEmpty
                       ? null
                       : IconButton(
                           icon: const Icon(Icons.clear),
-                          tooltip: '検索をクリア',
+                          tooltip: Tr.pick('検索をクリア', 'Clear the search'),
                           onPressed: () {
                             _searchController.clear();
                             setState(() => _query = '');
@@ -185,7 +192,7 @@ class _YouthScreenState extends State<YouthScreen> {
                   ),
                   PopupMenuButton<YouthSortOption>(
                     icon: const Icon(Icons.sort),
-                    tooltip: '並び替え',
+                    tooltip: Tr.pick('並び替え', 'Sort'),
                     initialValue: _sort,
                     onSelected: (v) => setState(() => _sort = v),
                     itemBuilder: (context) => [
@@ -198,11 +205,12 @@ class _YouthScreenState extends State<YouthScreen> {
             ),
             const SizedBox(height: 8),
             if (candidates.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Text(
-                  '該当する候補選手はいません',
-                  style: TextStyle(color: Colors.grey),
+                  Tr.pick('該当する候補選手はいません', 'No prospects match'),
+                  style: const TextStyle(color: Colors.grey),
                 ),
               )
             else
@@ -236,10 +244,11 @@ class _YouthScreenState extends State<YouthScreen> {
                               ),
                               if (maybeWonderkid) ...[
                                 const SizedBox(width: 6),
-                                const Tooltip(
-                                  message:
+                                Tooltip(
+                                  message: Tr.pick(
                                       'ワンダーキッドの可能性あり(推定潜在能力の上限が高い。獲得するまで確定情報ではない)',
-                                  child: Icon(
+                                      'Could be a wonderkid. His estimated ceiling is high, but nothing is certain until you sign him'),
+                                  child: const Icon(
                                     Icons.auto_awesome,
                                     size: 14,
                                     color: Colors.amber,
@@ -249,13 +258,14 @@ class _YouthScreenState extends State<YouthScreen> {
                             ],
                           ),
                           subtitle: Text(
-                            '${p.age}歳 / ${p.position.label} / 総合 ${p.overall} / '
-                            '潜在(推定) ${range.$1}〜${range.$2} / 成長 ${p.growthType.label}',
+                            Tr.pick(
+                                '${p.age}歳 / ${p.position.label} / 総合 ${p.overall} / 潜在(推定) ${range.$1}〜${range.$2} / 成長 ${p.growthType.label}',
+                                'Age ${p.age} / ${p.position.label} / overall ${p.overall} / potential (est.) ${range.$1}–${range.$2} / ${p.growthType.label}'),
                           ),
                           trailing: FilledButton(
                             onPressed:
                                 canScout ? () => _scout(context, p.id) : null,
-                            child: const Text('獲得'),
+                            child: Text(Tr.pick('獲得', 'Sign')),
                           ),
                         ),
                       ),
@@ -266,17 +276,16 @@ class _YouthScreenState extends State<YouthScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                '昇格候補',
+                Tr.pick('昇格候補', 'Academy prospects'),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                '昇格候補はユース施設で育成され続けます'
-                '(成長係数 x${gameState.youthAcademyGrowthFactor.toStringAsFixed(2)}。'
-                'ユース施設のレベルを上げるとじっくり育てる価値が高まります)。'
-                '毎週ユース練習試合も行われ、活躍した候補はさらに伸びます',
+                Tr.pick(
+                    '昇格候補はユース施設で育成され続けます(成長係数 x${gameState.youthAcademyGrowthFactor.toStringAsFixed(2)}。ユース施設のレベルを上げるとじっくり育てる価値が高まります)。毎週ユース練習試合も行われ、活躍した候補はさらに伸びます',
+                    'Prospects keep developing in your youth setup (growth x${gameState.youthAcademyGrowthFactor.toStringAsFixed(2)}; better facilities make it more worthwhile to be patient). They also play a youth match each week, and those who do well improve faster'),
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
@@ -297,9 +306,9 @@ class _YouthScreenState extends State<YouthScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '今週のユース練習試合: ${report.scoreLabel} '
-                              '${report.isWin ? '勝利' : report.isDraw ? '引き分け' : '敗戦'}'
-                              '(相手の総合力 ${report.opponentRating})',
+                              Tr.pick(
+                                  '今週のユース練習試合: ${report.scoreLabel} ${report.isWin ? '勝利' : report.isDraw ? '引き分け' : '敗戦'}(相手の総合力 ${report.opponentRating})',
+                                  "This week's youth match: ${report.scoreLabel} ${report.isWin ? 'win' : report.isDraw ? 'draw' : 'defeat'} (opponent overall ${report.opponentRating})"),
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
@@ -307,9 +316,9 @@ class _YouthScreenState extends State<YouthScreen> {
                             ),
                             if (best != null)
                               Text(
-                                'ベストプレイヤー: ${best.player.name}'
-                                '(評点 ${best.rating.toStringAsFixed(1)}'
-                                '${best.goals > 0 ? '・${best.goals}得点' : ''})',
+                                Tr.pick(
+                                    'ベストプレイヤー: ${best.player.name}(評点 ${best.rating.toStringAsFixed(1)}${best.goals > 0 ? '・${best.goals}得点' : ''})',
+                                    "Best on the day: ${best.player.name} (rated ${best.rating.toStringAsFixed(1)}${best.goals > 0 ? ', ${best.goals} goals' : ''})"),
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey,
@@ -332,8 +341,9 @@ class _YouthScreenState extends State<YouthScreen> {
                 ),
                 child: Text(
                   save.youthProspects.isEmpty
-                      ? '現在、昇格候補はいません'
-                      : '該当する昇格候補はいません',
+                      ? Tr.pick(
+                          '現在、昇格候補はいません', 'You have no prospects right now')
+                      : Tr.pick('該当する昇格候補はいません', 'No prospects match'),
                 ),
               )
             else
@@ -359,9 +369,10 @@ class _YouthScreenState extends State<YouthScreen> {
                           ),
                           if (p.potential - p.overall >= _wonderkidGap) ...[
                             const SizedBox(width: 6),
-                            const Tooltip(
-                              message: 'ワンダーキッド(潜在能力が現在能力を大きく上回る逸材)',
-                              child: Icon(
+                            Tooltip(
+                              message: Tr.pick('ワンダーキッド(潜在能力が現在能力を大きく上回る逸材)',
+                                  'Wonderkid: his ceiling sits far above where he is now'),
+                              child: const Icon(
                                 Icons.auto_awesome,
                                 size: 14,
                                 color: Colors.amber,
@@ -374,14 +385,17 @@ class _YouthScreenState extends State<YouthScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '${p.age}歳 / 総合 ${p.overall} / 潜在 ${p.potential} / 成長 ${p.growthType.label}',
+                            Tr.pick(
+                                '${p.age}歳 / 総合 ${p.overall} / 潜在 ${p.potential} / 成長 ${p.growthType.label}',
+                                'Age ${p.age} / overall ${p.overall} / potential ${p.potential} / ${p.growthType.label}'),
                           ),
                           Text(
                             p.youthMatchApps == 0
-                                ? 'ユース戦: まだ出場なし'
-                                : 'ユース戦: ${p.youthMatchApps}試合'
-                                    ' ${p.youthMatchGoals}得点 / 直近評点'
-                                    ' ${p.lastYouthMatchRating.toStringAsFixed(1)}',
+                                ? Tr.pick(
+                                    'ユース戦: まだ出場なし', 'Youth matches: none yet')
+                                : Tr.pick(
+                                    'ユース戦: ${p.youthMatchApps}試合 ${p.youthMatchGoals}得点 / 直近評点 ${p.lastYouthMatchRating.toStringAsFixed(1)}',
+                                    'Youth matches: ${p.youthMatchApps} apps, ${p.youthMatchGoals} goals / last rating ${p.lastYouthMatchRating.toStringAsFixed(1)}'),
                             style: TextStyle(
                               fontSize: 12,
                               color: p.lastYouthMatchRating >=
@@ -392,9 +406,9 @@ class _YouthScreenState extends State<YouthScreen> {
                           ),
                           Row(
                             children: [
-                              const Text(
-                                '育成方針: ',
-                                style: TextStyle(fontSize: 12),
+                              Text(
+                                Tr.pick('育成方針: ', 'Focus: '),
+                                style: const TextStyle(fontSize: 12),
                               ),
                               DropdownButton<TrainingFocus?>(
                                 value: p.individualFocus,
@@ -403,14 +417,16 @@ class _YouthScreenState extends State<YouthScreen> {
                                   fontSize: 12,
                                   color: Colors.black87,
                                 ),
-                                hint: const Text(
-                                  'ポジション別(既定)',
-                                  style: TextStyle(fontSize: 12),
+                                hint: Text(
+                                  Tr.pick(
+                                      'ポジション別(既定)', 'By position (default)'),
+                                  style: const TextStyle(fontSize: 12),
                                 ),
                                 items: [
-                                  const DropdownMenuItem<TrainingFocus?>(
+                                  DropdownMenuItem<TrainingFocus?>(
                                     value: null,
-                                    child: Text('ポジション別(既定)'),
+                                    child: Text(Tr.pick(
+                                        'ポジション別(既定)', 'By position (default)')),
                                   ),
                                   for (final focus in const [
                                     TrainingFocus.attack,
@@ -441,7 +457,7 @@ class _YouthScreenState extends State<YouthScreen> {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.close),
-                            tooltip: '解雇',
+                            tooltip: Tr.pick('解雇', 'Release'),
                             onPressed: () =>
                                 _confirmRelease(context, p.id, p.name),
                           ),
@@ -449,7 +465,7 @@ class _YouthScreenState extends State<YouthScreen> {
                             onPressed: squadFull
                                 ? null
                                 : () => _promote(context, p.id, p.name),
-                            child: const Text('昇格'),
+                            child: Text(Tr.pick('昇格', 'Promote')),
                           ),
                         ],
                       ),
@@ -468,7 +484,10 @@ class _YouthScreenState extends State<YouthScreen> {
     ok ? FeedbackService.success() : FeedbackService.error();
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ok ? 'スカウト候補を更新しました' : '資金が足りず更新できませんでした')),
+        SnackBar(
+            content: Text(ok
+                ? Tr.pick('スカウト候補を更新しました', 'Shortlist refreshed')
+                : Tr.pick('資金が足りず更新できませんでした', 'Not enough funds to refresh'))),
       );
     }
   }
@@ -478,7 +497,10 @@ class _YouthScreenState extends State<YouthScreen> {
     ok ? FeedbackService.success() : FeedbackService.error();
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ok ? '新しい有望株を発見しました' : 'スカウトできませんでした')),
+        SnackBar(
+            content: Text(ok
+                ? Tr.pick('新しい有望株を発見しました', 'You found a new prospect')
+                : Tr.pick('スカウトできませんでした', 'The scouting did not come off'))),
       );
     }
   }
@@ -492,7 +514,11 @@ class _YouthScreenState extends State<YouthScreen> {
     ok ? FeedbackService.success() : FeedbackService.error();
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ok ? '$nameをトップチームに昇格させました' : '昇格できませんでした')),
+        SnackBar(
+            content: Text(ok
+                ? Tr.pick('$nameをトップチームに昇格させました',
+                    'You promoted $name to the first team')
+                : Tr.pick('昇格できませんでした', 'The promotion did not go through'))),
       );
     }
   }
@@ -501,12 +527,13 @@ class _YouthScreenState extends State<YouthScreen> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('この有望株を解雇しますか？'),
-        content: Text('$nameを手放します。この操作は元に戻せません。'),
+        title: Text(Tr.pick('この有望株を解雇しますか？', 'Release this prospect?')),
+        content: Text(Tr.pick('$nameを手放します。この操作は元に戻せません。',
+            'You let $name go. This cannot be undone.')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('キャンセル'),
+            child: Text(Tr.pick('キャンセル', 'Cancel')),
           ),
           FilledButton(
             onPressed: () {
@@ -514,7 +541,7 @@ class _YouthScreenState extends State<YouthScreen> {
               FeedbackService.tap();
               context.read<GameState>().releaseYouthProspect(playerId);
             },
-            child: const Text('解雇する'),
+            child: Text(Tr.pick('解雇する', 'Release him')),
           ),
         ],
       ),

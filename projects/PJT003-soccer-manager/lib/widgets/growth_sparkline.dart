@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/tr.dart';
 
 /// 総合力の週次推移([Player.overallHistory])を描く小さな折れ線グラフ。
 /// 2点以上の履歴があるときだけ使う想定(呼び出し側で出し分ける)。
@@ -14,7 +15,8 @@ class GrowthSparkline extends StatelessWidget {
     final first = history.first;
     final last = history.last;
     return Semantics(
-      label: '成長推移: 直近${history.length}節で総合$firstから$lastへ',
+      label: Tr.pick('成長推移: 直近${history.length}節で総合$firstから$lastへ',
+          'Progress: overall $first to $last over the last ${history.length} matchdays'),
       child: SizedBox(
         height: height,
         width: double.infinity,

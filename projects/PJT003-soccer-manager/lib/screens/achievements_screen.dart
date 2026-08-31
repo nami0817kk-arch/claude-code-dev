@@ -5,6 +5,7 @@ import '../models/achievement.dart';
 import '../state/game_state.dart';
 import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
+import '../l10n/tr.dart';
 
 /// 実績(アチーブメント)一覧画面。カテゴリごとに達成済み・未達成の実績を
 /// まとめて表示し、長期的なやり込み目標を可視化する。
@@ -20,7 +21,7 @@ class AchievementsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('実績'),
+        title: Text(Tr.pick('実績', 'Achievement')),
         leading: const BackButton(),
         actions: const [QuickAccessMenuButton()],
       ),
@@ -47,12 +48,13 @@ class AchievementsScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '達成状況',
+                              Tr.pick('達成状況', 'Progress'),
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${all.length}件中 $unlockedCount件達成',
+                              Tr.pick('${all.length}件中 $unlockedCount件達成',
+                                  '$unlockedCount of ${all.length} unlocked'),
                               style: const TextStyle(color: Colors.grey),
                             ),
                           ],
@@ -180,7 +182,8 @@ class _AchievementTile extends StatelessWidget {
           children: [
             Text(
               unlocked && season != null
-                  ? '${achievement.description}(シーズン$season達成)'
+                  ? Tr.pick('${achievement.description}(シーズン$season達成)',
+                      '${achievement.description} (unlocked in season $season)')
                   : achievement.description,
               style: TextStyle(
                 color: unlocked ? Colors.grey.shade700 : Colors.grey,

@@ -9,6 +9,7 @@ import '../theme/semantic_colors.dart';
 import '../widgets/club_emblem.dart';
 import '../widgets/responsive_body.dart';
 import '../widgets/stat_bar.dart';
+import '../l10n/tr.dart';
 
 /// アシスタントコーチによる次節対戦相手のスカウティングレポート(試合プレビュー)画面。
 class ScoutReportScreen extends StatelessWidget {
@@ -30,7 +31,7 @@ class ScoutReportScreen extends StatelessWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('スカウティングレポート')),
+      appBar: AppBar(title: Text(Tr.pick('スカウティングレポート', 'Scout report'))),
       body: ResponsiveBody(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -55,7 +56,8 @@ class ScoutReportScreen extends StatelessWidget {
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
                           Text(
-                            '平均総合力: ${report.opponentOverall}',
+                            Tr.pick('平均総合力: ${report.opponentOverall}',
+                                'Average overall: ${report.opponentOverall}'),
                             style: const TextStyle(color: Colors.grey),
                           ),
                         ],
@@ -66,15 +68,25 @@ class ScoutReportScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Text('スタメン想定の平均能力', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+                Tr.pick('スタメン想定の平均能力', 'Average attributes of their likely XI'),
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
-            StatBar(label: '攻撃力', value: report.opponentAttack),
-            StatBar(label: '守備力', value: report.opponentDefense),
-            StatBar(label: '技術', value: report.opponentTechnique),
-            StatBar(label: 'スタミナ', value: report.opponentStamina),
+            StatBar(
+                label: Tr.pick('攻撃力', 'Attack'), value: report.opponentAttack),
+            StatBar(
+                label: Tr.pick('守備力', 'Defence'),
+                value: report.opponentDefense),
+            StatBar(
+                label: Tr.pick('技術', 'Technical'),
+                value: report.opponentTechnique),
+            StatBar(
+                label: Tr.pick('スタミナ', 'Stamina'),
+                value: report.opponentStamina),
             const Divider(height: 32),
             if (report.strengths.isNotEmpty) ...[
-              Text('相手の強み', style: Theme.of(context).textTheme.titleMedium),
+              Text(Tr.pick('相手の強み', 'Their strengths'),
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -90,7 +102,8 @@ class ScoutReportScreen extends StatelessWidget {
               const SizedBox(height: 16),
             ],
             if (report.weaknesses.isNotEmpty) ...[
-              Text('相手の弱み', style: Theme.of(context).textTheme.titleMedium),
+              Text(Tr.pick('相手の弱み', 'Their weaknesses'),
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -106,7 +119,8 @@ class ScoutReportScreen extends StatelessWidget {
               const SizedBox(height: 16),
             ],
             if (report.keyPlayerName != null) ...[
-              Text('注意すべき選手', style: Theme.of(context).textTheme.titleMedium),
+              Text(Tr.pick('注意すべき選手', 'The man to watch'),
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Card(
                 child: Column(
@@ -123,8 +137,11 @@ class ScoutReportScreen extends StatelessWidget {
                           Expanded(
                             child: Text(
                               userTeam.manMarkerId == null
-                                  ? 'マンマーク: 指名なし'
-                                  : 'マンマーク: ${_playerName(userTeam, userTeam.manMarkerId!)}',
+                                  ? Tr.pick('マンマーク: 指名なし',
+                                      'Man-marking: nobody assigned')
+                                  : Tr.pick(
+                                      'マンマーク: ${_playerName(userTeam, userTeam.manMarkerId!)}',
+                                      'Man-marking: ${_playerName(userTeam, userTeam.manMarkerId!)}'),
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey,
@@ -134,7 +151,8 @@ class ScoutReportScreen extends StatelessWidget {
                           TextButton(
                             onPressed: () =>
                                 _showMarkerPicker(context, gameState, report),
-                            child: const Text('マンマークを指名'),
+                            child: Text(
+                                Tr.pick('マンマークを指名', 'Assign a man-marker')),
                           ),
                         ],
                       ),
@@ -145,7 +163,7 @@ class ScoutReportScreen extends StatelessWidget {
               const SizedBox(height: 16),
             ],
             Text(
-              'アシスタントコーチからの提言',
+              Tr.pick('アシスタントコーチからの提言', "Your assistant's view"),
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
@@ -171,11 +189,12 @@ class ScoutReportScreen extends StatelessWidget {
                         Expanded(
                           child: Text(
                             report.counterStyle == null
-                                ? '予想スタイル: ${report.opponentStyle.label}。'
-                                    '型のない相手なので、こちらの得意な形で戦えます。'
-                                : '予想スタイル: ${report.opponentStyle.label}。'
-                                    '相性で有利を取るなら'
-                                    '「${report.counterStyle!.label}」が刺さります。',
+                                ? Tr.pick(
+                                    '予想スタイル: ${report.opponentStyle.label}。型のない相手なので、こちらの得意な形で戦えます。',
+                                    'Expected style: ${report.opponentStyle.label}. They have no fixed shape, so you can play your own game.')
+                                : Tr.pick(
+                                    '予想スタイル: ${report.opponentStyle.label}。相性で有利を取るなら「${report.counterStyle!.label}」が刺さります。',
+                                    'Expected style: ${report.opponentStyle.label}. To get the matchup in your favour, ${report.counterStyle!.label} hurts them.'),
                             style: const TextStyle(fontSize: 13),
                           ),
                         ),
@@ -195,7 +214,7 @@ class ScoutReportScreen extends StatelessWidget {
     for (final p in team.players) {
       if (p.id == playerId) return p.name;
     }
-    return '(退団済み)';
+    return Tr.pick('(退団済み)', ' (has left the club)');
   }
 
   void _showMarkerPicker(
@@ -220,12 +239,13 @@ class ScoutReportScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                '${report.keyPlayerName}へのマンマーク役を選択',
+                Tr.pick('${report.keyPlayerName}へのマンマーク役を選択',
+                    'Pick who man-marks ${report.keyPlayerName}'),
                 style: Theme.of(ctx).textTheme.titleMedium,
               ),
             ),
             ListTile(
-              title: const Text('指名を解除する'),
+              title: Text(Tr.pick('指名を解除する', 'Clear the assignment')),
               onTap: () {
                 gameState.setManMarker(null);
                 Navigator.pop(ctx);
@@ -234,7 +254,8 @@ class ScoutReportScreen extends StatelessWidget {
             for (final p in candidates)
               ListTile(
                 title: Text(p.name),
-                subtitle: Text('${p.position.label} / 総合 ${p.overall}'),
+                subtitle: Text(Tr.pick('${p.position.label} / 総合 ${p.overall}',
+                    '${p.position.label} / overall ${p.overall}')),
                 trailing: userTeam.manMarkerId == p.id
                     ? const Icon(Icons.check, color: Colors.deepPurple)
                     : null,

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../data/quick_access_destinations.dart';
 import '../services/feedback_service.dart';
 import '../state/game_state.dart';
+import '../l10n/tr.dart';
 
 /// どのメインタブ(ホーム/スカッド/戦術/順位表)からでも、ホーム画面の
 /// 「クラブ運営」グリッドにある管理画面へ直接ジャンプできるドロワー。
@@ -14,7 +15,8 @@ class QuickAccessDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gameState = context.watch<GameState>();
-    final clubName = gameState.save?.clubName ?? 'サッカー経営マネージャー';
+    final clubName = gameState.save?.clubName ??
+        Tr.pick('サッカー経営マネージャー', 'Soccer Club Manager');
     return Drawer(
       child: SafeArea(
         child: ListView(
@@ -67,7 +69,7 @@ class QuickAccessMenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       icon: const Icon(Icons.menu),
-      tooltip: '他の管理画面へ',
+      tooltip: Tr.pick('他の管理画面へ', 'Other screens'),
       onPressed: () {
         FeedbackService.tap();
         Scaffold.of(context).openDrawer();

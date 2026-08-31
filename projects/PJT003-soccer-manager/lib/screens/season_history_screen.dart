@@ -7,6 +7,7 @@ import '../state/game_state.dart';
 import '../theme/semantic_colors.dart';
 import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
+import '../l10n/tr.dart';
 
 /// シーズンごとの最終成績(順位・勝敗・昇降格・カップ優勝歴)を振り返る画面。
 class SeasonHistoryScreen extends StatelessWidget {
@@ -26,7 +27,7 @@ class SeasonHistoryScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('シーズン成績アーカイブ'),
+        title: Text(Tr.pick('シーズン成績アーカイブ', 'Season archive')),
         leading: const BackButton(),
         actions: const [QuickAccessMenuButton()],
       ),
@@ -45,8 +46,9 @@ class SeasonHistoryScreen extends StatelessWidget {
                         color: Colors.grey.shade400,
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        'まだ記録がありません(シーズン終了時に確定します)',
+                      Text(
+                        Tr.pick('まだ記録がありません(シーズン終了時に確定します)',
+                            'Nothing recorded yet. Seasons are archived when they finish'),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -83,29 +85,35 @@ class _SeasonRecordCard extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  'シーズン${record.season}',
+                  Tr.pick('シーズン${record.season}', 'Season ${record.season}'),
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(width: 8),
                 if (record.wonLeague)
-                  const _Badge(label: '優勝', color: Colors.amber),
+                  _Badge(
+                      label: Tr.pick('優勝', 'Champions'), color: Colors.amber),
                 if (record.promoted)
-                  _Badge(label: '昇格', color: SemanticColors.positive(context)),
+                  _Badge(
+                      label: Tr.pick('昇格', 'Promote'),
+                      color: SemanticColors.positive(context)),
                 if (record.relegated)
-                  _Badge(label: '降格', color: SemanticColors.negative(context)),
+                  _Badge(
+                      label: Tr.pick('降格', 'Relegated'),
+                      color: SemanticColors.negative(context)),
               ],
             ),
             const SizedBox(height: 4),
             Text(
-              '${record.leagueName}${record.divisionTier != 1 ? '(${record.divisionTier}部)' : ''} '
-              '${record.finalRank}位 / ${record.teamCount}クラブ中',
+              Tr.pick(
+                  '${record.leagueName}${record.divisionTier != 1 ? '(${record.divisionTier}部)' : ''} ${record.finalRank}位 / ${record.teamCount}クラブ中',
+                  "${record.leagueName}${record.divisionTier != 1 ? ' (tier ${record.divisionTier})' : ''} — ${record.finalRank} of ${record.teamCount}"),
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              '${record.played}試合 ${record.won}勝${record.draw}分${record.lost}敗 '
-              '(得点差 ${record.goalDiff >= 0 ? '+' : ''}${record.goalDiff}) '
-              '勝点${record.points}',
+              Tr.pick(
+                  '${record.played}試合 ${record.won}勝${record.draw}分${record.lost}敗 (得点差 ${record.goalDiff >= 0 ? '+' : ''}${record.goalDiff}) 勝点${record.points}',
+                  "P${record.played} W${record.won} D${record.draw} L${record.lost} (GD ${record.goalDiff >= 0 ? '+' : ''}${record.goalDiff}), ${record.points} pts"),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             if (record.cupsWon.isNotEmpty) ...[
@@ -121,7 +129,7 @@ class _SeasonRecordCard extends StatelessWidget {
                           size: 16,
                           color: Colors.amber,
                         ),
-                        label: Text('$name 優勝'),
+                        label: Text(Tr.pick('$name 優勝', '$name winners')),
                         visualDensity: VisualDensity.compact,
                       ),
                     )
@@ -135,19 +143,23 @@ class _SeasonRecordCard extends StatelessWidget {
               const Divider(height: 20),
               if (award!.topScorerName != null)
                 Text(
-                  '得点王: ${award!.topScorerName}（${award!.topScorerTeamName ?? '不明'}） '
-                  '${award!.topScorerGoals}得点',
+                  Tr.pick(
+                      '得点王: ${award!.topScorerName}（${award!.topScorerTeamName ?? '不明'}） ${award!.topScorerGoals}得点',
+                      "Top scorer: ${award!.topScorerName} (${award!.topScorerTeamName ?? 'unknown'}) — ${award!.topScorerGoals} goals"),
                   style: const TextStyle(fontSize: 12),
                 ),
               if (award!.mvpName != null)
                 Text(
-                  'シーズンMVP: ${award!.mvpName}（${award!.mvpTeamName ?? '不明'}）',
+                  Tr.pick(
+                      'シーズンMVP: ${award!.mvpName}（${award!.mvpTeamName ?? '不明'}）',
+                      "Player of the season: ${award!.mvpName} (${award!.mvpTeamName ?? 'unknown'})"),
                   style: const TextStyle(fontSize: 12),
                 ),
               if (award!.goldenGloveName != null)
                 Text(
-                  'ゴールデングラブ: ${award!.goldenGloveName}（${award!.goldenGloveTeamName ?? '不明'}） '
-                  '${award!.goldenGloveCleanSheets}試合無失点',
+                  Tr.pick(
+                      'ゴールデングラブ: ${award!.goldenGloveName}（${award!.goldenGloveTeamName ?? '不明'}） ${award!.goldenGloveCleanSheets}試合無失点',
+                      "Golden Glove: ${award!.goldenGloveName} (${award!.goldenGloveTeamName ?? 'unknown'}) — ${award!.goldenGloveCleanSheets} clean sheets"),
                   style: const TextStyle(fontSize: 12),
                 ),
             ],

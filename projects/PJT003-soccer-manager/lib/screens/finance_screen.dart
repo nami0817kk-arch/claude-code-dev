@@ -12,6 +12,7 @@ import '../widgets/quick_access_drawer.dart';
 import '../widgets/reward_funds_card.dart';
 import '../widgets/responsive_body.dart';
 import 'player_detail_screen.dart';
+import '../l10n/tr.dart';
 
 class FinanceScreen extends StatelessWidget {
   const FinanceScreen({super.key});
@@ -37,7 +38,7 @@ class FinanceScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('クラブ経営'),
+        title: Text(Tr.pick('クラブ経営', 'Club finances')),
         leading: const BackButton(),
         actions: const [QuickAccessMenuButton()],
       ),
@@ -55,13 +56,17 @@ class FinanceScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '資金: ${save.budget}万円',
+                      Tr.pick('資金: ${save.budget}万円', 'Funds: ${save.budget}'),
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 8),
-                    Text('週間収入: +$income万円（観客動員・スポンサー・グッズ収入込み）'),
-                    Text('週間人件費: -$wageBill万円（スタッフ週俸込み）'),
-                    if (loanRepayment > 0) Text('週間融資返済: -$loanRepayment万円'),
+                    Text(Tr.pick('週間収入: +$income万円（観客動員・スポンサー・グッズ収入込み）',
+                        'Weekly income: +$income (gate receipts, sponsorship and merchandise)')),
+                    Text(Tr.pick('週間人件費: -$wageBill万円（スタッフ週俸込み）',
+                        'Weekly wages: -$wageBill (including staff)')),
+                    if (loanRepayment > 0)
+                      Text(Tr.pick('週間融資返済: -$loanRepayment万円',
+                          'Weekly loan repayment: -$loanRepayment')),
                     const SizedBox(height: 8),
                     _CashFlowBar(
                       income: income,
@@ -69,7 +74,8 @@ class FinanceScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '週間収支: ${net >= 0 ? '+' : ''}$net万円',
+                      Tr.pick('週間収支: ${net >= 0 ? '+' : ''}$net万円',
+                          "Weekly balance: ${net >= 0 ? '+' : ''}$net"),
                       style: TextStyle(
                         color: net >= 0
                             ? SemanticColors.positive(context)
@@ -89,8 +95,9 @@ class FinanceScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '週給予算(理事会設定): $wageBill / $cap万円'
-                            '${over ? '(超過中: 新規獲得は不可)' : ''}',
+                            Tr.pick(
+                                '週給予算(理事会設定): $wageBill / $cap万円${over ? '(超過中: 新規獲得は不可)' : ''}',
+                                "Wage budget set by the board: $wageBill / $cap${over ? ' (over budget: no new signings)' : ''}"),
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -119,20 +126,24 @@ class FinanceScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Text('資金調達（銀行融資）', style: Theme.of(context).textTheme.titleMedium),
+            Text(Tr.pick('資金調達（銀行融資）', 'Raise money (bank loan)'),
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             _LoanSection(gameState: gameState),
             const SizedBox(height: 16),
-            Text('資金運用（定期預金）', style: Theme.of(context).textTheme.titleMedium),
+            Text(Tr.pick('資金運用（定期預金）', 'Invest (fixed deposit)'),
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             _InvestmentSection(gameState: gameState),
             const SizedBox(height: 16),
-            Text('スポンサー契約', style: Theme.of(context).textTheme.titleMedium),
+            Text(Tr.pick('スポンサー契約', 'Sponsorship'),
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             _SponsorSection(gameState: gameState),
             if (save.pendingInstallments.isNotEmpty) ...[
               const SizedBox(height: 16),
-              Text('分割払い残金', style: Theme.of(context).textTheme.titleMedium),
+              Text(Tr.pick('分割払い残金', 'Instalments outstanding'),
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               for (final inst in save.pendingInstallments)
                 Card(
@@ -142,14 +153,17 @@ class FinanceScreen extends StatelessWidget {
                         ? null
                         : () => _openPlayer(context, inst.playerId!),
                     title: Text(inst.description),
-                    subtitle: Text('残り${inst.weeksRemaining}週'),
-                    trailing: Text('-${inst.weeklyAmount}万円/週'),
+                    subtitle: Text(Tr.pick('残り${inst.weeksRemaining}週',
+                        '${inst.weeksRemaining} weeks left')),
+                    trailing: Text(Tr.pick('-${inst.weeklyAmount}万円/週',
+                        '-${inst.weeklyAmount} per week')),
                   ),
                 ),
             ],
             if (loanPlayers.isNotEmpty) ...[
               const SizedBox(height: 16),
-              Text('ローン加入中の選手', style: Theme.of(context).textTheme.titleMedium),
+              Text(Tr.pick('ローン加入中の選手', 'Players on loan at your club'),
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               for (final p in loanPlayers)
                 Card(
@@ -157,14 +171,17 @@ class FinanceScreen extends StatelessWidget {
                   child: ListTile(
                     onTap: () => _openPlayer(context, p.id),
                     title: Text(p.name),
-                    subtitle: Text('${p.position.label} / 週俸 ${p.wage}万円'),
-                    trailing: Text('残り${p.loanWeeksRemaining}週'),
+                    subtitle: Text(Tr.pick(
+                        '${p.position.label} / 週俸 ${p.wage}万円',
+                        '${p.position.label} / wage ${p.wage}')),
+                    trailing: Text(Tr.pick('残り${p.loanWeeksRemaining}週',
+                        '${p.loanWeeksRemaining} weeks left')),
                   ),
                 ),
             ],
             const SizedBox(height: 16),
             Text(
-              '契約状況（残り年数が少ない順）',
+              Tr.pick('契約状況（残り年数が少ない順）', 'Contracts, shortest remaining first'),
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
@@ -174,7 +191,8 @@ class FinanceScreen extends StatelessWidget {
                 child: ListTile(
                   onTap: () => _openPlayer(context, p.id),
                   title: Text(p.name),
-                  subtitle: Text('${p.position.label} / 週俸 ${p.wage}万円'),
+                  subtitle: Text(Tr.pick('${p.position.label} / 週俸 ${p.wage}万円',
+                      '${p.position.label} / wage ${p.wage}')),
                   trailing: Text(
                     ContractEngine.yearsShortLabel(p.contractYearsRemaining),
                     style: TextStyle(
@@ -252,7 +270,8 @@ class _SponsorSection extends StatelessWidget {
           title: Text(deal.name),
           subtitle: Text(ContractEngine.yearsShortLabel(deal.yearsRemaining)),
           trailing: Text(
-            '+${deal.weeklyIncome}万円/週',
+            Tr.pick(
+                '+${deal.weeklyIncome}万円/週', '+${deal.weeklyIncome} per week'),
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
         ),
@@ -260,23 +279,24 @@ class _SponsorSection extends StatelessWidget {
     }
 
     if (offers.isEmpty) {
-      return const Card(
+      return Card(
         child: ListTile(
-          leading: Icon(Icons.hourglass_empty),
-          title: Text('現在スポンサーはついていません'),
+          leading: const Icon(Icons.hourglass_empty),
+          title: Text(Tr.pick('現在スポンサーはついていません', 'You have no sponsor')),
         ),
       );
     }
 
     return Column(
       children: [
-        const Padding(
-          padding: EdgeInsets.only(bottom: 8),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              '週間収入が高いほど契約期間は短くなる。契約する候補を選んでください。',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              Tr.pick('週間収入が高いほど契約期間は短くなる。契約する候補を選んでください。',
+                  'The more it pays weekly, the shorter the deal. Choose which offer to take.'),
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ),
         ),
@@ -287,11 +307,14 @@ class _SponsorSection extends StatelessWidget {
               leading: const Icon(Icons.handshake_outlined),
               title: Text(offers[i].name),
               subtitle: Text(
-                '契約期間: ${ContractEngine.yearsShortLabel(offers[i].yearsRemaining)}',
+                Tr.pick(
+                    '契約期間: ${ContractEngine.yearsShortLabel(offers[i].yearsRemaining)}',
+                    'Length: ${ContractEngine.yearsShortLabel(offers[i].yearsRemaining)}'),
               ),
               trailing: FilledButton(
                 onPressed: () => _choose(context, i),
-                child: Text('+${offers[i].weeklyIncome}万円/週'),
+                child: Text(Tr.pick('+${offers[i].weeklyIncome}万円/週',
+                    '+${offers[i].weeklyIncome} per week')),
               ),
             ),
           ),
@@ -303,8 +326,8 @@ class _SponsorSection extends StatelessWidget {
     await gameState.chooseSponsor(index);
     FeedbackService.success();
     if (context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('スポンサー契約を結んだ')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(Tr.pick('スポンサー契約を結んだ', 'Sponsorship deal signed'))));
     }
   }
 }
@@ -327,12 +350,16 @@ class _LoanSection extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 6),
             child: ListTile(
               leading: const Icon(Icons.account_balance),
-              title: Text('借入元本 ${loan.principal}万円'),
+              title: Text(Tr.pick(
+                  '借入元本 ${loan.principal}万円', 'Principal ${loan.principal}')),
               subtitle: Text(
-                '残り${loan.weeksRemaining}週 / 返済総額残り${loan.totalRemaining}万円',
+                Tr.pick(
+                    '残り${loan.weeksRemaining}週 / 返済総額残り${loan.totalRemaining}万円',
+                    '${loan.weeksRemaining} weeks left / ${loan.totalRemaining} still to repay'),
               ),
               trailing: Text(
-                '-${loan.weeklyRepayment}万円/週',
+                Tr.pick('-${loan.weeklyRepayment}万円/週',
+                    '-${loan.weeklyRepayment} per week'),
                 style: TextStyle(color: SemanticColors.negative(context)),
               ),
             ),
@@ -340,11 +367,13 @@ class _LoanSection extends StatelessWidget {
         Card(
           child: ListTile(
             leading: const Icon(Icons.savings_outlined),
-            title: Text('借入可能額: $maxAmount万円'),
-            subtitle: const Text('スタジアムの規模・監督としての評価が高いほど上限が上がる'),
+            title: Text(Tr.pick(
+                '借入可能額: $maxAmount万円', 'You can borrow up to $maxAmount')),
+            subtitle: Text(Tr.pick('スタジアムの規模・監督としての評価が高いほど上限が上がる',
+                'A bigger stadium and a better reputation raise the ceiling')),
             trailing: FilledButton(
               onPressed: maxAmount <= 0 ? null : () => _showLoanSheet(context),
-              child: const Text('融資を申し込む'),
+              child: Text(Tr.pick('融資を申し込む', 'Apply for a loan')),
             ),
           ),
         ),
@@ -404,19 +433,20 @@ class _LoanRequestSheetState extends State<_LoanRequestSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('融資を申し込む', style: Theme.of(context).textTheme.titleMedium),
+            Text(Tr.pick('融資を申し込む', 'Apply for a loan'),
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(
-              '借入可能額: $maxAmount万円',
+              Tr.pick('借入可能額: $maxAmount万円', 'You can borrow up to $maxAmount'),
               style: const TextStyle(color: Colors.grey, fontSize: 12),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _controller,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '借入額(万円)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: Tr.pick('借入額(万円)', 'Amount to borrow'),
+                border: const OutlineInputBorder(),
               ),
               onChanged: (_) => setState(() {}),
             ),
@@ -427,13 +457,16 @@ class _LoanRequestSheetState extends State<_LoanRequestSheet> {
                   term.weeks <= 12 ? Icons.speed : Icons.hourglass_bottom,
                 ),
                 title: Text(
-                  '${term.label}（${term.weeks}週・利率${term.interestRatePercent.toStringAsFixed(0)}%）',
+                  Tr.pick(
+                      '${term.label}（${term.weeks}週・利率${term.interestRatePercent.toStringAsFixed(0)}%）',
+                      '${term.label} (${term.weeks} weeks, ${term.interestRatePercent.toStringAsFixed(0)}% interest)'),
                 ),
                 subtitle: Text(
                   amount <= 0
-                      ? '借入額を入力してください'
-                      : '週${LoanEngine.weeklyRepaymentFor(amount, term)}万円 × ${term.weeks}週 = '
-                          '返済総額${LoanEngine.totalRepaymentFor(amount, term)}万円',
+                      ? Tr.pick('借入額を入力してください', 'Enter an amount to borrow')
+                      : Tr.pick(
+                          '週${LoanEngine.weeklyRepaymentFor(amount, term)}万円 × ${term.weeks}週 = 返済総額${LoanEngine.totalRepaymentFor(amount, term)}万円',
+                          '${LoanEngine.weeklyRepaymentFor(amount, term)} a week x ${term.weeks} weeks = ${LoanEngine.totalRepaymentFor(amount, term)} repaid in total'),
                 ),
                 enabled: amount > 0,
                 onTap:
@@ -454,7 +487,10 @@ class _LoanRequestSheetState extends State<_LoanRequestSheet> {
     final ok = await widget.gameState.takeLoan(amount, term);
     ok ? FeedbackService.success() : FeedbackService.error();
     messenger.showSnackBar(
-      SnackBar(content: Text(ok ? '$amount万円を借り入れました' : '融資を申し込めませんでした')),
+      SnackBar(
+          content: Text(ok
+              ? Tr.pick('$amount万円を借り入れました', 'You borrowed $amount')
+              : Tr.pick('融資を申し込めませんでした', 'The loan was not approved'))),
     );
   }
 }
@@ -477,12 +513,16 @@ class _InvestmentSection extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 6),
             child: ListTile(
               leading: const Icon(Icons.savings),
-              title: Text('預入元本 ${deposit.principal}万円'),
+              title: Text(Tr.pick('預入元本 ${deposit.principal}万円',
+                  'Principal ${deposit.principal}')),
               subtitle: Text(
-                '残り${deposit.weeksRemaining}週 / 満期時+${deposit.interestEarned}万円',
+                Tr.pick(
+                    '残り${deposit.weeksRemaining}週 / 満期時+${deposit.interestEarned}万円',
+                    '${deposit.weeksRemaining} weeks left / +${deposit.interestEarned} at maturity'),
               ),
               trailing: Text(
-                '満期${deposit.maturityValue}万円',
+                Tr.pick('満期${deposit.maturityValue}万円',
+                    'Matures at ${deposit.maturityValue}'),
                 style: TextStyle(color: SemanticColors.positive(context)),
               ),
             ),
@@ -490,12 +530,14 @@ class _InvestmentSection extends StatelessWidget {
         Card(
           child: ListTile(
             leading: const Icon(Icons.account_balance_outlined),
-            title: Text('運用可能な資金: $available万円'),
-            subtitle: const Text('満期まで引き出せない代わりに、満期時にまとまった利息を受け取れる'),
+            title: Text(Tr.pick(
+                '運用可能な資金: $available万円', 'Available to invest: $available')),
+            subtitle: Text(Tr.pick('満期まで引き出せない代わりに、満期時にまとまった利息を受け取れる',
+                'Locked away until it matures, and pays a lump of interest when it does')),
             trailing: FilledButton(
               onPressed:
                   available <= 0 ? null : () => _showDepositSheet(context),
-              child: const Text('定期預金を組む'),
+              child: Text(Tr.pick('定期預金を組む', 'Open a deposit')),
             ),
           ),
         ),
@@ -555,19 +597,21 @@ class _DepositRequestSheetState extends State<_DepositRequestSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('定期預金を組む', style: Theme.of(context).textTheme.titleMedium),
+            Text(Tr.pick('定期預金を組む', 'Open a deposit'),
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(
-              '運用可能な資金: $maxAmount万円',
+              Tr.pick(
+                  '運用可能な資金: $maxAmount万円', 'Available to invest: $maxAmount'),
               style: const TextStyle(color: Colors.grey, fontSize: 12),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _controller,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '預入額(万円)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: Tr.pick('預入額(万円)', 'Amount to deposit'),
+                border: const OutlineInputBorder(),
               ),
               onChanged: (_) => setState(() {}),
             ),
@@ -578,13 +622,16 @@ class _DepositRequestSheetState extends State<_DepositRequestSheet> {
                   term.weeks <= 12 ? Icons.speed : Icons.hourglass_bottom,
                 ),
                 title: Text(
-                  '${term.label}（${term.weeks}週・利回り${term.interestRatePercent.toStringAsFixed(0)}%）',
+                  Tr.pick(
+                      '${term.label}（${term.weeks}週・利回り${term.interestRatePercent.toStringAsFixed(0)}%）',
+                      '${term.label} (${term.weeks} weeks, ${term.interestRatePercent.toStringAsFixed(0)}% return)'),
                 ),
                 subtitle: Text(
                   amount <= 0
-                      ? '預入額を入力してください'
-                      : '満期時 ${InvestmentEngine.maturityValueFor(amount, term)}万円'
-                          '(利息+${InvestmentEngine.interestFor(amount, term)}万円)',
+                      ? Tr.pick('預入額を入力してください', 'Enter an amount to deposit')
+                      : Tr.pick(
+                          '満期時 ${InvestmentEngine.maturityValueFor(amount, term)}万円(利息+${InvestmentEngine.interestFor(amount, term)}万円)',
+                          'Matures at ${InvestmentEngine.maturityValueFor(amount, term)} (interest +${InvestmentEngine.interestFor(amount, term)})'),
                 ),
                 enabled: amount > 0,
                 onTap:
@@ -606,7 +653,10 @@ class _DepositRequestSheetState extends State<_DepositRequestSheet> {
     final ok = await widget.gameState.openFixedDeposit(amount, term);
     ok ? FeedbackService.success() : FeedbackService.error();
     messenger.showSnackBar(
-      SnackBar(content: Text(ok ? '$amount万円を預け入れました' : '定期預金を組めませんでした')),
+      SnackBar(
+          content: Text(ok
+              ? Tr.pick('$amount万円を預け入れました', 'You deposited $amount')
+              : Tr.pick('定期預金を組めませんでした', 'The deposit could not be opened'))),
     );
   }
 }

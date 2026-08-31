@@ -7,6 +7,7 @@ import '../state/game_state.dart';
 import '../widgets/player_face_avatar.dart';
 import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
+import '../l10n/tr.dart';
 
 /// FMの選手検索に相当する画面。全ディビジョンの全選手を名前・ポジション・
 /// 年齢・総合力で絞り込み、スカッド計画や補強ターゲットの調査に使う
@@ -59,7 +60,7 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('選手検索'),
+        title: Text(Tr.pick('選手検索', 'Player search')),
         leading: const BackButton(),
         actions: const [QuickAccessMenuButton()],
       ),
@@ -72,7 +73,7 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
               child: TextField(
                 controller: _queryController,
                 decoration: InputDecoration(
-                  labelText: '選手名で検索',
+                  labelText: Tr.pick('選手名で検索', 'Search by name'),
                   prefixIcon: const Icon(Icons.search),
                   border: const OutlineInputBorder(),
                   suffixIcon: _queryController.text.isEmpty
@@ -95,7 +96,7 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
                   runSpacing: 4,
                   children: [
                     ChoiceChip(
-                      label: const Text('全ポジション'),
+                      label: Text(Tr.pick('全ポジション', 'All positions')),
                       selected: _group == null,
                       onSelected: (_) => setState(() => _group = null),
                     ),
@@ -112,14 +113,14 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
                           setState(() => _maxAge = sel ? 23 : null),
                     ),
                     FilterChip(
-                      label: const Text('総合70+'),
+                      label: Text(Tr.pick('総合70+', 'Overall 70+')),
                       selected: _minOverall == 70,
                       onSelected: (sel) =>
                           setState(() => _minOverall = sel ? 70 : null),
                     ),
                     FilterChip(
                       avatar: const Icon(Icons.star, size: 16),
-                      label: const Text('ウォッチ中'),
+                      label: Text(Tr.pick('ウォッチ中', 'Watchlist')),
                       selected: _watchedOnly,
                       onSelected: (sel) => setState(() => _watchedOnly = sel),
                     ),
@@ -133,22 +134,23 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
                 ),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  '全ディビジョンから検索(上位50人)。獲得は移籍市場・FA経由で行えます。',
-                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                  Tr.pick('全ディビジョンから検索(上位50人)。獲得は移籍市場・FA経由で行えます。',
+                      'Searches every division (top 50). You sign players through the transfer market or as free agents.'),
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
                 ),
               ),
             ),
             Expanded(
               child: results.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
-                        '条件に合う選手が見つかりません',
-                        style: TextStyle(color: Colors.grey),
+                        Tr.pick('条件に合う選手が見つかりません', 'No players match'),
+                        style: const TextStyle(color: Colors.grey),
                       ),
                     )
                   : ListView.builder(
@@ -170,7 +172,9 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
                               size: 40,
                             ),
                             title: Text(
-                              '${p.name}(${p.position.label}・${p.age}歳)',
+                              Tr.pick(
+                                  '${p.name}(${p.position.label}・${p.age}歳)',
+                                  '${p.name} (${p.position.label}, ${p.age})'),
                               style: TextStyle(
                                 fontWeight: isUser
                                     ? FontWeight.bold
@@ -178,8 +182,9 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
                               ),
                             ),
                             subtitle: Text(
-                              '${r.team.name}${isUser ? '(自クラブ)' : ''}'
-                              ' / 市場価値${p.marketValue}万円',
+                              Tr.pick(
+                                  '${r.team.name}${isUser ? '(自クラブ)' : ''} / 市場価値${p.marketValue}万円',
+                                  "${r.team.name}${isUser ? ' (your club)' : ''} / value ${p.marketValue}"),
                               style: const TextStyle(fontSize: 12),
                             ),
                             trailing: Row(
@@ -195,8 +200,10 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
                                         : Colors.grey,
                                   ),
                                   tooltip: gameState.isWatched(p.id)
-                                      ? 'ウォッチリストから外す'
-                                      : 'ウォッチリストに追加',
+                                      ? Tr.pick('ウォッチリストから外す',
+                                          'Remove from the watchlist')
+                                      : Tr.pick(
+                                          'ウォッチリストに追加', 'Add to the watchlist'),
                                   onPressed: () => context
                                       .read<GameState>()
                                       .toggleWatched(p.id),

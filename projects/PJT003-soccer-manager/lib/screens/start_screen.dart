@@ -7,6 +7,7 @@ import '../state/game_state.dart';
 import '../widgets/busy_overlay.dart';
 import 'main_shell.dart';
 import '../l10n/l10n_ext.dart';
+import '../l10n/tr.dart';
 
 class StartScreen extends StatefulWidget {
   const StartScreen({super.key});
@@ -42,7 +43,7 @@ class _StartScreenState extends State<StartScreen> {
 
     return BusyOverlay(
       visible: gameState.isBusy,
-      label: 'クラブを創設しています…',
+      label: Tr.pick('クラブを創設しています…', 'Founding your club…'),
       child: Scaffold(
         body: SafeArea(
           child: Center(
@@ -108,8 +109,9 @@ class _StartScreenState extends State<StartScreen> {
       await gameState.loadSlot(slot.slot);
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('セーブデータの読み込みに失敗しました')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(Tr.pick(
+                'セーブデータの読み込みに失敗しました', 'The save could not be loaded'))));
       }
       return;
     }
@@ -136,7 +138,9 @@ class _StartScreenState extends State<StartScreen> {
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('クラブの作成に失敗しました。もう一度お試しください')),
+          SnackBar(
+              content: Text(Tr.pick('クラブの作成に失敗しました。もう一度お試しください',
+                  'The club could not be created. Please try again'))),
         );
       }
       return;
@@ -152,7 +156,8 @@ class _StartScreenState extends State<StartScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(context.l10n.startDeleteSlot(slot.slot + 1)),
-        content: Text('「${slot.clubName}」のセーブデータは完全に削除されます。'),
+        content: Text(Tr.pick('「${slot.clubName}」のセーブデータは完全に削除されます。',
+            'The save for "${slot.clubName}" will be deleted for good.')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -164,7 +169,7 @@ class _StartScreenState extends State<StartScreen> {
               await context.read<GameState>().deleteSlot(slot.slot);
               if (mounted) _refreshSlots();
             },
-            child: const Text('削除する'),
+            child: Text(Tr.pick('削除する', 'Delete')),
           ),
         ],
       ),
@@ -207,8 +212,9 @@ class _SlotCard extends StatelessWidget {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         Text(
-                          '第${slot.season ?? 1}シーズン'
-                          '${slot.divisionTier != null && slot.divisionTier != 1 ? ' ・ ${slot.divisionTier}部' : ''}',
+                          Tr.pick(
+                              '第${slot.season ?? 1}シーズン${slot.divisionTier != null && slot.divisionTier != 1 ? ' ・ ${slot.divisionTier}部' : ''}',
+                              "Season ${slot.season ?? 1}${slot.divisionTier != null && slot.divisionTier != 1 ? ' · tier ${slot.divisionTier}' : ''}"),
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
@@ -217,9 +223,11 @@ class _SlotCard extends StatelessWidget {
                   IconButton(
                     onPressed: onDelete,
                     icon: const Icon(Icons.delete_outline),
-                    tooltip: '削除',
+                    tooltip: Tr.pick('削除', 'Delete'),
                   ),
-                  FilledButton(onPressed: onContinue, child: const Text('続ける')),
+                  FilledButton(
+                      onPressed: onContinue,
+                      child: Text(Tr.pick('続ける', 'Continue'))),
                 ],
               )
             : Row(

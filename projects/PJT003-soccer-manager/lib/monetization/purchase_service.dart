@@ -128,8 +128,8 @@ class StorePurchaseService implements PurchaseService {
 
   Future<ProductDetails?> _loadProduct() async {
     if (_product != null) return _product;
-    final response = await _iap
-        .queryProductDetails({PurchaseService.supporterProductId});
+    final response =
+        await _iap.queryProductDetails({PurchaseService.supporterProductId});
     if (response.productDetails.isEmpty) return null;
     return _product = response.productDetails.first;
   }

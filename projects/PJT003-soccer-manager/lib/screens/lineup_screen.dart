@@ -16,6 +16,7 @@ import '../widgets/formation_layout.dart';
 import '../widgets/player_face_avatar.dart';
 import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
+import '../l10n/tr.dart';
 
 class LineupScreen extends StatelessWidget {
   const LineupScreen({super.key});
@@ -26,11 +27,11 @@ class LineupScreen extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('スタメン・戦術'),
-          bottom: const TabBar(
+          title: Text(Tr.pick('スタメン・戦術', 'Squad & tactics')),
+          bottom: TabBar(
             tabs: [
-              Tab(text: 'フォーメーション'),
-              Tab(text: '戦術'),
+              Tab(text: Tr.pick('フォーメーション', 'Formation')),
+              Tab(text: Tr.pick('戦術', 'Tactics')),
             ],
           ),
         ),
@@ -89,18 +90,21 @@ class _FormationTab extends StatelessWidget {
                   ),
                   Chip(
                     label: Text(
-                      '攻撃 x${formation.attackBias.toStringAsFixed(2)}',
+                      Tr.pick('攻撃 x${formation.attackBias.toStringAsFixed(2)}',
+                          'Attack x${formation.attackBias.toStringAsFixed(2)}'),
                     ),
                     visualDensity: VisualDensity.compact,
                   ),
                   Chip(
                     label: Text(
-                      '守備 x${formation.defenseBias.toStringAsFixed(2)}',
+                      Tr.pick('守備 x${formation.defenseBias.toStringAsFixed(2)}',
+                          'Defence x${formation.defenseBias.toStringAsFixed(2)}'),
                     ),
                     visualDensity: VisualDensity.compact,
                   ),
                   Chip(
-                    label: Text('${team.startingXI.length}/11人'),
+                    label: Text(Tr.pick('${team.startingXI.length}/11人',
+                        '${team.startingXI.length}/11')),
                     avatar: Icon(
                       squadFull ? Icons.check_circle : Icons.error_outline,
                       size: 18,
@@ -137,13 +141,13 @@ class _FormationTab extends StatelessWidget {
                   FeedbackService.tap();
                   context.read<GameState>().autoFillStartingXI();
                 },
-                label: const Text('自動編成'),
+                label: Text(Tr.pick('自動編成', 'Auto-pick')),
               ),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  '選手をタップして入れ替え',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  Tr.pick('選手をタップして入れ替え', 'Tap a player to swap him'),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ),
             ],
@@ -197,12 +201,12 @@ class _FormationTab extends StatelessWidget {
                     child: Row(
                       children: [
                         Text(
-                          'ベンチ',
+                          Tr.pick('ベンチ', 'Bench'),
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '${bench.length}人',
+                          Tr.pick('${bench.length}人', '${bench.length}'),
                           style: const TextStyle(
                             fontSize: 12,
                             color: Colors.grey,
@@ -210,7 +214,10 @@ class _FormationTab extends StatelessWidget {
                         ),
                         const Spacer(),
                         Text(
-                          isDragOver ? 'ここに離してベンチへ' : 'ドラッグで入れ替え可能',
+                          isDragOver
+                              ? Tr.pick('ここに離してベンチへ',
+                                  'Drop here to move to the bench')
+                              : Tr.pick('ドラッグで入れ替え可能', 'Drag to swap'),
                           style: TextStyle(
                             fontSize: 11,
                             color: isDragOver
@@ -223,14 +230,15 @@ class _FormationTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   if (bench.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 8,
                       ),
                       child: Text(
-                        'ベンチに選手がいません',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        Tr.pick('ベンチに選手がいません', 'Nobody on the bench'),
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                     )
                   else
@@ -264,7 +272,8 @@ class _TacticsTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('メンタリティ', style: Theme.of(context).textTheme.titleSmall),
+                Text(Tr.pick('メンタリティ', 'Mentality'),
+                    style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -294,13 +303,14 @@ class _TacticsTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('戦術スタイル', style: Theme.of(context).textTheme.titleSmall),
+                Text(Tr.pick('戦術スタイル', 'Style of play'),
+                    style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 4),
-                const Text(
-                  '数値はいまの先発での適性。適性が高いほど攻守の補正が大きく、'
-                  '低いスタイルを選ぶと逆効果になる。スタイル間には相性がある'
-                  '(プレス→ポゼッション→カウンター→ウイング→ロングボール→プレス…の順に有利)。',
-                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                Text(
+                  Tr.pick(
+                      '数値はいまの先発での適性。適性が高いほど攻守の補正が大きく、低いスタイルを選ぶと逆効果になる。スタイル間には相性がある(プレス→ポゼッション→カウンター→ウイング→ロングボール→プレス…の順に有利)。',
+                      'The figures show how well your current XI fits each style. A better fit means a bigger bonus; picking a poor fit works against you. Styles also counter each other, in the order press → possession → counter → wing play → direct → press.'),
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -337,7 +347,8 @@ class _TacticsTab extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const SizedBox(width: 90, child: Text('プレッシング')),
+                    SizedBox(
+                        width: 90, child: Text(Tr.pick('プレッシング', 'Pressing'))),
                     Expanded(
                       child: Slider(
                         value: team.pressing.toDouble(),
@@ -354,7 +365,9 @@ class _TacticsTab extends StatelessWidget {
                 ),
                 Row(
                   children: [
-                    const SizedBox(width: 90, child: Text('ライン高さ')),
+                    SizedBox(
+                        width: 90,
+                        child: Text(Tr.pick('ライン高さ', 'Defensive line'))),
                     Expanded(
                       child: Slider(
                         value: team.lineHeight.toDouble(),
@@ -371,7 +384,9 @@ class _TacticsTab extends StatelessWidget {
                 ),
                 Row(
                   children: [
-                    const SizedBox(width: 90, child: Text('攻撃の幅')),
+                    SizedBox(
+                        width: 90,
+                        child: Text(Tr.pick('攻撃の幅', 'Attacking width'))),
                     Expanded(
                       child: Slider(
                         value: team.width.toDouble(),
@@ -388,7 +403,7 @@ class _TacticsTab extends StatelessWidget {
                 ),
                 Row(
                   children: [
-                    const SizedBox(width: 90, child: Text('テンポ')),
+                    SizedBox(width: 90, child: Text(Tr.pick('テンポ', 'Tempo'))),
                     Expanded(
                       child: Slider(
                         value: team.tempo.toDouble(),
@@ -403,12 +418,13 @@ class _TacticsTab extends StatelessWidget {
                     SizedBox(width: 32, child: Text('${team.tempo}')),
                   ],
                 ),
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'プレッシングは守備を高めるが疲労が増えやすい。ラインを上げると攻撃的になるが裏を突かれやすい。\n'
-                    '幅を広げると攻撃力が増すが中央の守備が薄くなる。テンポを上げると攻撃的だが疲労が増えやすい。',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    Tr.pick(
+                        'プレッシングは守備を高めるが疲労が増えやすい。ラインを上げると攻撃的になるが裏を突かれやすい。\n幅を広げると攻撃力が増すが中央の守備が薄くなる。テンポを上げると攻撃的だが疲労が増えやすい。',
+                        'Pressing strengthens the defence but tires the side. A higher line is more aggressive but exposes the space behind.\nMore width adds attacking threat but thins out the middle. A quicker tempo attacks more but tires the side.'),
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -478,7 +494,7 @@ class _TacticalImpactSummary extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '現在の戦術設定による影響(定量)',
+            Tr.pick('現在の戦術設定による影響(定量)', 'What your current tactics do'),
             style: Theme.of(context)
                 .textTheme
                 .labelMedium
@@ -486,25 +502,25 @@ class _TacticalImpactSummary extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           _ImpactRow(
-            label: '攻撃力補正',
+            label: Tr.pick('攻撃力補正', 'Attack modifier'),
             text: pct(impact.attackMultiplier),
             color: colorFor(impact.attackMultiplier),
           ),
           _ImpactRow(
-            label: '守備力補正',
+            label: Tr.pick('守備力補正', 'Defence modifier'),
             text: pct(impact.defenseMultiplier),
             color: colorFor(impact.defenseMultiplier),
           ),
           _ImpactRow(
-            label: '疲労蓄積',
+            label: Tr.pick('疲労蓄積', 'Fatigue build-up'),
             text: pct(impact.fatigueMultiplier),
             color: colorFor(impact.fatigueMultiplier, higherIsWorse: true),
           ),
           const SizedBox(height: 4),
           Text(
-            'スカッド適性: プレッシング x${pressingFit.toStringAsFixed(2)}'
-            '(労働量平均${avgWorkRate.round()}) / '
-            'テンポ x${tempoFit.toStringAsFixed(2)}(スタミナ平均${avgStamina.round()})',
+            Tr.pick(
+                'スカッド適性: プレッシング x${pressingFit.toStringAsFixed(2)}(労働量平均${avgWorkRate.round()}) / テンポ x${tempoFit.toStringAsFixed(2)}(スタミナ平均${avgStamina.round()})',
+                'Squad fit: pressing x${pressingFit.toStringAsFixed(2)} (avg work rate ${avgWorkRate.round()}) / tempo x${tempoFit.toStringAsFixed(2)} (avg stamina ${avgStamina.round()})'),
             style: const TextStyle(fontSize: 11, color: Colors.grey),
           ),
         ],
@@ -571,7 +587,7 @@ class _RotationSuggestionsCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  '疲労ローテーション提案',
+                  Tr.pick('疲労ローテーション提案', 'Suggested rotation for tired legs'),
                   style: Theme.of(context)
                       .textTheme
                       .titleSmall
@@ -586,8 +602,9 @@ class _RotationSuggestionsCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        '${s.tiredPlayerName}(疲労${s.tiredFatigue}) → '
-                        '${s.replacementName}(疲労${s.replacementFatigue})',
+                        Tr.pick(
+                            '${s.tiredPlayerName}(疲労${s.tiredFatigue}) → ${s.replacementName}(疲労${s.replacementFatigue})',
+                            '${s.tiredPlayerName} (fatigue ${s.tiredFatigue}) → ${s.replacementName} (fatigue ${s.replacementFatigue})'),
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
@@ -599,7 +616,7 @@ class _RotationSuggestionsCard extends StatelessWidget {
                               inPlayerId: s.replacementId,
                             );
                       },
-                      child: const Text('入れ替える'),
+                      child: Text(Tr.pick('入れ替える', 'Swap them')),
                     ),
                   ],
                 ),
@@ -628,7 +645,8 @@ class _SetPieceTakersCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('セットプレー担当', style: Theme.of(context).textTheme.titleSmall),
+            Text(Tr.pick('セットプレー担当', 'Set piece takers'),
+                style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
             _TakerDropdown(
               label: 'PK',
@@ -661,31 +679,35 @@ class _SetPieceTakersCard extends StatelessWidget {
               },
             ),
             const Divider(height: 24),
-            Text('守備セットプレー担当', style: Theme.of(context).textTheme.titleSmall),
+            Text(Tr.pick('守備セットプレー担当', 'Defending set pieces'),
+                style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 4),
-            const Text(
-              '相手のCK・FKの得点確率を、ヘディング・ジャンプ力に応じて下げる。',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
+            Text(
+              Tr.pick('相手のCK・FKの得点確率を、ヘディング・ジャンプ力に応じて下げる。',
+                  'Cuts the chance of conceding from corners and free kicks, based on heading and jumping reach.'),
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                const SizedBox(width: 40, child: Text('守備')),
+                SizedBox(width: 40, child: Text(Tr.pick('守備', 'Defence'))),
                 Expanded(
                   child: DropdownButton<String?>(
                     isExpanded: true,
                     value: team.setPieceDefenderId,
-                    hint: const Text('未指名'),
+                    hint: Text(Tr.pick('未指名', 'Nobody named')),
                     items: [
-                      const DropdownMenuItem<String?>(
+                      DropdownMenuItem<String?>(
                         value: null,
-                        child: Text('未指名'),
+                        child: Text(Tr.pick('未指名', 'Nobody named')),
                       ),
                       for (final p in players)
                         DropdownMenuItem<String?>(
                           value: p.id,
                           child: Text(
-                            '${p.name}（空中戦 ${(p.attributeValue(AttributeKeys.heading) + p.attributeValue(AttributeKeys.jumpingReach)) ~/ 2}）',
+                            Tr.pick(
+                                '${p.name}（空中戦 ${(p.attributeValue(AttributeKeys.heading) + p.attributeValue(AttributeKeys.jumpingReach)) ~/ 2}）',
+                                '${p.name} (aerial ${(p.attributeValue(AttributeKeys.heading) + p.attributeValue(AttributeKeys.jumpingReach)) ~/ 2})'),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -729,9 +751,10 @@ class _TakerDropdown extends StatelessWidget {
           child: DropdownButton<String?>(
             isExpanded: true,
             value: selectedId,
-            hint: const Text('未指名'),
+            hint: Text(Tr.pick('未指名', 'Nobody named')),
             items: [
-              const DropdownMenuItem<String?>(value: null, child: Text('未指名')),
+              DropdownMenuItem<String?>(
+                  value: null, child: Text(Tr.pick('未指名', 'Nobody named'))),
               for (final p in players)
                 DropdownMenuItem<String?>(
                   value: p.id,
@@ -765,21 +788,23 @@ class _TacticPresetsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text('戦術プリセット', style: Theme.of(context).textTheme.titleSmall),
+                Text(Tr.pick('戦術プリセット', 'Saved tactics'),
+                    style: Theme.of(context).textTheme.titleSmall),
                 const Spacer(),
                 TextButton.icon(
                   icon: const Icon(Icons.add, size: 18),
-                  label: const Text('現在の設定を保存'),
+                  label: Text(Tr.pick('現在の設定を保存', 'Save the current setup')),
                   onPressed: () => _showSaveDialog(context),
                 ),
               ],
             ),
             if (team.tacticPresets.isEmpty)
-              const Padding(
-                padding: EdgeInsets.only(top: 4),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  '保存済みのプリセットはありません',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  Tr.pick(
+                      '保存済みのプリセットはありません', 'You have not saved any tactics yet'),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               )
             else
@@ -816,21 +841,22 @@ class _TacticPresetsCard extends StatelessWidget {
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('戦術プリセットを保存'),
+        title: Text(Tr.pick('戦術プリセットを保存', 'Save these tactics')),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(labelText: '名前(例: 守備固め)'),
+          decoration: InputDecoration(
+              labelText: Tr.pick('名前(例: 守備固め)', 'Name (e.g. Shut up shop)')),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('キャンセル'),
+            child: Text(Tr.pick('キャンセル', 'Cancel')),
           ),
           FilledButton(
             onPressed: () =>
                 Navigator.pop(dialogContext, controller.text.trim()),
-            child: const Text('保存'),
+            child: Text(Tr.pick('保存', 'Save')),
           ),
         ],
       ),
@@ -840,8 +866,8 @@ class _TacticPresetsCard extends StatelessWidget {
     FeedbackService.tap();
     context.read<GameState>().saveTacticPreset(name);
     if (context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('「$name」を保存しました')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(Tr.pick('「$name」を保存しました', 'Saved as "$name"'))));
     }
   }
 }
@@ -864,12 +890,14 @@ class _DepthChartSection extends StatelessWidget {
       child: ExpansionTile(
         tilePadding: EdgeInsets.zero,
         title: Text(
-          'デプスチャート(ポジション別控え順)',
+          Tr.pick(
+              'デプスチャート(ポジション別控え順)', 'Depth chart (backup order by position)'),
           style: Theme.of(context).textTheme.titleSmall,
         ),
-        subtitle: const Text(
-          'ドラッグハンドルで控え順を入れ替えられます',
-          style: TextStyle(fontSize: 11, color: Colors.grey),
+        subtitle: Text(
+          Tr.pick('ドラッグハンドルで控え順を入れ替えられます',
+              'Drag the handles to reorder the backups'),
+          style: const TextStyle(fontSize: 11, color: Colors.grey),
         ),
         children: [
           for (final pos in positions)
@@ -943,13 +971,13 @@ class _DepthChartPlayerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unavailable = player.isInjured
-        ? '負傷中'
+        ? Tr.pick('負傷中', 'Injured')
         : player.isSuspended
-            ? '出場停止'
+            ? Tr.pick('出場停止', 'Suspended')
             : player.isOnInternationalDuty
-                ? '代表招集中'
+                ? Tr.pick('代表招集中', 'On international duty')
                 : player.isLoanedOut
-                    ? 'ローン中'
+                    ? Tr.pick('ローン中', 'Out on loan')
                     : null;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
@@ -961,7 +989,8 @@ class _DepthChartPlayerRow extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              '${player.name}（総合${player.overall}）',
+              Tr.pick('${player.name}（総合${player.overall}）',
+                  '${player.name} (overall ${player.overall})'),
               style: const TextStyle(fontSize: 12),
             ),
           ),
@@ -1049,7 +1078,8 @@ class _PitchView extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                '${slotPosition.fullLabel}(${slotPosition.label})に配置',
+                Tr.pick('${slotPosition.fullLabel}(${slotPosition.label})に配置',
+                    'Play here: ${slotPosition.fullLabel} (${slotPosition.label})'),
                 style: Theme.of(ctx).textTheme.titleMedium,
               ),
             ),
@@ -1059,7 +1089,7 @@ class _PitchView extends StatelessWidget {
                   Icons.remove_circle_outline,
                   color: Colors.redAccent,
                 ),
-                title: const Text('この枠を空ける'),
+                title: Text(Tr.pick('この枠を空ける', 'Leave this slot empty')),
                 onTap: () {
                   Navigator.pop(ctx);
                   FeedbackService.tap();
@@ -1084,11 +1114,11 @@ class _PitchView extends StatelessWidget {
                   ],
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                 child: Text(
-                  'ロール',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  Tr.pick('ロール', 'Role'),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ),
               Padding(
@@ -1119,10 +1149,12 @@ class _PitchView extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: Text(
                     current.secondaryPositions.contains(slotPosition)
-                        ? '本職外のポジションです(慣れ度 '
-                            '${current.familiarityFor(slotPosition)}%。出場を重ねると上がります)'
-                        : '本職から離れたポジションです(慣れ度 '
-                            '${current.familiarityFor(slotPosition)}%。パフォーマンスが低下します)',
+                        ? Tr.pick(
+                            '本職外のポジションです(慣れ度 ${current.familiarityFor(slotPosition)}%。出場を重ねると上がります)',
+                            'Not his natural position (familiarity ${current.familiarityFor(slotPosition)}%, which rises as he plays there)')
+                        : Tr.pick(
+                            '本職から離れたポジションです(慣れ度 ${current.familiarityFor(slotPosition)}%。パフォーマンスが低下します)',
+                            'Far from his natural position (familiarity ${current.familiarityFor(slotPosition)}%, and he will underperform)'),
                     style: const TextStyle(fontSize: 12, color: Colors.orange),
                   ),
                 ),
@@ -1132,7 +1164,8 @@ class _PitchView extends StatelessWidget {
               ListTile(
                 leading: PlayerFaceAvatar(playerId: p.id, position: p.position),
                 title: Text(p.name),
-                subtitle: Text('${p.position.label} / 総合 ${p.overall}'),
+                subtitle: Text(Tr.pick('${p.position.label} / 総合 ${p.overall}',
+                    '${p.position.label} / overall ${p.overall}')),
                 onTap: () {
                   Navigator.pop(ctx);
                   FeedbackService.tap();
@@ -1143,9 +1176,10 @@ class _PitchView extends StatelessWidget {
                 },
               ),
             if (candidates.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('交代できる選手がいません'),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                    Tr.pick('交代できる選手がいません', 'Nobody available to come on')),
               ),
           ],
         ),
@@ -1262,14 +1296,17 @@ class _SlotChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = player;
     final outOfPosition = p != null && p.position != slotPosition;
-    final roleSuffix =
-        (p != null && p.role != PlayerRole.standard) ? '・${p.role.label}' : '';
+    final roleSuffix = (p != null && p.role != PlayerRole.standard)
+        ? Tr.pick('・${p.role.label}', ' · ${p.role.label}')
+        : '';
     final content = Semantics(
       button: true,
       label: p == null
-          ? '${slotPosition.fullLabel}: 空き枠'
-          : '${slotPosition.fullLabel}: ${p.name}（${p.duty.label}$roleSuffix）'
-              '${outOfPosition ? '。本職外(慣れ度${p.familiarityFor(slotPosition)}%)' : ''}',
+          ? Tr.pick('${slotPosition.fullLabel}: 空き枠',
+              '${slotPosition.fullLabel}: empty')
+          : Tr.pick(
+              '${slotPosition.fullLabel}: ${p.name}（${p.duty.label}$roleSuffix）${outOfPosition ? '。本職外(慣れ度${p.familiarityFor(slotPosition)}%)' : ''}',
+              "${slotPosition.fullLabel}: ${p.name} (${p.duty.label}$roleSuffix)${outOfPosition ? '. Out of position (familiarity ${p.familiarityFor(slotPosition)}%)' : ''}"),
       child: GestureDetector(
         onTap: onTap,
         child: SizedBox(
@@ -1320,7 +1357,9 @@ class _SlotChip extends StatelessWidget {
                       left: -2,
                       top: -2,
                       child: Tooltip(
-                        message: '本職外(慣れ度${p.familiarityFor(slotPosition)}%)',
+                        message: Tr.pick(
+                            '本職外(慣れ度${p.familiarityFor(slotPosition)}%)',
+                            'Out of position (familiarity ${p.familiarityFor(slotPosition)}%)'),
                         child: Container(
                           width: 12,
                           height: 12,
@@ -1347,7 +1386,7 @@ class _SlotChip extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  p == null ? '空き' : p.name.split(' ').last,
+                  p == null ? Tr.pick('空き', 'Empty') : p.name.split(' ').last,
                   style: const TextStyle(fontSize: 10, color: Colors.white),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -1431,13 +1470,18 @@ class _BenchTile extends StatelessWidget {
         title: Text(p.name),
         subtitle: Text(
           p.isInjured
-              ? '負傷中（あと${p.injuryWeeks}週）'
+              ? Tr.pick('負傷中（あと${p.injuryWeeks}週）',
+                  'Injured (${p.injuryWeeks} weeks)')
               : p.isSuspended
-                  ? '出場停止（あと${p.suspendedMatches}試合）'
+                  ? Tr.pick('出場停止（あと${p.suspendedMatches}試合）',
+                      'Suspended (${p.suspendedMatches} matches)')
                   : p.isOnInternationalDuty
-                      ? '代表召集中（あと${p.internationalDutyWeeksRemaining}週）'
-                      : '${p.age}歳 / 総合 ${p.overall}'
-                          '${p.secondaryPositions.isEmpty ? '' : ' / 対応: ${p.secondaryPositions.map((s) => s.label).join(', ')}'}',
+                      ? Tr.pick(
+                          '代表召集中（あと${p.internationalDutyWeeksRemaining}週）',
+                          'On international duty (${p.internationalDutyWeeksRemaining} weeks)')
+                      : Tr.pick(
+                          '${p.age}歳 / 総合 ${p.overall}${p.secondaryPositions.isEmpty ? '' : ' / 対応: ${p.secondaryPositions.map((s) => s.label).join(', ')}'}',
+                          "Age ${p.age} / overall ${p.overall}${p.secondaryPositions.isEmpty ? '' : ' / also: ${p.secondaryPositions.map((s) => s.label).join(', ')}'}"),
           style: (p.isInjured || p.isOnInternationalDuty || p.isSuspended)
               ? const TextStyle(color: Colors.redAccent)
               : null,
@@ -1449,7 +1493,7 @@ class _BenchTile extends StatelessWidget {
                   context.read<GameState>().toggleStartingPlayer(p.id);
                 }
               : null,
-          child: const Text('スタメンへ'),
+          child: Text(Tr.pick('スタメンへ', 'Into the XI')),
         ),
       ),
     );

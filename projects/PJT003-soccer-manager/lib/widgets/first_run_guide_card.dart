@@ -75,8 +75,8 @@ class FirstRunGuideCard extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: FirstRunGuide.isDone(save, s) ? 1 : 0,
                           minHeight: 4,
-                          backgroundColor: scheme.onPrimaryContainer
-                              .withValues(alpha: 0.15),
+                          backgroundColor:
+                              scheme.onPrimaryContainer.withValues(alpha: 0.15),
                           color: scheme.onPrimaryContainer,
                         ),
                       ),

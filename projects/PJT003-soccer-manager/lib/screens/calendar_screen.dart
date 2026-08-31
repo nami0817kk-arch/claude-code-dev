@@ -5,9 +5,26 @@ import '../logic/calendar_engine.dart';
 import '../state/game_state.dart';
 import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
+import '../l10n/tr.dart';
 
 /// シーズンの実日付をもとに、試合日・重点練習日を月表示で見渡せる
 /// カレンダー画面。「今日は試合か練習か」を一目で把握できるようにする。
+/// 英語表示のときの月名。日本語表示では「n月」なので使わない。
+String _monthName(int month) => const [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ][month - 1];
+
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
 
@@ -57,7 +74,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('年間カレンダー'),
+        title: Text(Tr.pick('年間カレンダー', 'Season calendar')),
         leading: const BackButton(),
         actions: const [QuickAccessMenuButton()],
       ),
@@ -80,7 +97,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     }),
                   ),
                   Text(
-                    '${_visibleMonth.year}年${_visibleMonth.month}月',
+                    Tr.pick('${_visibleMonth.year}年${_visibleMonth.month}月',
+                        '${_monthName(_visibleMonth.month)} ${_visibleMonth.year}'),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   IconButton(
@@ -99,7 +117,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
                 children: [
-                  for (final label in const ['月', '火', '水', '木', '金', '土', '日'])
+                  for (final label in [
+                    Tr.pick('月', 'Mon'),
+                    Tr.pick('火', 'Tue'),
+                    Tr.pick('水', 'Wed'),
+                    Tr.pick('木', 'Thu'),
+                    Tr.pick('金', 'Fri'),
+                    Tr.pick('土', 'Sat'),
+                    Tr.pick('日', 'Sun')
+                  ])
                     Expanded(
                       child: Center(
                         child: Text(
@@ -107,9 +133,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: label == '土'
+                            color: label == Tr.pick('土', 'Sat')
                                 ? Colors.blue.shade700
-                                : label == '日'
+                                : label == Tr.pick('日', 'Sun')
                                     ? Colors.red.shade700
                                     : Colors.grey.shade700,
                           ),
@@ -155,15 +181,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final messages = <String>[];
     if (day.isLeagueMatchDay) {
       messages.add(
-        '第${day.matchday}節 ${day.isHomeMatch ? '(H)' : '(A)'} '
-        'vs ${day.opponentName ?? '未定'}',
+        Tr.pick(
+            '第${day.matchday}節 ${day.isHomeMatch ? '(H)' : '(A)'} vs ${day.opponentName ?? '未定'}',
+            "Matchday ${day.matchday} ${day.isHomeMatch ? '(H)' : '(A)'} vs ${day.opponentName ?? 'TBC'}"),
       );
     } else if (day.isFriendlyMatchDay) {
-      messages.add('プレシーズン親善試合 vs ${day.opponentName ?? '未定'}');
+      messages.add(Tr.pick('プレシーズン親善試合 vs ${day.opponentName ?? '未定'}',
+          "Pre-season friendly vs ${day.opponentName ?? 'TBC'}"));
     } else if (day.isTrainingFocusDay) {
-      messages.add('重点トレーニング日');
+      messages.add(Tr.pick('重点トレーニング日', 'Main training day'));
     } else {
-      messages.add('練習日(通常メニュー)');
+      messages.add(Tr.pick('練習日(通常メニュー)', 'Training day (normal session)'));
     }
     messages.addAll(day.cupLabels);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -284,11 +312,16 @@ class _CalendarLegend extends StatelessWidget {
         spacing: 16,
         runSpacing: 4,
         children: [
-          item(Icons.sports_soccer, Colors.blue.shade700, 'ホーム'),
-          item(Icons.sports_soccer, Colors.grey.shade700, 'アウェイ'),
-          item(Icons.fitness_center, Colors.deepOrange.shade400, '重点練習日'),
-          item(Icons.emoji_events, Colors.amber.shade700, 'カップ戦消化可能'),
-          item(Icons.handshake, Colors.teal.shade600, 'プレシーズン親善試合'),
+          item(Icons.sports_soccer, Colors.blue.shade700,
+              Tr.pick('ホーム', 'Home')),
+          item(Icons.sports_soccer, Colors.grey.shade700,
+              Tr.pick('アウェイ', 'Away')),
+          item(Icons.fitness_center, Colors.deepOrange.shade400,
+              Tr.pick('重点練習日', 'Main session')),
+          item(Icons.emoji_events, Colors.amber.shade700,
+              Tr.pick('カップ戦消化可能', 'Cup tie available')),
+          item(Icons.handshake, Colors.teal.shade600,
+              Tr.pick('プレシーズン親善試合', 'Pre-season friendly')),
         ],
       ),
     );

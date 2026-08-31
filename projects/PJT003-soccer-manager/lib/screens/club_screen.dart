@@ -7,6 +7,7 @@ import '../services/feedback_service.dart';
 import '../state/game_state.dart';
 import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
+import '../l10n/tr.dart';
 
 /// スタッフ・施設の現在レベル(と最大未満なら次レベル)の具体的な効果を1行にまとめる。
 String _staffEffectLabel(StaffRole role, int level) {
@@ -17,8 +18,9 @@ String _staffEffectLabel(StaffRole role, int level) {
       final next = level < maxLevel
           ? ClubInfrastructure.trainingGrowthMultiplier(level + 1, 1)
           : null;
-      return '成長倍率 ${cur.toStringAsFixed(2)}倍'
-          '${next == null ? '' : ' → 次Lv: ${next.toStringAsFixed(2)}倍'}';
+      return Tr.pick(
+          '成長倍率 ${cur.toStringAsFixed(2)}倍${next == null ? '' : ' → 次Lv: ${next.toStringAsFixed(2)}倍'}',
+          "Growth x${cur.toStringAsFixed(2)}${next == null ? '' : ' → next level: x${next.toStringAsFixed(2)}'}");
     case StaffRole.scout:
       final cur = ScoutingEngine.scoutCostFor(level);
       final curCount = ScoutingEngine.scoutCandidateCountFor(level);
@@ -27,26 +29,28 @@ String _staffEffectLabel(StaffRole role, int level) {
       final nextCount = level < maxLevel
           ? ScoutingEngine.scoutCandidateCountFor(level + 1)
           : null;
-      return '費用$cur万円 / 候補$curCount人'
-          '${next == null ? '' : ' → 次Lv: 費用$next万円 / 候補$nextCount人'}';
+      return Tr.pick(
+          '費用$cur万円 / 候補$curCount人${next == null ? '' : ' → 次Lv: 費用$next万円 / 候補$nextCount人'}',
+          "$cur per signing / $curCount candidates${next == null ? '' : ' → next level: $next / $nextCount candidates'}");
     case StaffRole.physio:
       final cur = ClubInfrastructure.injuryFactor(level);
       final next =
           level < maxLevel ? ClubInfrastructure.injuryFactor(level + 1) : null;
-      return '負傷リスク${((1 - cur) * 100).round()}%軽減'
-          '${next == null ? '' : ' → 次Lv: ${((1 - next) * 100).round()}%軽減'}';
+      return Tr.pick(
+          '負傷リスク${((1 - cur) * 100).round()}%軽減${next == null ? '' : ' → 次Lv: ${((1 - next) * 100).round()}%軽減'}',
+          "Injury risk down ${((1 - cur) * 100).round()}%${next == null ? '' : ' → next level: down ${((1 - next) * 100).round()}%'}");
     case StaffRole.youthCoach:
       final bonus = (level - 1) * 3;
       final next = level < maxLevel ? level * 3 : null;
-      return 'アカデミー生の質+$bonus'
-          '${next == null ? '' : ' → 次Lv: +$next'}';
+      return Tr.pick('アカデミー生の質+$bonus${next == null ? '' : ' → 次Lv: +$next'}',
+          "Academy quality +$bonus${next == null ? '' : ' → next level: +$next'}");
     case StaffRole.fitnessCoach:
       final cur = ClubInfrastructure.fitnessCoachRecoveryBonus(level);
       final next = level < maxLevel
           ? ClubInfrastructure.fitnessCoachRecoveryBonus(level + 1)
           : null;
-      return '追加疲労回復+$cur'
-          '${next == null ? '' : ' → 次Lv: +$next'}';
+      return Tr.pick('追加疲労回復+$cur${next == null ? '' : ' → 次Lv: +$next'}',
+          "Extra fatigue recovery +$cur${next == null ? '' : ' → next level: +$next'}");
   }
 }
 
@@ -66,35 +70,39 @@ String _facilityEffectLabel(
       final nextFatigue = level < maxLevel
           ? ClubInfrastructure.fatigueRecoveryBonus(level + 1)
           : null;
-      return '成長倍率 ${curGrowth.toStringAsFixed(2)}倍 / 追加疲労回復+$curFatigue'
-          '${next == null ? '' : ' → 次Lv: ${next.toStringAsFixed(2)}倍 / +$nextFatigue'}';
+      return Tr.pick(
+          '成長倍率 ${curGrowth.toStringAsFixed(2)}倍 / 追加疲労回復+$curFatigue${next == null ? '' : ' → 次Lv: ${next.toStringAsFixed(2)}倍 / +$nextFatigue'}',
+          "Growth x${curGrowth.toStringAsFixed(2)} / extra recovery +$curFatigue${next == null ? '' : ' → next level: x${next.toStringAsFixed(2)} / +$nextFatigue'}");
     case FacilityType.stadium:
       final cur = ClubInfrastructure.stadiumCapacity(level);
       final next = level < maxLevel
           ? ClubInfrastructure.stadiumCapacity(level + 1)
           : null;
-      return '収容人数 $cur人 (平均動員目安 $expectedAttendance人)'
-          '${next == null ? '' : ' → 次Lv: $next人'}';
+      return Tr.pick(
+          '収容人数 $cur人 (平均動員目安 $expectedAttendance人)${next == null ? '' : ' → 次Lv: $next人'}',
+          "Capacity $cur (typical attendance $expectedAttendance)${next == null ? '' : ' → next level: $next'}");
     case FacilityType.youthFacility:
       final cur = ScoutingEngine.maxProspectsFor(level);
       final next =
           level < maxLevel ? ScoutingEngine.maxProspectsFor(level + 1) : null;
-      return '受け入れ枠 $cur人'
-          '${next == null ? '' : ' → 次Lv: $next人'}';
+      return Tr.pick('受け入れ枠 $cur人${next == null ? '' : ' → 次Lv: $next人'}',
+          "$cur academy places${next == null ? '' : ' → next level: $next'}");
     case FacilityType.commercialFacility:
       final cur = ClubInfrastructure.commercialRevenueMultiplier(level);
       final next = level < maxLevel
           ? ClubInfrastructure.commercialRevenueMultiplier(level + 1)
           : null;
-      return '観客・スポンサー収入 x${cur.toStringAsFixed(2)}'
-          '${next == null ? '' : ' → 次Lv: x${next.toStringAsFixed(2)}'}';
+      return Tr.pick(
+          '観客・スポンサー収入 x${cur.toStringAsFixed(2)}${next == null ? '' : ' → 次Lv: x${next.toStringAsFixed(2)}'}',
+          "Gate and sponsorship income x${cur.toStringAsFixed(2)}${next == null ? '' : ' → next level: x${next.toStringAsFixed(2)}'}");
     case FacilityType.medicalCenter:
       final cur = ClubInfrastructure.medicalCenterInjuryFactor(level);
       final next = level < maxLevel
           ? ClubInfrastructure.medicalCenterInjuryFactor(level + 1)
           : null;
-      return 'フィジオと合わせて負傷リスク追加${((1 - cur) * 100).round()}%軽減'
-          '${next == null ? '' : ' → 次Lv: 追加${((1 - next) * 100).round()}%軽減'}';
+      return Tr.pick(
+          'フィジオと合わせて負傷リスク追加${((1 - cur) * 100).round()}%軽減${next == null ? '' : ' → 次Lv: 追加${((1 - next) * 100).round()}%軽減'}',
+          "With your physio, injury risk down a further ${((1 - cur) * 100).round()}%${next == null ? '' : ' → next level: a further ${((1 - next) * 100).round()}%'}");
   }
 }
 
@@ -116,7 +124,7 @@ class ClubScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('クラブ施設・スタッフ'),
+        title: Text(Tr.pick('クラブ施設・スタッフ', 'Facilities & staff')),
         leading: const BackButton(),
         actions: const [QuickAccessMenuButton()],
       ),
@@ -132,12 +140,13 @@ class ClubScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '資金: ${save.budget}万円',
+                      Tr.pick('資金: ${save.budget}万円', 'Funds: ${save.budget}'),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'スタッフ週俸合計: ${infra.totalStaffWeeklyWage}万円',
+                      Tr.pick('スタッフ週俸合計: ${infra.totalStaffWeeklyWage}万円',
+                          'Total staff wages: ${infra.totalStaffWeeklyWage}'),
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                     const SizedBox(height: 8),
@@ -154,7 +163,8 @@ class ClubScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '充実度 $totalLevels/$maxTotalLevels',
+                          Tr.pick('充実度 $totalLevels/$maxTotalLevels',
+                              'Development $totalLevels/$maxTotalLevels'),
                           style: const TextStyle(fontSize: 12),
                         ),
                       ],
@@ -164,7 +174,8 @@ class ClubScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            Text('スタッフ', style: Theme.of(context).textTheme.titleMedium),
+            Text(Tr.pick('スタッフ', 'Staff'),
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             for (final role in StaffRole.values)
               _UpgradeCard(
@@ -172,15 +183,16 @@ class ClubScreen extends StatelessWidget {
                 description: role.description,
                 level: infra.staffLevel(role),
                 cost: gameState.staffUpgradeCostFor(role),
-                costLabel: '雇用費',
-                extraLabel:
-                    '週俸 ${ClubInfrastructure.staffWeeklyWage(infra.staffLevel(role))}万円 / '
-                    '${_staffEffectLabel(role, infra.staffLevel(role))}',
+                costLabel: Tr.pick('雇用費', 'Hiring cost'),
+                extraLabel: Tr.pick(
+                    '週俸 ${ClubInfrastructure.staffWeeklyWage(infra.staffLevel(role))}万円 / ${_staffEffectLabel(role, infra.staffLevel(role))}',
+                    'Wage ${ClubInfrastructure.staffWeeklyWage(infra.staffLevel(role))} / ${_staffEffectLabel(role, infra.staffLevel(role))}'),
                 canAfford: save.budget >= gameState.staffUpgradeCostFor(role),
                 onUpgrade: () => gameState.upgradeStaff(role),
               ),
             const Divider(height: 32),
-            Text('施設', style: Theme.of(context).textTheme.titleMedium),
+            Text(Tr.pick('施設', 'Facilities'),
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             for (final type in FacilityType.values)
               _UpgradeCard(
@@ -188,7 +200,7 @@ class ClubScreen extends StatelessWidget {
                 description: type.description,
                 level: infra.facilityLevel(type),
                 cost: gameState.facilityUpgradeCostFor(type),
-                costLabel: '建設費',
+                costLabel: Tr.pick('建設費', 'Build cost'),
                 extraLabel: _facilityEffectLabel(
                   type,
                   infra.facilityLevel(type),
@@ -199,7 +211,8 @@ class ClubScreen extends StatelessWidget {
                 onUpgrade: () => gameState.upgradeFacility(type),
               ),
             const Divider(height: 32),
-            Text('チケット価格戦略', style: Theme.of(context).textTheme.titleMedium),
+            Text(Tr.pick('チケット価格戦略', 'Ticket pricing'),
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             _TicketPricingCard(
               current: save.ticketPricing,
@@ -226,10 +239,11 @@ class _TicketPricingCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '観客動員率と1人あたり収入はトレードオフです。値上げは収容人数に対する'
-              '実入場者数を減らし、値下げは満員に近づけます。',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+            Text(
+              Tr.pick(
+                  '観客動員率と1人あたり収入はトレードオフです。値上げは収容人数に対する実入場者数を減らし、値下げは満員に近づけます。',
+                  'Attendance and revenue per head pull against each other. Raise prices and fewer of your seats fill; lower them and you get closer to a full house.'),
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const SizedBox(height: 10),
             SegmentedButton<TicketPricing>(
@@ -323,7 +337,10 @@ class _UpgradeCard extends StatelessWidget {
                             ? FeedbackService.success()
                             : FeedbackService.error();
                       },
-                child: Text(isMax ? '最大レベル' : '$costLabel $cost万円でアップグレード'),
+                child: Text(isMax
+                    ? Tr.pick('最大レベル', 'Fully upgraded')
+                    : Tr.pick('$costLabel $cost万円でアップグレード',
+                        'Upgrade for $cost ($costLabel)')),
               ),
             ),
           ],

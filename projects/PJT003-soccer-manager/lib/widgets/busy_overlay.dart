@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
+import '../l10n/tr.dart';
 
 /// 重い同期処理の実行中に、操作をブロックしつつ進行中であることを示す
 /// 半透明のローディングオーバーレイ。
 class BusyOverlay extends StatelessWidget {
   final bool visible;
-  final String label;
+
+  /// 表示するラベル。nullなら既定文言を表示時の言語で組み立てる。
+  final String? label;
   final Widget child;
 
   const BusyOverlay({
     super.key,
     required this.visible,
     required this.child,
-    this.label = '処理中…',
+    this.label,
   });
 
   @override
@@ -36,7 +39,7 @@ class BusyOverlay extends StatelessWidget {
                         children: [
                           const CircularProgressIndicator(),
                           const SizedBox(height: 16),
-                          Text(label),
+                          Text(label ?? Tr.pick('処理中…', 'Working…')),
                         ],
                       ),
                     ),

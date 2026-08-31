@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../state/game_state.dart';
+import '../l10n/tr.dart';
 
 /// 試合・シーズン終了・複数節まとめてシミュレーションなど、実績が新たに
 /// 解除されうるあらゆる操作の直後に呼び出す共通の通知処理。1件なら
@@ -15,14 +16,15 @@ void showAchievementUnlockNotification(
 
   if (newly.length == 1) {
     final a = newly.first;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('実績解除: ${a.name}')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            Tr.pick('実績解除: ${a.name}', 'Achievement unlocked: ${a.name}'))));
     return;
   }
   showDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('実績解除！'),
+      title: Text(Tr.pick('実績解除！', 'Achievement unlocked!')),
       content: SizedBox(
         width: double.maxFinite,
         child: ListView(
@@ -41,7 +43,7 @@ void showAchievementUnlockNotification(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('閉じる'),
+          child: Text(Tr.pick('閉じる', 'Close')),
         ),
       ],
     ),

@@ -14,6 +14,7 @@ import '../widgets/responsive_body.dart';
 import 'glossary_screen.dart';
 import 'player_compare_screen.dart';
 import 'player_detail_screen.dart';
+import '../l10n/tr.dart';
 
 enum SquadSortOption {
   position,
@@ -30,16 +31,17 @@ enum SquadSortOption {
 
 extension on SquadSortOption {
   String get label => switch (this) {
-        SquadSortOption.position => 'ポジション順',
-        SquadSortOption.overall => '総合力',
-        SquadSortOption.age => '年齢(若い順)',
-        SquadSortOption.potential => 'ポテンシャル',
-        SquadSortOption.wage => '週俸',
-        SquadSortOption.fatigue => '疲労が大きい順',
-        SquadSortOption.sharpness => '実戦感覚が低い順',
-        SquadSortOption.happiness => '不満が大きい順',
-        SquadSortOption.contract => '契約残りが短い順',
-        SquadSortOption.marketValue => '市場価値',
+        SquadSortOption.position => Tr.pick('ポジション順', 'By position'),
+        SquadSortOption.overall => Tr.pick('総合力', 'Overall'),
+        SquadSortOption.age => Tr.pick('年齢(若い順)', 'Age (youngest)'),
+        SquadSortOption.potential => Tr.pick('ポテンシャル', 'Potential'),
+        SquadSortOption.wage => Tr.pick('週俸', 'Wage'),
+        SquadSortOption.fatigue => Tr.pick('疲労が大きい順', 'Most tired'),
+        SquadSortOption.sharpness => Tr.pick('実戦感覚が低い順', 'Least sharp'),
+        SquadSortOption.happiness => Tr.pick('不満が大きい順', 'Least happy'),
+        SquadSortOption.contract =>
+          Tr.pick('契約残りが短い順', 'Contract running down'),
+        SquadSortOption.marketValue => Tr.pick('市場価値', 'Value'),
       };
 }
 
@@ -48,10 +50,10 @@ enum SquadStatusFilter { all, starters, bench, needsAttention }
 
 extension SquadStatusFilterInfo on SquadStatusFilter {
   String get label => switch (this) {
-        SquadStatusFilter.all => 'すべて',
-        SquadStatusFilter.starters => 'スタメン',
-        SquadStatusFilter.bench => '控え',
-        SquadStatusFilter.needsAttention => '要対応',
+        SquadStatusFilter.all => Tr.pick('すべて', 'All'),
+        SquadStatusFilter.starters => Tr.pick('スタメン', 'Starters'),
+        SquadStatusFilter.bench => Tr.pick('控え', 'Backups'),
+        SquadStatusFilter.needsAttention => Tr.pick('要対応', 'Needs attention'),
       };
 }
 
@@ -202,7 +204,9 @@ class _SquadScreenState extends State<SquadScreen> {
                 Text(p.name, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 4),
                 Text(
-                  '週俸: ${p.wage}万円 / ${ContractEngine.yearsLabel(p.contractYearsRemaining)}',
+                  Tr.pick(
+                      '週俸: ${p.wage}万円 / ${ContractEngine.yearsLabel(p.contractYearsRemaining)}',
+                      'Wage: ${p.wage} / ${ContractEngine.yearsLabel(p.contractYearsRemaining)}'),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
@@ -220,16 +224,20 @@ class _SquadScreenState extends State<SquadScreen> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    ok ? '契約を更新しました' : '契約を更新できませんでした',
+                                    ok
+                                        ? Tr.pick(
+                                            '契約を更新しました', 'Contract renewed')
+                                        : Tr.pick('契約を更新できませんでした',
+                                            'Could not renew the contract'),
                                   ),
                                 ),
                               );
                             }
                           },
                     child: Text(
-                      '契約更新する（基本$renewalCost万円 + サインボーナス$signingBonus万円 / '
-                      '新契約${ContractEngine.negotiatedYears(p)}年 / '
-                      '新出場手当$newAppearanceFee万円）',
+                      Tr.pick(
+                          '契約更新する（基本$renewalCost万円 + サインボーナス$signingBonus万円 / 新契約${ContractEngine.negotiatedYears(p)}年 / 新出場手当$newAppearanceFee万円）',
+                          'Renew (base $renewalCost + signing bonus $signingBonus / ${ContractEngine.negotiatedYears(p)} years / new appearance fee $newAppearanceFee)'),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -246,7 +254,8 @@ class _SquadScreenState extends State<SquadScreen> {
                         ),
                       );
                     },
-                    child: const Text('週俸交渉・放出など詳しい操作を開く'),
+                    child: Text(Tr.pick('週俸交渉・放出など詳しい操作を開く',
+                        'Open wage talks, release and other actions')),
                   ),
                 ),
               ],
@@ -261,66 +270,71 @@ class _SquadScreenState extends State<SquadScreen> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('アイコンの意味'),
-        content: const Column(
+        title: Text(Tr.pick('アイコンの意味', 'What the icons mean')),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             _LegendRow(
               icon: Icons.swap_horiz,
               color: Colors.indigo,
-              label: 'ローンで加入中の選手',
+              label: Tr.pick('ローンで加入中の選手', 'On loan at your club'),
             ),
             _LegendRow(
               icon: Icons.sentiment_dissatisfied,
               color: Colors.redAccent,
-              label: '移籍を希望している',
+              label: Tr.pick('移籍を希望している', 'Wants a move away'),
             ),
             _LegendRow(
               icon: Icons.flag,
               color: Colors.blueAccent,
-              label: '代表召集中',
+              label: Tr.pick('代表召集中', 'On international duty'),
             ),
             _LegendRow(
               icon: Icons.shield,
               color: Colors.amber,
-              label: '「C」=キャプテン / 「VC」=副キャプテン(選手詳細画面から指名)',
+              label: Tr.pick('「C」=キャプテン / 「VC」=副キャプテン(選手詳細画面から指名)',
+                  '"C" = captain, "VC" = vice captain (named from the player\'s page)'),
             ),
             _LegendRow(
               icon: Icons.block,
               color: Colors.redAccent,
-              label: '出場停止中(警告累積または退場)',
+              label: Tr.pick('出場停止中(警告累積または退場)',
+                  'Suspended (booked too often, or sent off)'),
             ),
             _LegendRow(
               icon: Icons.flight_takeoff,
               color: Colors.deepPurple,
-              label: '他クラブへローン放出中',
+              label: Tr.pick('他クラブへローン放出中', 'Out on loan elsewhere'),
             ),
             _LegendRow(
               icon: Icons.sell_outlined,
               color: Colors.orange,
-              label: '移籍リストに登録中',
+              label: Tr.pick('移籍リストに登録中', 'On the transfer list'),
             ),
             _LegendRow(
               icon: Icons.trending_up,
               color: Colors.green,
-              label: '総合値の下の▲/▼ = 直近5節の総合力の変化(成長トレンド)',
+              label: Tr.pick('総合値の下の▲/▼ = 直近5節の総合力の変化(成長トレンド)',
+                  '▲/▼ under the overall = change across the last 5 matchdays'),
             ),
             _LegendRow(
               icon: Icons.monitor_heart_outlined,
               color: Colors.grey,
-              label: '2行目の疲労/感覚/士気は、問題のある値だけ赤く強調される',
+              label: Tr.pick('2行目の疲労/感覚/士気は、問題のある値だけ赤く強調される',
+                  'On the second line, only fatigue, sharpness and morale that need attention turn red'),
             ),
             _LegendRow(
               icon: Icons.workspace_premium,
               color: Colors.teal,
-              label: '名前の横のKP/ROT/育成 = スカッド・ステータス(主力は非表示)',
+              label: Tr.pick('名前の横のKP/ROT/育成 = スカッド・ステータス(主力は非表示)',
+                  'KP/ROT/Prospect beside the name is his squad status (first-team players show nothing)'),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('閉じる'),
+            child: Text(Tr.pick('閉じる', 'Close')),
           ),
         ],
       ),
@@ -346,24 +360,26 @@ class _SquadScreenState extends State<SquadScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_compareMode ? '選手を2人選択' : 'スカッド'),
+        title: Text(_compareMode
+            ? Tr.pick('選手を2人選択', 'Pick two players')
+            : Tr.pick('スカッド', 'Squad')),
         actions: [
           if (!_compareMode) ...[
             IconButton(
               icon: const Icon(Icons.info_outline),
-              tooltip: 'アイコンの意味',
+              tooltip: Tr.pick('アイコンの意味', 'What the icons mean'),
               onPressed: () => _showIconLegend(context),
             ),
             IconButton(
               icon: const Icon(Icons.help_outline),
-              tooltip: '用語集',
+              tooltip: Tr.pick('用語集', 'Glossary'),
               onPressed: () => Navigator.of(
                 context,
               ).push(MaterialPageRoute(builder: (_) => const GlossaryScreen())),
             ),
             PopupMenuButton<SquadSortOption>(
               icon: const Icon(Icons.sort),
-              tooltip: '並び替え',
+              tooltip: Tr.pick('並び替え', 'Sort'),
               initialValue: _sort,
               onSelected: (v) => setState(() => _sort = v),
               itemBuilder: (context) => [
@@ -374,7 +390,9 @@ class _SquadScreenState extends State<SquadScreen> {
           ],
           IconButton(
             icon: Icon(_compareMode ? Icons.close : Icons.compare_arrows),
-            tooltip: _compareMode ? '比較モードを終了' : '選手を比較',
+            tooltip: _compareMode
+                ? Tr.pick('比較モードを終了', 'Leave compare mode')
+                : Tr.pick('選手を比較', 'Compare players'),
             onPressed: _toggleCompareMode,
           ),
         ],
@@ -395,7 +413,7 @@ class _SquadScreenState extends State<SquadScreen> {
                     .then((_) => _toggleCompareMode());
               },
               icon: const Icon(Icons.compare_arrows),
-              label: const Text('比較する'),
+              label: Text(Tr.pick('比較する', 'Compare')),
             )
           : null,
       body: ResponsiveBody(
@@ -440,14 +458,14 @@ class _SquadScreenState extends State<SquadScreen> {
                 controller: _searchController,
                 onChanged: (v) => setState(() => _query = v),
                 decoration: InputDecoration(
-                  hintText: '選手名で検索',
+                  hintText: Tr.pick('選手名で検索', 'Search by name'),
                   prefixIcon: const Icon(Icons.search),
                   isDense: true,
                   suffixIcon: _query.isEmpty
                       ? null
                       : IconButton(
                           icon: const Icon(Icons.clear),
-                          tooltip: '検索をクリア',
+                          tooltip: Tr.pick('検索をクリア', 'Clear the search'),
                           onPressed: () {
                             _searchController.clear();
                             setState(() => _query = '');
@@ -458,7 +476,8 @@ class _SquadScreenState extends State<SquadScreen> {
             ),
             Expanded(
               child: players.isEmpty
-                  ? const Center(child: Text('該当する選手がいません'))
+                  ? Center(
+                      child: Text(Tr.pick('該当する選手がいません', 'No players match')))
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       itemCount: players.length,
@@ -507,7 +526,7 @@ class _SquadScreenState extends State<SquadScreen> {
                                 if (team.captainId == p.id) ...[
                                   const SizedBox(width: 6),
                                   Tooltip(
-                                    message: 'キャプテン',
+                                    message: Tr.pick('キャプテン', 'Captain'),
                                     child: CircleAvatar(
                                       radius: 8,
                                       backgroundColor: Colors.amber.shade700,
@@ -524,9 +543,9 @@ class _SquadScreenState extends State<SquadScreen> {
                                 ],
                                 if (team.viceCaptainId == p.id) ...[
                                   const SizedBox(width: 6),
-                                  const Tooltip(
-                                    message: '副キャプテン',
-                                    child: CircleAvatar(
+                                  Tooltip(
+                                    message: Tr.pick('副キャプテン', 'Vice captain'),
+                                    child: const CircleAvatar(
                                       radius: 8,
                                       backgroundColor: Colors.blueGrey,
                                       child: Text(
@@ -543,13 +562,15 @@ class _SquadScreenState extends State<SquadScreen> {
                                 if (p.squadStatus != SquadStatus.regular) ...[
                                   const SizedBox(width: 6),
                                   Tooltip(
-                                    message:
+                                    message: Tr.pick(
                                         'スカッド・ステータス: ${p.squadStatus.label}',
+                                        'Squad status: ${p.squadStatus.label}'),
                                     child: Text(
                                       switch (p.squadStatus) {
                                         SquadStatus.keyPlayer => 'KP',
                                         SquadStatus.rotation => 'ROT',
-                                        SquadStatus.prospect => '育成',
+                                        SquadStatus.prospect =>
+                                          Tr.pick('育成', 'Prospect'),
                                         SquadStatus.regular => '',
                                       },
                                       style: TextStyle(
@@ -567,9 +588,9 @@ class _SquadScreenState extends State<SquadScreen> {
                                 ],
                                 if (p.isLoan) ...[
                                   const SizedBox(width: 6),
-                                  const Tooltip(
-                                    message: 'ローン加入中',
-                                    child: Icon(
+                                  Tooltip(
+                                    message: Tr.pick('ローン加入中', 'On loan here'),
+                                    child: const Icon(
                                       Icons.swap_horiz,
                                       size: 16,
                                       color: Colors.indigo,
@@ -578,9 +599,10 @@ class _SquadScreenState extends State<SquadScreen> {
                                 ],
                                 if (p.wantsTransfer) ...[
                                   const SizedBox(width: 6),
-                                  const Tooltip(
-                                    message: '移籍を希望している',
-                                    child: Icon(
+                                  Tooltip(
+                                    message: Tr.pick(
+                                        '移籍を希望している', 'Wants a move away'),
+                                    child: const Icon(
                                       Icons.sentiment_dissatisfied,
                                       size: 16,
                                       color: Colors.redAccent,
@@ -589,9 +611,10 @@ class _SquadScreenState extends State<SquadScreen> {
                                 ],
                                 if (p.isOnInternationalDuty) ...[
                                   const SizedBox(width: 6),
-                                  const Tooltip(
-                                    message: '代表召集中',
-                                    child: Icon(
+                                  Tooltip(
+                                    message: Tr.pick(
+                                        '代表召集中', 'On international duty'),
+                                    child: const Icon(
                                       Icons.flag,
                                       size: 16,
                                       color: Colors.blueAccent,
@@ -600,9 +623,9 @@ class _SquadScreenState extends State<SquadScreen> {
                                 ],
                                 if (p.isSuspended) ...[
                                   const SizedBox(width: 6),
-                                  const Tooltip(
-                                    message: '出場停止中',
-                                    child: Icon(
+                                  Tooltip(
+                                    message: Tr.pick('出場停止中', 'Suspended'),
+                                    child: const Icon(
                                       Icons.block,
                                       size: 16,
                                       color: Colors.redAccent,
@@ -611,9 +634,9 @@ class _SquadScreenState extends State<SquadScreen> {
                                 ],
                                 if (p.isLoanedOut) ...[
                                   const SizedBox(width: 6),
-                                  const Tooltip(
-                                    message: 'ローンで放出中',
-                                    child: Icon(
+                                  Tooltip(
+                                    message: Tr.pick('ローンで放出中', 'Out on loan'),
+                                    child: const Icon(
                                       Icons.flight_takeoff,
                                       size: 16,
                                       color: Colors.deepPurple,
@@ -622,9 +645,10 @@ class _SquadScreenState extends State<SquadScreen> {
                                 ],
                                 if (p.isTransferListed) ...[
                                   const SizedBox(width: 6),
-                                  const Tooltip(
-                                    message: '移籍リストに登録済み',
-                                    child: Icon(
+                                  Tooltip(
+                                    message: Tr.pick(
+                                        '移籍リストに登録済み', 'On the transfer list'),
+                                    child: const Icon(
                                       Icons.sell_outlined,
                                       size: 16,
                                       color: Colors.orange,
@@ -638,16 +662,23 @@ class _SquadScreenState extends State<SquadScreen> {
                               children: [
                                 Text(
                                   p.isInjured
-                                      ? '負傷中（あと${p.injuryWeeks}週）'
+                                      ? Tr.pick('負傷中（あと${p.injuryWeeks}週）',
+                                          'Injured (${p.injuryWeeks} weeks)')
                                       : p.isSuspended
-                                          ? '出場停止（あと${p.suspendedMatches}試合）'
+                                          ? Tr.pick(
+                                              '出場停止（あと${p.suspendedMatches}試合）',
+                                              'Suspended (${p.suspendedMatches} matches)')
                                           : p.isOnInternationalDuty
-                                              ? '代表召集中（あと${p.internationalDutyWeeksRemaining}週）'
+                                              ? Tr.pick(
+                                                  '代表召集中（あと${p.internationalDutyWeeksRemaining}週）',
+                                                  'On international duty (${p.internationalDutyWeeksRemaining} weeks)')
                                               : p.isLoanedOut
-                                                  ? '${p.loanedOutToClubName}へローン放出中（あと${p.loanedOutWeeksRemaining}週）'
-                                                  : '${p.age}歳 / ${p.position.label} / 総合 ${p.overall}'
-                                                      '${lastRatings?[p.id] != null ? ' / 前節 ${lastRatings![p.id]!.toStringAsFixed(1)}' : ''}'
-                                                      '${p.isLoan ? '' : ' / ${ContractEngine.yearsLabel(p.contractYearsRemaining)}'}',
+                                                  ? Tr.pick(
+                                                      '${p.loanedOutToClubName}へローン放出中（あと${p.loanedOutWeeksRemaining}週）',
+                                                      'On loan at ${p.loanedOutToClubName} (${p.loanedOutWeeksRemaining} weeks left)')
+                                                  : Tr.pick(
+                                                      '${p.age}歳 / ${p.position.label} / 総合 ${p.overall}${lastRatings?[p.id] != null ? ' / 前節 ${lastRatings![p.id]!.toStringAsFixed(1)}' : ''}${p.isLoan ? '' : ' / ${ContractEngine.yearsLabel(p.contractYearsRemaining)}'}',
+                                                      "Age ${p.age} / ${p.position.label} / overall ${p.overall}${lastRatings?[p.id] != null ? ' / last ${lastRatings![p.id]!.toStringAsFixed(1)}' : ''}${p.isLoan ? '' : ' / ${ContractEngine.yearsLabel(p.contractYearsRemaining)}'}"),
                                   style: (p.isInjured ||
                                           p.isSuspended ||
                                           p.isOnInternationalDuty ||
@@ -701,7 +732,9 @@ class _SquadScreenState extends State<SquadScreen> {
                                               ),
                                               if (trend != 0)
                                                 Tooltip(
-                                                  message: '直近5節の総合力の変化',
+                                                  message: Tr.pick(
+                                                      '直近5節の総合力の変化',
+                                                      'Change over the last 5 matchdays'),
                                                   child: Text(
                                                     trend > 0
                                                         ? '▲$trend'
@@ -727,7 +760,8 @@ class _SquadScreenState extends State<SquadScreen> {
                                             Icons.description_outlined,
                                             size: 20,
                                           ),
-                                          tooltip: '契約を操作',
+                                          tooltip: Tr.pick(
+                                              '契約を操作', 'Contract actions'),
                                           onPressed: () =>
                                               _showContractSheet(context, p),
                                         ),
@@ -782,17 +816,22 @@ class _SquadSummaryCard extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _SummaryItem(label: '人数', value: '$count'),
-              _SummaryItem(label: '平均総合', value: '$avgOverall'),
-              _SummaryItem(label: '平均年齢', value: '$avgAge歳'),
-              _SummaryItem(label: '週俸', value: '$wageBill万'),
+              _SummaryItem(label: Tr.pick('人数', 'Players'), value: '$count'),
               _SummaryItem(
-                label: '負傷',
+                  label: Tr.pick('平均総合', 'Avg overall'), value: '$avgOverall'),
+              _SummaryItem(
+                  label: Tr.pick('平均年齢', 'Avg age'),
+                  value: Tr.pick('$avgAge歳', '$avgAge')),
+              _SummaryItem(
+                  label: Tr.pick('週俸', 'Wage'),
+                  value: Tr.pick('$wageBill万', '$wageBill')),
+              _SummaryItem(
+                label: Tr.pick('負傷', 'Injured'),
                 value: '$injured',
                 valueColor: injured > 0 ? Colors.redAccent : null,
               ),
               _SummaryItem(
-                label: '要対応',
+                label: Tr.pick('要対応', 'Needs attention'),
                 value: '$attention',
                 valueColor: attention > 0 ? Colors.orange : null,
               ),
@@ -856,13 +895,15 @@ class _ConditionLine extends StatelessWidget {
 
     return Row(
       children: [
-        cond('疲労', player.fatigue, player.fatigue >= 75),
-        cond('感覚', player.matchSharpness, player.matchSharpness < 40),
-        cond('士気', player.happiness, player.happiness < 40),
+        cond(Tr.pick('疲労', 'Fatigue'), player.fatigue, player.fatigue >= 75),
+        cond(Tr.pick('感覚', 'Sharpness'), player.matchSharpness,
+            player.matchSharpness < 40),
+        cond(Tr.pick('士気', 'Morale'), player.happiness, player.happiness < 40),
         Flexible(
           child: Text(
-            '今季${stats.appearances}試合${stats.goals}点'
-            '${stats.averageRating != null ? '・評点${stats.averageRating!.toStringAsFixed(1)}' : ''}',
+            Tr.pick(
+                '今季${stats.appearances}試合${stats.goals}点${stats.averageRating != null ? '・評点${stats.averageRating!.toStringAsFixed(1)}' : ''}',
+                "${stats.appearances} apps, ${stats.goals} goals${stats.averageRating != null ? ', avg ${stats.averageRating!.toStringAsFixed(1)}' : ''}"),
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 11, color: Colors.grey),
           ),

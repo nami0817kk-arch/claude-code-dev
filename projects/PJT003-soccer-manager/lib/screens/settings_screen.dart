@@ -28,7 +28,7 @@ class SettingsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('設定'),
+        title: Text(Tr.pick('設定', 'Settings')),
         leading: const BackButton(),
         actions: const [QuickAccessMenuButton()],
       ),
@@ -68,19 +68,19 @@ class SettingsScreen extends StatelessWidget {
             child: Column(
               children: [
                 _ThemeModeTile(
-                  label: '端末の設定に合わせる',
+                  label: Tr.pick('端末の設定に合わせる', 'Follow the device setting'),
                   mode: ThemeMode.system,
                   current: settings.themeMode,
                   onSelect: settings.setThemeMode,
                 ),
                 _ThemeModeTile(
-                  label: 'ライトモード',
+                  label: Tr.pick('ライトモード', 'Light'),
                   mode: ThemeMode.light,
                   current: settings.themeMode,
                   onSelect: settings.setThemeMode,
                 ),
                 _ThemeModeTile(
-                  label: 'ダークモード',
+                  label: Tr.pick('ダークモード', 'Dark'),
                   mode: ThemeMode.dark,
                   current: settings.themeMode,
                   onSelect: settings.setThemeMode,
@@ -98,7 +98,7 @@ class SettingsScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('文字サイズ'),
+                      Text(Tr.pick('文字サイズ', 'Text size')),
                       Text('${(settings.textScale * 100).round()}%'),
                     ],
                   ),
@@ -114,20 +114,24 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          Text('アクセシビリティ', style: Theme.of(context).textTheme.titleMedium),
+          Text(Tr.pick('アクセシビリティ', 'Accessibility'),
+              style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
             child: Column(
               children: [
                 SwitchListTile(
-                  title: const Text('色覚サポートモード'),
-                  subtitle: const Text('勝敗などの色分けを、赤緑ではなく青とオレンジで表示します'),
+                  title:
+                      Text(Tr.pick('色覚サポートモード', 'Colourblind-friendly mode')),
+                  subtitle: Text(Tr.pick('勝敗などの色分けを、赤緑ではなく青とオレンジで表示します',
+                      'Uses blue and orange instead of red and green for results and other colour coding')),
                   value: settings.colorblindMode,
                   onChanged: (v) => settings.setColorblindMode(v),
                 ),
                 SwitchListTile(
-                  title: const Text('太字強調モード'),
-                  subtitle: const Text('文字を全体的に太くして見やすくします'),
+                  title: Text(Tr.pick('太字強調モード', 'Bold text')),
+                  subtitle: Text(Tr.pick('文字を全体的に太くして見やすくします',
+                      'Makes all text heavier so it is easier to read')),
                   value: settings.boldTextMode,
                   onChanged: (v) => settings.setBoldTextMode(v),
                 ),
@@ -135,20 +139,23 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          Text('サウンド・触覚', style: Theme.of(context).textTheme.titleMedium),
+          Text(Tr.pick('サウンド・触覚', 'Sound & haptics'),
+              style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
             child: Column(
               children: [
                 SwitchListTile(
-                  title: const Text('効果音'),
-                  subtitle: const Text('得点・試合結果などで再生します'),
+                  title: Text(Tr.pick('効果音', 'Sound effects')),
+                  subtitle: Text(Tr.pick('得点・試合結果などで再生します',
+                      'Plays on goals, results and similar moments')),
                   value: settings.soundEnabled,
                   onChanged: (v) => settings.setSoundEnabled(v),
                 ),
                 SwitchListTile(
-                  title: const Text('触覚フィードバック'),
-                  subtitle: const Text('ボタン操作や試合の展開に合わせて振動します'),
+                  title: Text(Tr.pick('触覚フィードバック', 'Haptic feedback')),
+                  subtitle: Text(Tr.pick('ボタン操作や試合の展開に合わせて振動します',
+                      'Vibrates on taps and during matches')),
                   value: settings.hapticsEnabled,
                   onChanged: (v) => settings.setHapticsEnabled(v),
                 ),
@@ -156,12 +163,14 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          Text('ヘルプ', style: Theme.of(context).textTheme.titleMedium),
+          Text(Tr.pick('ヘルプ', 'Help'),
+              style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
             child: ListTile(
               leading: const Icon(Icons.school_outlined),
-              title: const Text('チュートリアルをもう一度見る'),
+              title:
+                  Text(Tr.pick('チュートリアルをもう一度見る', 'Watch the tutorial again')),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => OnboardingScreen(
@@ -172,21 +181,25 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          Text('セーブデータ', style: Theme.of(context).textTheme.titleMedium),
+          Text(Tr.pick('セーブデータ', 'Saved game'),
+              style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
             child: Column(
               children: [
                 ListTile(
                   leading: const Icon(Icons.copy_all_outlined),
-                  title: const Text('セーブデータをコピー(バックアップ)'),
-                  subtitle: const Text('クリップボードにJSON形式で書き出します'),
+                  title: Text(
+                      Tr.pick('セーブデータをコピー(バックアップ)', 'Copy your save (backup)')),
+                  subtitle: Text(Tr.pick('クリップボードにJSON形式で書き出します',
+                      'Writes it to the clipboard as JSON')),
                   onTap: () => _exportSave(context),
                 ),
                 ListTile(
                   leading: const Icon(Icons.download_outlined),
-                  title: const Text('セーブデータを復元'),
-                  subtitle: const Text('コピーしたJSONを貼り付けて復元します'),
+                  title: Text(Tr.pick('セーブデータを復元', 'Restore a save')),
+                  subtitle: Text(Tr.pick('コピーしたJSONを貼り付けて復元します',
+                      'Paste the JSON you copied to restore it')),
                   onTap: () => _importSave(context),
                 ),
                 ListTile(
@@ -194,11 +207,12 @@ class SettingsScreen extends StatelessWidget {
                     Icons.delete_forever,
                     color: Colors.redAccent,
                   ),
-                  title: const Text(
-                    'セーブデータを削除',
-                    style: TextStyle(color: Colors.redAccent),
+                  title: Text(
+                    Tr.pick('セーブデータを削除', 'Delete your save'),
+                    style: const TextStyle(color: Colors.redAccent),
                   ),
-                  subtitle: const Text('最初からやり直します。この操作は取り消せません'),
+                  subtitle: Text(Tr.pick('最初からやり直します。この操作は取り消せません',
+                      'Starts again from scratch. This cannot be undone')),
                   onTap: () => _confirmDelete(context),
                 ),
               ],
@@ -206,20 +220,23 @@ class SettingsScreen extends StatelessWidget {
           ),
           if (gameState.save != null) ...[
             const SizedBox(height: 20),
-            Text('デバッグ(管理者専用)', style: Theme.of(context).textTheme.titleMedium),
+            Text(Tr.pick('デバッグ(管理者専用)', 'Debug (developer only)'),
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             Card(
               child: ListTile(
                 leading: const Icon(Icons.build_circle_outlined),
-                title: const Text('資金を追加'),
-                subtitle: const Text('動作確認・検証用に、任意の額だけクラブ資金を増減させます'),
+                title: Text(Tr.pick('資金を追加', 'Add funds')),
+                subtitle: Text(Tr.pick('動作確認・検証用に、任意の額だけクラブ資金を増減させます',
+                    "Raises or lowers the club's funds by any amount, for testing")),
                 onTap: () => _showAddFundsDialog(context),
               ),
             ),
           ],
           const SupporterSection(),
           const SizedBox(height: 20),
-          Text('アプリ情報', style: Theme.of(context).textTheme.titleMedium),
+          Text(Tr.pick('アプリ情報', 'About'),
+              style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
             child: Padding(
@@ -238,7 +255,7 @@ class SettingsScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'サッカー経営マネージャー',
+                          Tr.pick('サッカー経営マネージャー', 'Soccer Club Manager'),
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
                         const SizedBox(height: 2),
@@ -247,8 +264,10 @@ class SettingsScreen extends StatelessWidget {
                           builder: (context, snapshot) {
                             final info = snapshot.data;
                             final label = info == null
-                                ? '読み込み中…'
-                                : 'バージョン ${info.version}+${info.buildNumber}';
+                                ? Tr.pick('読み込み中…', 'Loading…')
+                                : Tr.pick(
+                                    'バージョン ${info.version}+${info.buildNumber}',
+                                    'Version ${info.version}+${info.buildNumber}');
                             return Text(
                               label,
                               style: const TextStyle(
@@ -259,10 +278,11 @@ class SettingsScreen extends StatelessWidget {
                           },
                         ),
                         const SizedBox(height: 6),
-                        const Text(
-                          'クラブ経営からスタメン編成、移籍市場、ユース育成までを1本で楽しめる'
-                          'サッカーマネージメントゲームです。',
-                          style: TextStyle(fontSize: 12),
+                        Text(
+                          Tr.pick(
+                              'クラブ経営からスタメン編成、移籍市場、ユース育成までを1本で楽しめるサッカーマネージメントゲームです。',
+                              'A football management game covering everything from running the club to picking your XI, working the transfer market and bringing through the academy.'),
+                          style: const TextStyle(fontSize: 12),
                         ),
                       ],
                     ),
@@ -277,13 +297,13 @@ class SettingsScreen extends StatelessWidget {
               children: [
                 ListTile(
                   leading: const Icon(Icons.privacy_tip_outlined),
-                  title: const Text('プライバシーポリシー'),
+                  title: Text(Tr.pick('プライバシーポリシー', 'Privacy policy')),
                   trailing: const Icon(Icons.open_in_new, size: 16),
                   onTap: () => _openLink(context, _privacyPolicyUrl),
                 ),
                 ListTile(
                   leading: const Icon(Icons.description_outlined),
-                  title: const Text('利用規約'),
+                  title: Text(Tr.pick('利用規約', 'Terms of use')),
                   trailing: const Icon(Icons.open_in_new, size: 16),
                   onTap: () => _openLink(context, _termsUrl),
                 ),
@@ -299,8 +319,8 @@ class SettingsScreen extends StatelessWidget {
     final uri = Uri.parse(url);
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('リンクを開けませんでした')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(Tr.pick('リンクを開けませんでした', 'Could not open the link'))));
     }
   }
 
@@ -310,14 +330,18 @@ class SettingsScreen extends StatelessWidget {
     if (json == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('セーブデータがないためコピーできませんでした')));
+      ).showSnackBar(SnackBar(
+          content: Text(
+              Tr.pick('セーブデータがないためコピーできませんでした', 'There is no save to copy'))));
       return;
     }
     await Clipboard.setData(ClipboardData(text: json));
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('セーブデータをクリップボードにコピーしました')));
+      ).showSnackBar(SnackBar(
+          content: Text(Tr.pick(
+              'セーブデータをクリップボードにコピーしました', 'Save copied to the clipboard'))));
     }
   }
 
@@ -326,19 +350,20 @@ class SettingsScreen extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('セーブデータを復元'),
+        title: Text(Tr.pick('セーブデータを復元', 'Restore a save')),
         content: TextField(
           controller: controller,
           maxLines: 6,
-          decoration: const InputDecoration(
-            hintText: 'コピーしたJSONを貼り付けてください',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            hintText:
+                Tr.pick('コピーしたJSONを貼り付けてください', 'Paste the JSON you copied'),
+            border: const OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('キャンセル'),
+            child: Text(Tr.pick('キャンセル', 'Cancel')),
           ),
           FilledButton(
             onPressed: () async {
@@ -348,12 +373,15 @@ class SettingsScreen extends StatelessWidget {
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(ok ? '復元しました' : '復元に失敗しました(形式を確認してください)'),
+                    content: Text(ok
+                        ? Tr.pick('復元しました', 'Restored')
+                        : Tr.pick('復元に失敗しました(形式を確認してください)',
+                            'Restore failed. Check the format')),
                   ),
                 );
               }
             },
-            child: const Text('復元する'),
+            child: Text(Tr.pick('復元する', 'Restore')),
           ),
         ],
       ),
@@ -365,38 +393,41 @@ class SettingsScreen extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('資金を追加'),
+        title: Text(Tr.pick('資金を追加', 'Add funds')),
         content: TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(signed: true),
-          decoration: const InputDecoration(
-            labelText: '増減額(万円)',
-            hintText: '例: 100000(マイナスで減額)',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: Tr.pick('増減額(万円)', 'Amount to add or remove'),
+            hintText: Tr.pick(
+                '例: 100000(マイナスで減額)', 'e.g. 100000 (negative to remove)'),
+            border: const OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('キャンセル'),
+            child: Text(Tr.pick('キャンセル', 'Cancel')),
           ),
           FilledButton(
             onPressed: () {
               final amount = int.tryParse(controller.text.trim());
               Navigator.pop(ctx);
               if (amount == null) {
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(const SnackBar(content: Text('数値を入力してください')));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(Tr.pick('数値を入力してください', 'Enter a number'))));
                 return;
               }
               context.read<GameState>().addDebugFunds(amount);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('資金を${amount >= 0 ? '+' : ''}$amount万円しました'),
+                  content: Text(Tr.pick(
+                      '資金を${amount >= 0 ? '+' : ''}$amount万円しました',
+                      "Funds changed by ${amount >= 0 ? '+' : ''}$amount")),
                 ),
               );
             },
-            child: const Text('反映する'),
+            child: Text(Tr.pick('反映する', 'Apply')),
           ),
         ],
       ),
@@ -407,12 +438,12 @@ class SettingsScreen extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('セーブデータを削除しますか？'),
-        content: const Text('この操作は取り消せません。'),
+        title: Text(Tr.pick('セーブデータを削除しますか？', 'Delete your save?')),
+        content: Text(Tr.pick('この操作は取り消せません。', 'This cannot be undone.')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('キャンセル'),
+            child: Text(Tr.pick('キャンセル', 'Cancel')),
           ),
           TextButton(
             onPressed: () async {
@@ -425,7 +456,7 @@ class SettingsScreen extends StatelessWidget {
                 );
               }
             },
-            child: const Text('削除する'),
+            child: Text(Tr.pick('削除する', 'Delete')),
           ),
         ],
       ),

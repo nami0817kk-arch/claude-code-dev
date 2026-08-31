@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import '../l10n/tr.dart';
 
 /// チームIDから決定論的に生成する、実際のロゴ画像を持たない代替のクラブエンブレム。
 /// 同じチームなら常に同じ形・色・イニシャルになる。
@@ -29,7 +30,7 @@ class ClubEmblem extends StatelessWidget {
         teamName.trim().isEmpty ? '?' : teamName.trim().substring(0, 1);
 
     return Semantics(
-      label: '$teamNameのエンブレム',
+      label: Tr.pick('$teamNameのエンブレム', '$teamName crest'),
       image: true,
       child: SizedBox(
         width: size,

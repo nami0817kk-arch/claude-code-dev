@@ -9,6 +9,7 @@ import '../widgets/position_filter_bar.dart';
 import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
 import 'player_detail_screen.dart';
+import '../l10n/tr.dart';
 
 /// シーズンごとに選出されたベストイレブン(GK1・DF4・MF4・FW2)の履歴を表示する画面。
 class BestElevenScreen extends StatelessWidget {
@@ -23,7 +24,7 @@ class BestElevenScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('シーズンベストイレブン'),
+        title: Text(Tr.pick('シーズンベストイレブン', 'Team of the season')),
         leading: const BackButton(),
         actions: const [QuickAccessMenuButton()],
       ),
@@ -38,8 +39,9 @@ class BestElevenScreen extends StatelessWidget {
                     children: [
                       Icon(Icons.groups, size: 64, color: Colors.grey.shade400),
                       const SizedBox(height: 12),
-                      const Text(
-                        'まだ記録がありません(シーズン終了時に確定します)',
+                      Text(
+                        Tr.pick('まだ記録がありません(シーズン終了時に確定します)',
+                            'Nothing recorded yet. Seasons are archived when they finish'),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -97,12 +99,14 @@ class _BestElevenCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'シーズン${seasonEleven.season}',
+                  Tr.pick('シーズン${seasonEleven.season}',
+                      'Season ${seasonEleven.season}'),
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 if (userSelections > 0)
                   Text(
-                    '自クラブから$userSelections名選出',
+                    Tr.pick('自クラブから$userSelections名選出',
+                        '$userSelections of your players made it'),
                     style: const TextStyle(
                       fontSize: 12,
                       color: Colors.blueAccent,
@@ -154,11 +158,13 @@ class _BestElevenCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
-                                '平均${e.avgRating.toStringAsFixed(1)}',
+                                Tr.pick('平均${e.avgRating.toStringAsFixed(1)}',
+                                    'Avg ${e.avgRating.toStringAsFixed(1)}'),
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                               Text(
-                                '${e.appearances}試合',
+                                Tr.pick('${e.appearances}試合',
+                                    '${e.appearances} apps'),
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: Colors.grey,

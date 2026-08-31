@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/attributes.dart';
 import '../models/player.dart';
+import '../l10n/tr.dart';
 
 /// FM風の能力レーダーチャート(ポリゴン)。攻撃/守備/技術/メンタル/
 /// フィジカル(GKは攻撃の代わりにGK能力)の5軸で選手のバランスを
@@ -28,15 +29,22 @@ class AttributeRadar extends StatelessWidget {
       if (isGk)
         ('GK', _categoryAverage(AttributeCategory.goalkeeping))
       else
-        ('攻撃', player.attack),
-      ('守備', player.defense),
-      ('技術', _categoryAverage(AttributeCategory.technical)),
-      ('メンタル', _categoryAverage(AttributeCategory.mental)),
-      ('フィジカル', _categoryAverage(AttributeCategory.physical)),
+        (Tr.pick('攻撃', 'Attack'), player.attack),
+      (Tr.pick('守備', 'Defence'), player.defense),
+      (
+        Tr.pick('技術', 'Technical'),
+        _categoryAverage(AttributeCategory.technical)
+      ),
+      (Tr.pick('メンタル', 'Mental'), _categoryAverage(AttributeCategory.mental)),
+      (
+        Tr.pick('フィジカル', 'Physical'),
+        _categoryAverage(AttributeCategory.physical)
+      ),
     ];
     final scheme = Theme.of(context).colorScheme;
     return Semantics(
-      label: '能力レーダー: ${axes.map((a) => '${a.$1} ${a.$2}').join('、')}',
+      label: Tr.pick('能力レーダー: ${axes.map((a) => '${a.$1} ${a.$2}').join('、')}',
+          "Attribute radar: ${axes.map((a) => '${a.$1} ${a.$2}').join(', ')}"),
       child: SizedBox(
         width: size,
         height: size,

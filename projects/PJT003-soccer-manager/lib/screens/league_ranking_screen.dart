@@ -5,6 +5,7 @@ import '../logic/awards_engine.dart';
 import '../state/game_state.dart';
 import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
+import '../l10n/tr.dart';
 
 /// リーグの個人ランキング(得点・アシスト)画面。シーズン終了を待たず、
 /// いつでも現時点の順位を確認できる(得点王・MVPの表彰自体は従来通り
@@ -20,13 +21,13 @@ class LeagueRankingScreen extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('リーグランキング'),
+          title: Text(Tr.pick('リーグランキング', 'League rankings')),
           leading: const BackButton(),
           actions: const [QuickAccessMenuButton()],
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
-              Tab(text: '得点'),
-              Tab(text: 'アシスト'),
+              Tab(text: Tr.pick('得点', 'Goals')),
+              Tab(text: Tr.pick('アシスト', 'Assists')),
             ],
           ),
         ),
@@ -37,12 +38,12 @@ class LeagueRankingScreen extends StatelessWidget {
                 children: [
                   _RankingList(
                     entries: AwardsEngine.goalRanking(league),
-                    countLabel: '得点',
+                    countLabel: Tr.pick('得点', 'Goals'),
                     gameState: gameState,
                   ),
                   _RankingList(
                     entries: AwardsEngine.assistRanking(league),
-                    countLabel: 'アシスト',
+                    countLabel: Tr.pick('アシスト', 'Assists'),
                     gameState: gameState,
                   ),
                 ],
@@ -66,13 +67,14 @@ class _RankingList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Text(
-            'まだ記録がありません。\n節を進めると現時点のランキングが表示されます。',
+            Tr.pick('まだ記録がありません。\n節を進めると現時点のランキングが表示されます。',
+                'Nothing recorded yet.\nPlay a few matchdays and the standings appear here.'),
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
+            style: const TextStyle(color: Colors.grey),
           ),
         ),
       );

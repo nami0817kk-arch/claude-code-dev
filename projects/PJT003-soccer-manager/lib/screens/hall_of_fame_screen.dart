@@ -6,6 +6,7 @@ import '../state/game_state.dart';
 import '../widgets/player_face_avatar.dart';
 import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
+import '../l10n/tr.dart';
 
 /// 高齢により正式に引退した選手(殿堂)の一覧画面。契約満了で単に自由契約に
 /// なった選手とは異なり、再契約はできない。
@@ -20,7 +21,7 @@ class HallOfFameScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('殿堂'),
+        title: Text(Tr.pick('殿堂', 'Hall of fame')),
         leading: const BackButton(),
         actions: const [QuickAccessMenuButton()],
       ),
@@ -35,7 +36,8 @@ class HallOfFameScreen extends StatelessWidget {
                     children: [
                       Icon(Icons.stars, size: 64, color: Colors.grey.shade400),
                       const SizedBox(height: 12),
-                      const Text('まだ引退した選手はいません', textAlign: TextAlign.center),
+                      Text(Tr.pick('まだ引退した選手はいません', 'Nobody has retired yet'),
+                          textAlign: TextAlign.center),
                     ],
                   ),
                 ),
@@ -65,18 +67,21 @@ class _LegendCard extends StatelessWidget {
         ),
         title: Text(player.name),
         subtitle: Text(
-          '${player.position.fullLabel} ・ 引退時${player.age}歳 ・ 総合${player.overall}',
+          Tr.pick(
+              '${player.position.fullLabel} ・ 引退時${player.age}歳 ・ 総合${player.overall}',
+              '${player.position.fullLabel} · retired at ${player.age} · overall ${player.overall}'),
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              '${player.careerAppearances}試合',
+              Tr.pick('${player.careerAppearances}試合',
+                  '${player.careerAppearances} apps'),
               style: const TextStyle(fontSize: 12),
             ),
             Text(
-              '${player.careerGoals}得点',
+              Tr.pick('${player.careerGoals}得点', '${player.careerGoals} goals'),
               style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],

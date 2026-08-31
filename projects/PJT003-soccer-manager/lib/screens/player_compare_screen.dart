@@ -5,6 +5,7 @@ import '../models/player.dart';
 import '../state/game_state.dart';
 import '../theme/semantic_colors.dart';
 import '../widgets/player_face_avatar.dart';
+import '../l10n/tr.dart';
 
 /// 自クラブの選手2名を選び、能力値を並べて比較する画面。
 class PlayerCompareScreen extends StatelessWidget {
@@ -25,7 +26,7 @@ class PlayerCompareScreen extends StatelessWidget {
     final b = team.players.firstWhere((p) => p.id == playerBId);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('選手比較')),
+      appBar: AppBar(title: Text(Tr.pick('選手比較', 'Compare players'))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -37,26 +38,42 @@ class PlayerCompareScreen extends StatelessWidget {
             ],
           ),
           const Divider(height: 32),
-          _CompareRow(label: '総合力', left: a.overall, right: b.overall),
-          _CompareRow(label: '攻撃力', left: a.attack, right: b.attack),
-          _CompareRow(label: '守備力', left: a.defense, right: b.defense),
-          _CompareRow(label: '技術', left: a.technique, right: b.technique),
-          _CompareRow(label: 'スタミナ', left: a.stamina, right: b.stamina),
-          _CompareRow(label: 'ポテンシャル', left: a.potential, right: b.potential),
           _CompareRow(
-            label: '年齢',
+              label: Tr.pick('総合力', 'Overall'),
+              left: a.overall,
+              right: b.overall),
+          _CompareRow(
+              label: Tr.pick('攻撃力', 'Attack'), left: a.attack, right: b.attack),
+          _CompareRow(
+              label: Tr.pick('守備力', 'Defence'),
+              left: a.defense,
+              right: b.defense),
+          _CompareRow(
+              label: Tr.pick('技術', 'Technical'),
+              left: a.technique,
+              right: b.technique),
+          _CompareRow(
+              label: Tr.pick('スタミナ', 'Stamina'),
+              left: a.stamina,
+              right: b.stamina),
+          _CompareRow(
+              label: Tr.pick('ポテンシャル', 'Potential'),
+              left: a.potential,
+              right: b.potential),
+          _CompareRow(
+            label: Tr.pick('年齢', 'Age'),
             left: a.age,
             right: b.age,
             lowerIsBetter: true,
           ),
           _CompareRow(
-            label: '週俸(万円)',
+            label: Tr.pick('週俸(万円)', 'Wage'),
             left: a.wage,
             right: b.wage,
             lowerIsBetter: true,
           ),
           _CompareRow(
-            label: '市場価値(万円)',
+            label: Tr.pick('市場価値(万円)', 'Value'),
             left: a.marketValue,
             right: b.marketValue,
             max: 20000,

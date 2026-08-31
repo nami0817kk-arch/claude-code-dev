@@ -18,6 +18,7 @@ import '../services/feedback_service.dart';
 import '../state/game_state.dart';
 import '../widgets/match_widgets.dart';
 import '../widgets/player_face_avatar.dart';
+import '../l10n/tr.dart';
 
 enum _Phase { firstHalf, halfTime, secondHalf, finished }
 
@@ -114,21 +115,29 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: Text(isAttack ? '決定機!' : '相手の決定機!'),
+        title: Text(isAttack
+            ? Tr.pick('決定機!', 'Big chance!')
+            : Tr.pick('相手の決定機!', 'They have a big chance!')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               isAttack
-                  ? '${pending.shooter!.name}がチャンス。狙うプレーを選ぼう。'
-                  : '${pending.attacker!.name}にチャンス。守り方を選ぼう。',
+                  ? Tr.pick('${pending.shooter!.name}がチャンス。狙うプレーを選ぼう。',
+                      '${pending.shooter!.name} is in. Choose what he does.')
+                  : Tr.pick('${pending.attacker!.name}にチャンス。守り方を選ぼう。',
+                      '${pending.attacker!.name} is in on goal. Choose how you defend.'),
             ),
             const SizedBox(height: 10),
             _buildDuelCard(pending),
             const SizedBox(height: 6),
             Text(
-              isAttack ? '(カッコ内は成功率の目安)' : '(カッコ内は相手の成功率の目安)',
+              isAttack
+                  ? Tr.pick(
+                      '(カッコ内は成功率の目安)', '(the figures are rough success rates)')
+                  : Tr.pick('(カッコ内は相手の成功率の目安)',
+                      '(the figures are their rough success rates)'),
               style: const TextStyle(fontSize: 12),
             ),
           ],
@@ -138,21 +147,24 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, ChanceDecision.shoot),
                   child: Text(
-                    'シュート(${_pctText(pending.shootChance)})',
+                    Tr.pick('シュート(${_pctText(pending.shootChance)})',
+                        'Shoot (${_pctText(pending.shootChance)})'),
                   ),
                 ),
                 if (pending.passTarget != null)
                   TextButton(
                     onPressed: () => Navigator.pop(ctx, ChanceDecision.pass),
                     child: Text(
-                      'パス: ${pending.passTarget!.name}'
-                      '(${_pctText(pending.passChance)})',
+                      Tr.pick(
+                          'パス: ${pending.passTarget!.name}(${_pctText(pending.passChance)})',
+                          'Pass to ${pending.passTarget!.name} (${_pctText(pending.passChance)})'),
                     ),
                   ),
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, ChanceDecision.longShot),
                   child: Text(
-                    'ロングシュート(${_pctText(pending.longShotChance)})',
+                    Tr.pick('ロングシュート(${_pctText(pending.longShotChance)})',
+                        'Shoot from distance (${_pctText(pending.longShotChance)})'),
                   ),
                 ),
               ]
@@ -161,17 +173,18 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
                   onPressed: () =>
                       Navigator.pop(ctx, ChanceDecision.aggressiveTackle),
                   child: Text(
-                    '積極的にタックル'
-                    '(相手${_pctText(pending.aggressiveChanceAgainst)}'
-                    ' / カード注意)',
+                    Tr.pick(
+                        '積極的にタックル(相手${_pctText(pending.aggressiveChanceAgainst)} / カード注意)',
+                        'Go in hard (${_pctText(pending.aggressiveChanceAgainst)} for them / risks a card)'),
                   ),
                 ),
                 TextButton(
                   onPressed: () =>
                       Navigator.pop(ctx, ChanceDecision.coverSpace),
                   child: Text(
-                    'カバーリングに専念'
-                    '(相手${_pctText(pending.safeChanceAgainst)})',
+                    Tr.pick(
+                        'カバーリングに専念(相手${_pctText(pending.safeChanceAgainst)})',
+                        'Hold your shape (${_pctText(pending.safeChanceAgainst)} for them)'),
                   ),
                 ),
               ],
@@ -309,14 +322,17 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
     if (pending.context == ChanceContext.attack) {
       switch (decision) {
         case ChanceDecision.pass:
-          return 'パス(${pending.passTarget?.name ?? "?"})';
+          return Tr.pick('パス(${pending.passTarget?.name ?? "?"})',
+              'Pass (${pending.passTarget?.name ?? "?"})');
         case ChanceDecision.longShot:
-          return 'ロングシュート';
+          return Tr.pick('ロングシュート', 'Shot from distance');
         default:
-          return 'シュート';
+          return Tr.pick('シュート', 'Shot');
       }
     }
-    return decision == ChanceDecision.aggressiveTackle ? '積極的タックル' : 'カバーリング';
+    return decision == ChanceDecision.aggressiveTackle
+        ? Tr.pick('積極的タックル', 'Went in hard')
+        : Tr.pick('カバーリング', 'Held shape');
   }
 
   /// 選択直後に短く表示する結果フィードバック文言。成功率とともに
@@ -335,28 +351,38 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
                 ? pending.longShotChance
                 : pending.shootChance,
       );
-      if (event?.type == MatchEventType.goal) return '$label($pct)→ ゴール!';
-      if (event?.type == MatchEventType.chance) {
-        return '$label($pct)→ 惜しい!枠の外へ';
+      if (event?.type == MatchEventType.goal) {
+        return Tr.pick('$label($pct)→ ゴール!', '$label ($pct) → Goal!');
       }
-      return '$label($pct)→ 相手に読まれてボールを失った';
+      if (event?.type == MatchEventType.chance) {
+        return Tr.pick(
+            '$label($pct)→ 惜しい!枠の外へ', '$label ($pct) → So close, just wide');
+      }
+      return Tr.pick('$label($pct)→ 相手に読まれてボールを失った',
+          '$label ($pct) → Read it, and the ball is lost');
     }
     final pct = _pctText(
       decision == ChanceDecision.aggressiveTackle
           ? pending.aggressiveChanceAgainst
           : pending.safeChanceAgainst,
     );
-    if (event?.type == MatchEventType.goal) return '$label(相手$pct)→ 失点…';
+    if (event?.type == MatchEventType.goal) {
+      return Tr.pick('$label(相手$pct)→ 失点…', '$label (them $pct) → They score…');
+    }
     if (event?.type == MatchEventType.redCard) {
-      return '$labelでボールは奪ったが、${event?.scorerName}が退場に…';
+      return Tr.pick('$labelでボールは奪ったが、${event?.scorerName}が退場に…',
+          '$label won the ball, but ${event?.scorerName} is sent off…');
     }
     if (event?.type == MatchEventType.yellowCard) {
-      return '$labelでボールは奪ったが、${event?.scorerName}に警告';
+      return Tr.pick('$labelでボールは奪ったが、${event?.scorerName}に警告',
+          '$label won the ball, but ${event?.scorerName} is booked');
     }
     if (event?.type == MatchEventType.chance) {
-      return '$label(相手$pct)→ 危なかったが凌いだ';
+      return Tr.pick('$label(相手$pct)→ 危なかったが凌いだ',
+          '$label (them $pct) → Close, but you survive');
     }
-    return '$label(相手$pct)→ 攻撃を防いだ!';
+    return Tr.pick(
+        '$label(相手$pct)→ 攻撃を防いだ!', '$label (them $pct) → Attack snuffed out!');
   }
 
   /// AppBarに表示する試合中交代ボタン。残り交代枠を表示し、タップで
@@ -371,7 +397,7 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
         color: remaining > 0 ? Colors.white : Colors.white38,
       ),
       label: Text(
-        '交代$remaining',
+        Tr.pick('交代$remaining', 'Subs $remaining'),
         style: TextStyle(color: remaining > 0 ? Colors.white : Colors.white38),
       ),
     );
@@ -389,7 +415,8 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                '試合中の交代(交代する選手を選択)',
+                Tr.pick('試合中の交代(交代する選手を選択)',
+                    'Make a substitution (pick who comes off)'),
                 style: Theme.of(ctx).textTheme.titleMedium,
               ),
             ),
@@ -417,7 +444,7 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
     final choice = await showDialog<MatchInstruction>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('采配方針'),
+        title: Text(Tr.pick('采配方針', 'Approach')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: MatchInstruction.values
@@ -438,7 +465,7 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('閉じる'),
+            child: Text(Tr.pick('閉じる', 'Close')),
           ),
         ],
       ),
@@ -473,10 +500,10 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
     if (homeId == null || awayId == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('試合'),
+          title: Text(Tr.pick('試合', 'Match')),
           automaticallyImplyLeading: false,
         ),
-        body: const Center(child: Text('試合情報がありません')),
+        body: Center(child: Text(Tr.pick('試合情報がありません', 'No match to show'))),
       );
     }
     // カップ戦(特に大陸カップ)ではリーグ順位表に存在しないチームと
@@ -496,7 +523,8 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_competitionTitle ?? '第$matchday節'),
+        title: Text(
+            _competitionTitle ?? Tr.pick('第$matchday節', 'Matchday $matchday')),
         automaticallyImplyLeading: false,
         actions: (_phase == _Phase.firstHalf || _phase == _Phase.secondHalf)
             ? [
@@ -543,7 +571,9 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
                   Column(
                     children: [
                       Text(
-                        finished ? '試合終了' : "$_currentMinute'",
+                        finished
+                            ? Tr.pick('試合終了', 'Full time')
+                            : "$_currentMinute'",
                         style: Theme.of(context)
                             .textTheme
                             .labelMedium
@@ -641,7 +671,7 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('戻る'),
+                    child: Text(Tr.pick('戻る', 'Back')),
                   ),
                 ),
               ),
@@ -774,7 +804,8 @@ class _GoalFlashBanner extends StatelessWidget {
                 ),
                 if (event.assistName != null)
                   Text(
-                    'アシスト: ${event.assistName}',
+                    Tr.pick('アシスト: ${event.assistName}',
+                        'Assist: ${event.assistName}'),
                     style: TextStyle(
                       color: Theme.of(context)
                           .colorScheme
@@ -807,12 +838,12 @@ class _MomentumBar extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Semantics(
-        label: '試合の流れ: ホーム側$homeShare%',
+        label: Tr.pick('試合の流れ: ホーム側$homeShare%', 'Momentum: home $homeShare%'),
         child: Column(
           children: [
-            const Text(
-              '試合の流れ',
-              style: TextStyle(fontSize: 10, color: Colors.grey),
+            Text(
+              Tr.pick('試合の流れ', 'Momentum'),
+              style: const TextStyle(fontSize: 10, color: Colors.grey),
             ),
             const SizedBox(height: 2),
             ClipRRect(
@@ -869,7 +900,8 @@ class _HalfTimePanel extends StatelessWidget {
           Center(
             child: Column(
               children: [
-                Text('ハーフタイム', style: Theme.of(context).textTheme.titleLarge),
+                Text(Tr.pick('ハーフタイム', 'Half time'),
+                    style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 4),
                 Text(
                   '$homeGoals - $awayGoals',
@@ -883,11 +915,13 @@ class _HalfTimePanel extends StatelessWidget {
             ),
           ),
           const Divider(height: 32),
-          Text('檄を飛ばす', style: Theme.of(context).textTheme.titleMedium),
+          Text(Tr.pick('檄を飛ばす', 'Give them a rocket'),
+              style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
-          const Text(
-            '先発イレブンの士気を変動させる。選手の性格によって効果は変わる。',
-            style: TextStyle(color: Colors.grey, fontSize: 12),
+          Text(
+            Tr.pick('先発イレブンの士気を変動させる。選手の性格によって効果は変わる。',
+                "Shifts the morale of your starting XI. How it lands depends on each player's personality."),
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -906,22 +940,26 @@ class _HalfTimePanel extends StatelessWidget {
           const Divider(height: 32),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('逃げ切りモード'),
-            subtitle: const Text('攻撃力がやや下がる代わりに守備が安定し、疲労蓄積も抑えられる。'),
+            title: Text(Tr.pick('逃げ切りモード', 'See out the game')),
+            subtitle: Text(Tr.pick('攻撃力がやや下がる代わりに守備が安定し、疲労蓄積も抑えられる。',
+                'A little less attacking threat, but a steadier defence and less fatigue.')),
             value: team.timeWastingMode,
             onChanged: (v) => gameState.setTimeWastingMode(v),
           ),
           const Divider(height: 32),
-          Text('戦術指示', style: Theme.of(context).textTheme.titleMedium),
+          Text(Tr.pick('戦術指示', 'Tactical instructions'),
+              style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
-          const Text(
-            '前半の展開を見て、後半だけフォーメーションを変更できる。',
-            style: TextStyle(color: Colors.grey, fontSize: 12),
+          Text(
+            Tr.pick('前半の展開を見て、後半だけフォーメーションを変更できる。',
+                'Having seen the first half, you can change formation for the second.'),
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              const SizedBox(width: 90, child: Text('フォーメーション')),
+              SizedBox(
+                  width: 90, child: Text(Tr.pick('フォーメーション', 'Formation'))),
               Expanded(
                 child: DropdownButton<Formation>(
                   isExpanded: true,
@@ -944,7 +982,7 @@ class _HalfTimePanel extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              const SizedBox(width: 90, child: Text('プレッシング')),
+              SizedBox(width: 90, child: Text(Tr.pick('プレッシング', 'Pressing'))),
               Expanded(
                 child: Slider(
                   value: team.pressing.toDouble(),
@@ -960,7 +998,8 @@ class _HalfTimePanel extends StatelessWidget {
           ),
           Row(
             children: [
-              const SizedBox(width: 90, child: Text('ライン高さ')),
+              SizedBox(
+                  width: 90, child: Text(Tr.pick('ライン高さ', 'Defensive line'))),
               Expanded(
                 child: Slider(
                   value: team.lineHeight.toDouble(),
@@ -978,8 +1017,9 @@ class _HalfTimePanel extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('交代', style: Theme.of(context).textTheme.titleMedium),
-              Text('残り$remaining回'),
+              Text(Tr.pick('交代', 'Substitution'),
+                  style: Theme.of(context).textTheme.titleMedium),
+              Text(Tr.pick('残り$remaining回', '$remaining left')),
             ],
           ),
           const SizedBox(height: 8),
@@ -990,7 +1030,7 @@ class _HalfTimePanel extends StatelessWidget {
             width: double.infinity,
             child: FilledButton(
               onPressed: onContinue,
-              child: const Text('後半開始'),
+              child: Text(Tr.pick('後半開始', 'Start the second half')),
             ),
           ),
         ],
@@ -1029,11 +1069,13 @@ class _StartingPlayerTile extends StatelessWidget {
         ),
         title: Text(p.name),
         subtitle: Text(
-          '${p.position.label} / 総合 ${p.overall}${p.fatigue > 70 ? ' / 疲労大' : ''}',
+          Tr.pick(
+              '${p.position.label} / 総合 ${p.overall}${p.fatigue > 70 ? ' / 疲労大' : ''}',
+              "${p.position.label} / overall ${p.overall}${p.fatigue > 70 ? ' / very tired' : ''}"),
         ),
         trailing: IconButton(
           icon: const Icon(Icons.swap_horiz),
-          tooltip: '交代',
+          tooltip: Tr.pick('交代', 'Substitution'),
           onPressed: canSub ? () => _showSubstituteSheet(context) : null,
         ),
       ),
@@ -1068,7 +1110,7 @@ class _StartingPlayerTile extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                '${out.name} を交代',
+                Tr.pick('${out.name} を交代', 'Take ${out.name} off'),
                 style: Theme.of(ctx).textTheme.titleMedium,
               ),
             ),
@@ -1076,7 +1118,8 @@ class _StartingPlayerTile extends StatelessWidget {
               ListTile(
                 leading: PlayerFaceAvatar(playerId: p.id, position: p.position),
                 title: Text(p.name),
-                subtitle: Text('${p.position.label} / 総合 ${p.overall}'),
+                subtitle: Text(Tr.pick('${p.position.label} / 総合 ${p.overall}',
+                    '${p.position.label} / overall ${p.overall}')),
                 onTap: () {
                   Navigator.pop(ctx);
                   if (isLive) {
@@ -1086,8 +1129,10 @@ class _StartingPlayerTile extends StatelessWidget {
                     );
                     if (!ok) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('今は交代できません(目前の決定機に関わる選手か、交代枠切れ)'),
+                        SnackBar(
+                          content: Text(Tr.pick(
+                              '今は交代できません(目前の決定機に関わる選手か、交代枠切れ)',
+                              'You cannot make a change right now (the player is in the middle of a chance, or you are out of subs)')),
                         ),
                       );
                     }
@@ -1100,9 +1145,10 @@ class _StartingPlayerTile extends StatelessWidget {
                 },
               ),
             if (candidates.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('交代できる選手がいません'),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                    Tr.pick('交代できる選手がいません', 'Nobody available to come on')),
               ),
           ],
         ),
@@ -1186,7 +1232,10 @@ class _PenaltyShootoutBoardState extends State<_PenaltyShootoutBoard> {
       child: Column(
         children: [
           Text(
-            done ? 'PK戦 ${s.homeScore} - ${s.awayScore}' : 'PK戦',
+            done
+                ? Tr.pick('PK戦 ${s.homeScore} - ${s.awayScore}',
+                    'Shootout ${s.homeScore} - ${s.awayScore}')
+                : Tr.pick('PK戦', 'Penalty shootout'),
             style: Theme.of(context)
                 .textTheme
                 .titleSmall
@@ -1211,8 +1260,10 @@ class _PenaltyShootoutBoardState extends State<_PenaltyShootoutBoard> {
           if (!done && last != null)
             Text(
               last.scored
-                  ? '${last.kickerName}が決めた!'
-                  : '${last.kickerName}は失敗…',
+                  ? Tr.pick(
+                      '${last.kickerName}が決めた!', '${last.kickerName} scores!')
+                  : Tr.pick(
+                      '${last.kickerName}は失敗…', '${last.kickerName} misses…'),
               style: Theme.of(context).textTheme.bodySmall,
             ),
         ],
