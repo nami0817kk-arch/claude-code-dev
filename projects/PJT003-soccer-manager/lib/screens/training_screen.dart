@@ -14,39 +14,45 @@ import '../state/game_state.dart';
 import '../widgets/busy_overlay.dart';
 import '../widgets/position_filter_bar.dart';
 import '../widgets/quick_access_drawer.dart';
+import '../l10n/tr.dart';
 
 /// 技術特訓ピッカーで表示するカテゴリ分け(技術カテゴリの特性のみ)。
-const Map<String, List<PlayerTrait>> _technicalTraitCategoriesForPicker = {
-  'シュート・フィニッシュ': [
+const Map<({String ja, String en}), List<PlayerTrait>>
+    _technicalTraitCategoriesForPicker = {
+  (ja: 'シュート・フィニッシュ', en: 'Shooting & finishing'): [
     PlayerTrait.sharpShooter,
     PlayerTrait.clinicalFinisher,
     PlayerTrait.distanceShooter,
     PlayerTrait.setPieceMaestro,
   ],
-  'パス・組み立て': [
+  (ja: 'パス・組み立て', en: 'Passing & build-up'): [
     PlayerTrait.visionary,
     PlayerTrait.playmakerTrait,
     PlayerTrait.sureTouch,
   ],
-  'ドリブル・スピード': [
+  (ja: 'ドリブル・スピード', en: 'Dribbling & pace'): [
     PlayerTrait.silkyDribbler,
     PlayerTrait.paceMerchant,
     PlayerTrait.explosiveStart,
   ],
-  '守備・フィジカル': [
+  (ja: '守備・フィジカル', en: 'Defending & physicality'): [
     PlayerTrait.ballWinner,
     PlayerTrait.shadowMarker,
     PlayerTrait.powerhouse,
     PlayerTrait.tirelessRunner,
     PlayerTrait.enginesRunning,
   ],
-  '空中戦・クロス': [PlayerTrait.aerialThreat, PlayerTrait.crossSpecialist],
-  '予測・判断': [PlayerTrait.clockwork],
+  (ja: '空中戦・クロス', en: 'Aerial play & crossing'): [
+    PlayerTrait.aerialThreat,
+    PlayerTrait.crossSpecialist
+  ],
+  (ja: '予測・判断', en: 'Anticipation & decisions'): [PlayerTrait.clockwork],
 };
 
 /// 性格の指導ピッカーで表示するカテゴリ分け(性格カテゴリの特性のみ)。
-const Map<String, List<PlayerTrait>> _personalityTraitCategoriesForPicker = {
-  '対戦相手への向き合い方': [
+const Map<({String ja, String en}), List<PlayerTrait>>
+    _personalityTraitCategoriesForPicker = {
+  (ja: '対戦相手への向き合い方', en: 'How they approach opponents'): [
     PlayerTrait.giantKiller,
     PlayerTrait.frontRunner,
     PlayerTrait.underdogSpirit,
@@ -54,14 +60,14 @@ const Map<String, List<PlayerTrait>> _personalityTraitCategoriesForPicker = {
     PlayerTrait.bigGameHunter,
     PlayerTrait.bullyBall,
   ],
-  'ホーム/アウェイ・心の状態': [
+  (ja: 'ホーム/アウェイ・心の状態', en: 'Home/away and state of mind'): [
     PlayerTrait.homeBoy,
     PlayerTrait.roadWarrior,
     PlayerTrait.confidentMind,
     PlayerTrait.clutchNerves,
     PlayerTrait.contentPlayer,
   ],
-  '闘志・統率・判断': [
+  (ja: '闘志・統率・判断', en: 'Determination, leadership, decisions'): [
     PlayerTrait.warriorSpirit,
     PlayerTrait.calmHead,
     PlayerTrait.leaderOnPitch,
@@ -69,15 +75,19 @@ const Map<String, List<PlayerTrait>> _personalityTraitCategoriesForPicker = {
     PlayerTrait.teamPlayer,
     PlayerTrait.fearlessDefender,
   ],
-  '個性': [PlayerTrait.showman],
+  (ja: '個性', en: 'Character'): [PlayerTrait.showman],
 };
 
 /// 特訓成功率への倍率([TrainingEngine.traitSuitability])を、選手詳細
 /// ピッカーで一目で分かる短いラベルと色に変換する。
 ({String label, Color color}) _suitabilityBadge(double multiplier) {
-  if (multiplier >= 1.3) return (label: '◎ 適性高い', color: Colors.green);
-  if (multiplier <= 0.7) return (label: '△ 適性低い', color: Colors.grey);
-  return (label: '○ 適性普通', color: Colors.blueGrey);
+  if (multiplier >= 1.3) {
+    return (label: Tr.pick('◎ 適性高い', '◎ Strong fit'), color: Colors.green);
+  }
+  if (multiplier <= 0.7) {
+    return (label: Tr.pick('△ 適性低い', '△ Poor fit'), color: Colors.grey);
+  }
+  return (label: Tr.pick('○ 適性普通', '○ Average fit'), color: Colors.blueGrey);
 }
 
 class TrainingScreen extends StatefulWidget {
@@ -102,14 +112,14 @@ class _TrainingScreenState extends State<TrainingScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('トレーニング'),
+        title: Text(Tr.pick('トレーニング', 'Training')),
         leading: const BackButton(),
         actions: const [QuickAccessMenuButton()],
       ),
       drawer: const QuickAccessDrawer(),
       body: BusyOverlay(
         visible: _isRunningTraining,
-        label: 'トレーニングを実施しています…',
+        label: Tr.pick('トレーニングを実施しています…', 'Running the session…'),
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -131,22 +141,26 @@ class _TrainingScreenState extends State<TrainingScreen> {
                                 size: 18),
                             const SizedBox(width: 6),
                             Text(
-                              '育成アドバイザー',
+                              Tr.pick('育成アドバイザー', 'Development adviser'),
                               style: Theme.of(context).textTheme.titleSmall,
                             ),
                           ],
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'コーチ陣が育成面で手を打つべき選手を挙げています。',
-                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        Text(
+                          Tr.pick('コーチ陣が育成面で手を打つべき選手を挙げています。',
+                              'Your coaches have flagged players who need attention.'),
+                          style:
+                              const TextStyle(fontSize: 11, color: Colors.grey),
                         ),
                         const SizedBox(height: 8),
                         for (final a in advices)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 4),
                             child: Text(
-                              '・[${a.kind.label}] ${a.playerName}: ${a.message}',
+                              Tr.pick(
+                                  '・[${a.kind.label}] ${a.playerName}: ${a.message}',
+                                  '· [${a.kind.label}] ${a.playerName}: ${a.message}'),
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -163,13 +177,14 @@ class _TrainingScreenState extends State<TrainingScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'チーム既定方針',
+                      Tr.pick('チーム既定方針', 'Squad default'),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      '個別方針を設定していない選手にはこの方針が適用される。',
-                      style: TextStyle(color: Colors.grey),
+                    Text(
+                      Tr.pick('個別方針を設定していない選手にはこの方針が適用される。',
+                          'Applies to every player without an individual focus.'),
+                      style: const TextStyle(color: Colors.grey),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -188,7 +203,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'トレーニング強度',
+                      Tr.pick('トレーニング強度', 'Training intensity'),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 4),
@@ -213,13 +228,14 @@ class _TrainingScreenState extends State<TrainingScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      '重点トレーニング日',
+                      Tr.pick('重点トレーニング日', 'Main training day'),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'カレンダー画面でこの曜日が重点トレーニング日として表示される。',
-                      style: TextStyle(color: Colors.grey),
+                    Text(
+                      Tr.pick('カレンダー画面でこの曜日が重点トレーニング日として表示される。',
+                          'This weekday is shown as the main training day on the calendar.'),
+                      style: const TextStyle(color: Colors.grey),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -249,8 +265,9 @@ class _TrainingScreenState extends State<TrainingScreen> {
             Card(
               margin: EdgeInsets.zero,
               child: SwitchListTile(
-                title: const Text('トレーニングの自動実施'),
-                subtitle: const Text('有効にすると、節を進めるたびに未実施であれば既定の方針で自動的に実施する。'),
+                title: Text(Tr.pick('トレーニングの自動実施', 'Train automatically')),
+                subtitle: Text(Tr.pick('有効にすると、節を進めるたびに未実施であれば既定の方針で自動的に実施する。',
+                    'When on, each matchday runs the session on the default focus if you have not done it yourself.')),
                 value: team.autoTrainingEnabled,
                 onChanged: (v) =>
                     context.read<GameState>().setAutoTrainingEnabled(v),
@@ -267,10 +284,11 @@ class _TrainingScreenState extends State<TrainingScreen> {
                     : () => _runTraining(context),
                 child: Text(
                   team.autoTrainingEnabled
-                      ? '自動実施が有効です'
+                      ? Tr.pick('自動実施が有効です', 'Automatic training is on')
                       : gameState.trainingDoneThisWeek
-                          ? '今週は実施済み(次の節で再実施可能)'
-                          : '今週のトレーニングを実施',
+                          ? Tr.pick('今週は実施済み(次の節で再実施可能)',
+                              'Done for this week (available again next matchday)')
+                          : Tr.pick('今週のトレーニングを実施', "Run this week's session"),
                 ),
               ),
             ),
@@ -278,22 +296,25 @@ class _TrainingScreenState extends State<TrainingScreen> {
             Card(
               margin: EdgeInsets.zero,
               child: ListTile(
-                title: const Text('戦術ミーティング'),
-                subtitle: const Text('スカッド全体の判断力・位置取り・チームワークを小幅に伸ばす。'),
+                title: Text(Tr.pick('戦術ミーティング', 'Tactical meeting')),
+                subtitle: Text(Tr.pick('スカッド全体の判断力・位置取り・チームワークを小幅に伸ばす。',
+                    'A small lift to decisions, positioning and teamwork across the squad.')),
                 trailing: OutlinedButton(
                   onPressed: team.tacticalMeetingCooldownWeeks > 0
                       ? null
                       : () => _holdTacticalMeeting(context),
                   child: Text(
                     team.tacticalMeetingCooldownWeeks > 0
-                        ? 'あと${team.tacticalMeetingCooldownWeeks}週'
-                        : '実施する',
+                        ? Tr.pick('あと${team.tacticalMeetingCooldownWeeks}週',
+                            '${team.tacticalMeetingCooldownWeeks} weeks to go')
+                        : Tr.pick('実施する', 'Hold it'),
                   ),
                 ),
               ),
             ),
             const Divider(height: 32),
-            Text('個別方針', style: Theme.of(context).textTheme.titleMedium),
+            Text(Tr.pick('個別方針', 'Individual focus'),
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             PositionFilterBar(
               value: _filter,
@@ -321,8 +342,9 @@ class _TrainingScreenState extends State<TrainingScreen> {
         practiceMatchCount: gameState.lastPracticeMatchCount,
       );
     } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('今週のトレーニングは実施済みです')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(Tr.pick(
+              '今週のトレーニングは実施済みです', 'You have already trained this week'))));
     }
   }
 
@@ -334,11 +356,12 @@ class _TrainingScreenState extends State<TrainingScreen> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('トレーニング結果'),
+        title: Text(Tr.pick('トレーニング結果', 'Training report')),
         content: SizedBox(
           width: double.maxFinite,
           child: results.isEmpty && practiceMatchCount == 0
-              ? const Text('今週は目立った変化のあった選手はいませんでした。')
+              ? Text(Tr.pick('今週は目立った変化のあった選手はいませんでした。',
+                  'No player changed noticeably this week.'))
               : ListView(
                   shrinkWrap: true,
                   children: [
@@ -355,8 +378,9 @@ class _TrainingScreenState extends State<TrainingScreen> {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                '紅白戦: スタメン外の$practiceMatchCount人が'
-                                '実戦感覚を維持しました',
+                                Tr.pick(
+                                    '紅白戦: スタメン外の$practiceMatchCount人が実戦感覚を維持しました',
+                                    'Practice match: $practiceMatchCount players outside the XI kept their sharpness'),
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey,
@@ -366,7 +390,9 @@ class _TrainingScreenState extends State<TrainingScreen> {
                           ],
                         ),
                       ),
-                    if (results.isEmpty) const Text('今週は目立った変化のあった選手はいませんでした。'),
+                    if (results.isEmpty)
+                      Text(Tr.pick('今週は目立った変化のあった選手はいませんでした。',
+                          'No player changed noticeably this week.')),
                     for (final r in results)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -374,11 +400,11 @@ class _TrainingScreenState extends State<TrainingScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (r.isBreakthrough)
-                              const Padding(
-                                padding: EdgeInsets.only(bottom: 2),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
                                 child: Text(
-                                  '★ 才能開花！',
-                                  style: TextStyle(
+                                  Tr.pick('★ 才能開花！', '★ Breakthrough!'),
+                                  style: const TextStyle(
                                     color: Colors.amber,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
@@ -389,7 +415,8 @@ class _TrainingScreenState extends State<TrainingScreen> {
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 2),
                                 child: Text(
-                                  '☆ 特性「${r.acquiredTrait!.label}」を獲得！',
+                                  Tr.pick('☆ 特性「${r.acquiredTrait!.label}」を獲得！',
+                                      '☆ Picked up the trait "${r.acquiredTrait!.label}"!'),
                                   style: const TextStyle(
                                     color: Colors.deepOrange,
                                     fontWeight: FontWeight.bold,
@@ -409,8 +436,9 @@ class _TrainingScreenState extends State<TrainingScreen> {
                                   ),
                                 ),
                                 Text(
-                                  '総合 ${r.overallBefore} → ${r.overallAfter}'
-                                  '${r.overallDelta > 0 ? ' (+${r.overallDelta})' : r.overallDelta < 0 ? ' (${r.overallDelta})' : ''}',
+                                  Tr.pick(
+                                      '総合 ${r.overallBefore} → ${r.overallAfter}${r.overallDelta > 0 ? ' (+${r.overallDelta})' : r.overallDelta < 0 ? ' (${r.overallDelta})' : ''}',
+                                      "Overall ${r.overallBefore} → ${r.overallAfter}${r.overallDelta > 0 ? ' (+${r.overallDelta})' : r.overallDelta < 0 ? ' (${r.overallDelta})' : ''}"),
                                   style: TextStyle(
                                     color: r.overallDelta > 0
                                         ? Colors.green
@@ -443,7 +471,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('閉じる'),
+            child: Text(Tr.pick('閉じる', 'Close')),
           ),
         ],
       ),
@@ -456,7 +484,11 @@ class _TrainingScreenState extends State<TrainingScreen> {
     if (!context.mounted) return;
     FeedbackService.tap();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? '戦術ミーティングを実施した。' : '戦術ミーティングは実施できなかった。')),
+      SnackBar(
+          content: Text(ok
+              ? Tr.pick('戦術ミーティングを実施した。', 'You held the tactical meeting.')
+              : Tr.pick('戦術ミーティングは実施できなかった。',
+                  'You could not hold the tactical meeting.'))),
     );
   }
 }
@@ -477,10 +509,15 @@ class _PlayerTrainingCard extends StatelessWidget {
     if (p.focusRotation != null && p.focusRotation!.isNotEmpty) {
       final next =
           p.focusRotation![p.rotationWeekIndex % p.focusRotation!.length];
-      return 'ローテーション(次回: ${next.label})';
+      return Tr.pick(
+          'ローテーション(次回: ${next.label})', 'Rotation (next: ${next.label})');
     }
-    if (p.individualFocus != null) return '${p.individualFocus!.label}(個別)';
-    return '${team.defaultTrainingFocus.label}(既定)';
+    if (p.individualFocus != null) {
+      return Tr.pick('${p.individualFocus!.label}(個別)',
+          '${p.individualFocus!.label} (individual)');
+    }
+    return Tr.pick('${team.defaultTrainingFocus.label}(既定)',
+        '${team.defaultTrainingFocus.label} (default)');
   }
 
   @override
@@ -509,8 +546,9 @@ class _PlayerTrainingCard extends StatelessWidget {
           ],
         ),
         subtitle: Text(
-          '${p.position.label} / 総合 ${p.overall} / 方針: ${_effectiveFocusLabel()}'
-          '${p.trait != null ? ' / 特性: ${p.trait!.label}' : ''}',
+          Tr.pick(
+              '${p.position.label} / 総合 ${p.overall} / 方針: ${_effectiveFocusLabel()}${p.trait != null ? ' / 特性: ${p.trait!.label}' : ''}',
+              "${p.position.label} / overall ${p.overall} / focus: ${_effectiveFocusLabel()}${p.trait != null ? ' / trait: ${p.trait!.label}' : ''}"),
           style: const TextStyle(fontSize: 12),
         ),
         children: [
@@ -521,14 +559,14 @@ class _PlayerTrainingCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Text('トレーニング方針: '),
+                    Text(Tr.pick('トレーニング方針: ', 'Training focus: ')),
                     DropdownButton<TrainingFocus?>(
                       value: p.individualFocus,
-                      hint: const Text('既定に従う'),
+                      hint: Text(Tr.pick('既定に従う', 'Use the default')),
                       items: [
-                        const DropdownMenuItem<TrainingFocus?>(
+                        DropdownMenuItem<TrainingFocus?>(
                           value: null,
-                          child: Text('既定に従う'),
+                          child: Text(Tr.pick('既定に従う', 'Use the default')),
                         ),
                         ...TrainingFocus.values.map(
                           (f) => DropdownMenuItem<TrainingFocus?>(
@@ -547,8 +585,9 @@ class _PlayerTrainingCard extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text(
-                      'ローテーション中: ${p.focusRotation!.map((f) => f.label).join(' → ')}'
-                      '(次回: ${p.focusRotation![p.rotationWeekIndex % p.focusRotation!.length].label})',
+                      Tr.pick(
+                          'ローテーション中: ${p.focusRotation!.map((f) => f.label).join(' → ')}(次回: ${p.focusRotation![p.rotationWeekIndex % p.focusRotation!.length].label})',
+                          "Rotating: ${p.focusRotation!.map((f) => f.label).join(' → ')} (next: ${p.focusRotation![p.rotationWeekIndex % p.focusRotation!.length].label})"),
                       style: const TextStyle(
                         fontSize: 11,
                         color: Colors.deepPurple,
@@ -559,7 +598,8 @@ class _PlayerTrainingCard extends StatelessWidget {
                     TrainingFocus.positionSwitch)
                   _PositionConvertPicker(player: p),
                 const Divider(height: 20),
-                Text('育成サポート', style: Theme.of(context).textTheme.labelLarge),
+                Text(Tr.pick('育成サポート', 'Development support'),
+                    style: Theme.of(context).textTheme.labelLarge),
                 const SizedBox(height: 4),
                 Wrap(
                   spacing: 8,
@@ -569,8 +609,10 @@ class _PlayerTrainingCard extends StatelessWidget {
                       avatar: const Icon(Icons.school, size: 18),
                       label: Text(
                         p.mentorId == null
-                            ? 'メンター: なし'
-                            : 'メンター: ${_mentorName(team.players, p.mentorId!)}',
+                            ? Tr.pick('メンター: なし', 'Mentor: none')
+                            : Tr.pick(
+                                'メンター: ${_mentorName(team.players, p.mentorId!)}',
+                                'Mentor: ${_mentorName(team.players, p.mentorId!)}'),
                       ),
                       onPressed: () => _showMentorPicker(context, team, p),
                     ),
@@ -578,8 +620,10 @@ class _PlayerTrainingCard extends StatelessWidget {
                       avatar: const Icon(Icons.fitness_center, size: 18),
                       label: Text(
                         p.drillAttributeKey == null
-                            ? '特訓ドリル1'
-                            : 'ドリル1: ${AttributeKeys.labelOf(p.drillAttributeKey!)}',
+                            ? Tr.pick('特訓ドリル1', 'Focus drill 1')
+                            : Tr.pick(
+                                'ドリル1: ${AttributeKeys.labelOf(p.drillAttributeKey!)}',
+                                'Drill 1: ${AttributeKeys.labelOf(p.drillAttributeKey!)}'),
                       ),
                       onPressed: () => _showDrillPicker(context, p),
                     ),
@@ -590,22 +634,25 @@ class _PlayerTrainingCard extends StatelessWidget {
                       ),
                       label: Text(
                         p.drillAttributeKey2 == null
-                            ? '特訓ドリル2'
-                            : 'ドリル2: ${AttributeKeys.labelOf(p.drillAttributeKey2!)}',
+                            ? Tr.pick('特訓ドリル2', 'Focus drill 2')
+                            : Tr.pick(
+                                'ドリル2: ${AttributeKeys.labelOf(p.drillAttributeKey2!)}',
+                                'Drill 2: ${AttributeKeys.labelOf(p.drillAttributeKey2!)}'),
                       ),
                       onPressed: () => _showDrillPicker2(context, p),
                     ),
                     ActionChip(
                       avatar: const Icon(Icons.autorenew, size: 18),
-                      label: const Text('ローテーション'),
+                      label: Text(Tr.pick('ローテーション', 'Rotation')),
                       onPressed: () => _showRotationPicker(context, p),
                     ),
                     ActionChip(
                       avatar: const Icon(Icons.flag, size: 18),
                       label: Text(
                         p.developmentTargetRole == null
-                            ? '育成プラン'
-                            : '目標: ${p.developmentTargetRole!.label}',
+                            ? Tr.pick('育成プラン', 'Development plan')
+                            : Tr.pick('目標: ${p.developmentTargetRole!.label}',
+                                'Target: ${p.developmentTargetRole!.label}'),
                       ),
                       onPressed: () => _showDevelopmentPlanPicker(context, p),
                     ),
@@ -613,7 +660,7 @@ class _PlayerTrainingCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'モチベーション・特性',
+                  Tr.pick('モチベーション・特性', 'Motivation & traits'),
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
                 const SizedBox(height: 4),
@@ -625,8 +672,9 @@ class _PlayerTrainingCard extends StatelessWidget {
                       avatar: const Icon(Icons.forum, size: 18),
                       label: Text(
                         p.talkCooldownWeeks > 0
-                            ? '声かけ(あと${p.talkCooldownWeeks}週)'
-                            : '声かけ',
+                            ? Tr.pick('声かけ(あと${p.talkCooldownWeeks}週)',
+                                'Have a word (${p.talkCooldownWeeks} weeks to go)')
+                            : Tr.pick('声かけ', 'Have a word'),
                       ),
                       onPressed: p.talkCooldownWeeks > 0
                           ? null
@@ -637,8 +685,9 @@ class _PlayerTrainingCard extends StatelessWidget {
                         avatar: const Icon(Icons.auto_awesome, size: 18),
                         label: Text(
                           p.traitTrainingTarget == null
-                              ? '技術特訓'
-                              : '特訓中: ${p.traitTrainingTarget!.label}',
+                              ? Tr.pick('技術特訓', 'Trait training')
+                              : Tr.pick('特訓中: ${p.traitTrainingTarget!.label}',
+                                  'Working on: ${p.traitTrainingTarget!.label}'),
                         ),
                         onPressed: () =>
                             _showTechnicalTraitTrainingPicker(context, p),
@@ -647,8 +696,10 @@ class _PlayerTrainingCard extends StatelessWidget {
                         avatar: const Icon(Icons.diversity_3, size: 18),
                         label: Text(
                           p.personalityTraitTrainingTarget == null
-                              ? '性格の指導'
-                              : '指導中: ${p.personalityTraitTrainingTarget!.label}',
+                              ? Tr.pick('性格の指導', 'Personality coaching')
+                              : Tr.pick(
+                                  '指導中: ${p.personalityTraitTrainingTarget!.label}',
+                                  'Coaching: ${p.personalityTraitTrainingTarget!.label}'),
                         ),
                         onPressed: () =>
                             _showPersonalityTraitTrainingPicker(context, p),
@@ -683,21 +734,24 @@ class _PlayerTrainingCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                '${p.name} の育成プラン(目標ロール)',
+                Tr.pick('${p.name} の育成プラン(目標ロール)',
+                    'Development plan for ${p.name}'),
                 style: Theme.of(ctx).textTheme.titleMedium,
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                '設定したロールの重視能力値が、週次トレーニングで優先的に伸びるようになる。',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+                Tr.pick('設定したロールの重視能力値が、週次トレーニングで優先的に伸びるようになる。',
+                    'The attributes that matter for the chosen role improve first in weekly training.'),
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
             if (p.developmentTargetRole != null)
               ListTile(
                 leading: const Icon(Icons.clear),
-                title: const Text('育成プランを解除する'),
+                title:
+                    Text(Tr.pick('育成プランを解除する', 'Clear the development plan')),
                 onTap: () {
                   gameState.setDevelopmentTargetRole(p.id, null);
                   Navigator.pop(ctx);
@@ -712,8 +766,9 @@ class _PlayerTrainingCard extends StatelessWidget {
                 ),
                 title: Text(r.label),
                 subtitle: Text(
-                  '${r.description}\n'
-                  '重視: ${r.keyAttributes.map(AttributeKeys.labelOf).join('・')}',
+                  Tr.pick(
+                      '${r.description}\n重視: ${r.keyAttributes.map(AttributeKeys.labelOf).join('・')}',
+                      "${r.description}\nKey attributes: ${r.keyAttributes.map(AttributeKeys.labelOf).join(', ')}"),
                 ),
                 isThreeLine: true,
                 onTap: () {
@@ -731,7 +786,7 @@ class _PlayerTrainingCard extends StatelessWidget {
     for (final p in players) {
       if (p.id == mentorId) return p.name;
     }
-    return '(退団済み)';
+    return Tr.pick('(退団済み)', ' (has left the club)');
   }
 
   void _showMentorPicker(BuildContext context, Team team, Player mentee) {
@@ -748,25 +803,27 @@ class _PlayerTrainingCard extends StatelessWidget {
           shrinkWrap: true,
           children: [
             ListTile(
-              title: const Text('メンターを解除する'),
+              title: Text(Tr.pick('メンターを解除する', 'Clear the mentor')),
               onTap: () {
                 context.read<GameState>().setMentor(mentee.id, null);
                 Navigator.of(sheetContext).pop();
               },
             ),
             if (candidates.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(16),
+              Padding(
+                padding: const EdgeInsets.all(16),
                 child: Text(
-                  '${TrainingEngine.minMentorAge}歳以上の選手がいないため指名できません',
-                  style: TextStyle(color: Colors.grey),
+                  Tr.pick('${TrainingEngine.minMentorAge}歳以上の選手がいないため指名できません',
+                      'Nobody is ${TrainingEngine.minMentorAge} or older, so no mentor can be named'),
+                  style: const TextStyle(color: Colors.grey),
                 ),
               ),
             for (final c in candidates)
               ListTile(
                 title: Text(c.name),
                 subtitle: Text(
-                  '${c.age}歳 / ${c.position.label} / 総合 ${c.overall}',
+                  Tr.pick('${c.age}歳 / ${c.position.label} / 総合 ${c.overall}',
+                      'Age ${c.age} / ${c.position.label} / overall ${c.overall}'),
                 ),
                 trailing: mentee.mentorId == c.id
                     ? const Icon(Icons.check, color: Colors.deepPurple)
@@ -797,13 +854,14 @@ class _PlayerTrainingCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Text(
-                '特訓ドリル指定中: $activeCount / $maxSlots人'
-                '（ヘッドコーチのレベルを上げると上限が増える）',
+                Tr.pick(
+                    '特訓ドリル指定中: $activeCount / $maxSlots人（ヘッドコーチのレベルを上げると上限が増える）',
+                    'Focus drills in use: $activeCount / $maxSlots (a higher head coach level raises the cap)'),
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
             ListTile(
-              title: const Text('特訓ドリルを解除する'),
+              title: Text(Tr.pick('特訓ドリルを解除する', 'Clear the focus drill')),
               onTap: () {
                 gameState.setDrillAttribute(p.id, null);
                 Navigator.of(sheetContext).pop();
@@ -820,7 +878,10 @@ class _PlayerTrainingCard extends StatelessWidget {
                   Navigator.of(sheetContext).pop();
                   if (!ok) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('特訓ドリルは同時に$maxSlots人までしか指定できません')),
+                      SnackBar(
+                          content: Text(Tr.pick(
+                              '特訓ドリルは同時に$maxSlots人までしか指定できません',
+                              'You can only run focus drills for $maxSlots players at once'))),
                     );
                   }
                 },
@@ -846,13 +907,14 @@ class _PlayerTrainingCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Text(
-                '2つ目の特訓ドリル指定中: $activeCount / $maxSlots人'
-                '（1つ目より成長率は控えめ）',
+                Tr.pick('2つ目の特訓ドリル指定中: $activeCount / $maxSlots人（1つ目より成長率は控えめ）',
+                    'Second focus drills in use: $activeCount / $maxSlots (they grow more slowly than the first)'),
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
             ListTile(
-              title: const Text('2つ目の特訓ドリルを解除する'),
+              title: Text(
+                  Tr.pick('2つ目の特訓ドリルを解除する', 'Clear the second focus drill')),
               onTap: () {
                 gameState.setDrillAttribute2(p.id, null);
                 Navigator.of(sheetContext).pop();
@@ -870,7 +932,9 @@ class _PlayerTrainingCard extends StatelessWidget {
                   if (!ok) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('2つ目の特訓ドリルは同時に$maxSlots人までしか指定できません'),
+                        content: Text(Tr.pick(
+                            '2つ目の特訓ドリルは同時に$maxSlots人までしか指定できません',
+                            'You can only run a second focus drill for $maxSlots players at once')),
                       ),
                     );
                   }
@@ -892,20 +956,22 @@ class _PlayerTrainingCard extends StatelessWidget {
           child: ListView(
             shrinkWrap: true,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: Text(
-                  'タップした順に方針が並び、週次トレーニングのたびに'
-                  '上から順番へ自動的に切り替わる。1件も選ばなければ従来通り'
-                  '個別方針/既定方針に従う。',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  Tr.pick(
+                      'タップした順に方針が並び、週次トレーニングのたびに上から順番へ自動的に切り替わる。1件も選ばなければ従来通り個別方針/既定方針に従う。',
+                      'The focuses queue up in the order you tap them, and each weekly session moves to the next one. Choose none and the player keeps their individual or default focus.'),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ),
               if (rotation.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
-                    '現在の順番: ${rotation.map((f) => f.label).join(' → ')}',
+                    Tr.pick(
+                        '現在の順番: ${rotation.map((f) => f.label).join(' → ')}',
+                        "Current order: ${rotation.map((f) => f.label).join(' → ')}"),
                     style: const TextStyle(
                       fontSize: 12,
                       color: Colors.deepPurple,
@@ -917,7 +983,8 @@ class _PlayerTrainingCard extends StatelessWidget {
                 CheckboxListTile(
                   title: Text(focus.label),
                   subtitle: rotation.contains(focus)
-                      ? Text('順番: ${rotation.indexOf(focus) + 1}番目')
+                      ? Text(Tr.pick('順番: ${rotation.indexOf(focus) + 1}番目',
+                          'Position ${rotation.indexOf(focus) + 1}'))
                       : null,
                   value: rotation.contains(focus),
                   onChanged: (checked) => setSheetState(() {
@@ -935,7 +1002,7 @@ class _PlayerTrainingCard extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => setSheetState(() => rotation = []),
-                        child: const Text('クリア'),
+                        child: Text(Tr.pick('クリア', 'Clear')),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -945,7 +1012,7 @@ class _PlayerTrainingCard extends StatelessWidget {
                           gameState.setPlayerFocusRotation(p.id, rotation);
                           Navigator.of(sheetContext).pop();
                         },
-                        child: const Text('保存'),
+                        child: Text(Tr.pick('保存', 'Save')),
                       ),
                     ),
                   ],
@@ -964,7 +1031,11 @@ class _PlayerTrainingCard extends StatelessWidget {
     if (!context.mounted) return;
     FeedbackService.tap();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? '${p.name}に声をかけ、士気が上がった。' : '声かけに失敗した。')),
+      SnackBar(
+          content: Text(ok
+              ? Tr.pick('${p.name}に声をかけ、士気が上がった。',
+                  'You had a word with ${p.name}, and morale rose.')
+              : Tr.pick('声かけに失敗した。', 'The word did not land.'))),
     );
   }
 
@@ -980,19 +1051,19 @@ class _PlayerTrainingCard extends StatelessWidget {
           child: ListView(
             controller: scrollController,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: Text(
-                  '狙いたい技術特性を選ぶと、以後の週次トレーニングで低確率に'
-                  '獲得を目指す特訓を行う。能力値・年齢がその特性に合っているほど'
-                  '成功率が上がる(適性表示を参考に)。',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  Tr.pick(
+                      '狙いたい技術特性を選ぶと、以後の週次トレーニングで低確率に獲得を目指す特訓を行う。能力値・年齢がその特性に合っているほど成功率が上がる(適性表示を参考に)。',
+                      "Pick a technical trait and each weekly session works towards it, with a small chance of picking it up. The better the player's attributes and age suit the trait, the better the odds (see the fit marks)."),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ),
               if (p.traitTrainingTarget != null)
                 ListTile(
                   leading: const Icon(Icons.cancel_outlined),
-                  title: const Text('技術特訓を解除する'),
+                  title: Text(Tr.pick('技術特訓を解除する', 'Stop the trait training')),
                   onTap: () {
                     context.read<GameState>().setTraitTrainingTarget(
                           p.id,
@@ -1005,7 +1076,7 @@ class _PlayerTrainingCard extends StatelessWidget {
                 ..._traitPickerSection(
                   context: context,
                   sheetContext: sheetContext,
-                  title: entry.key,
+                  title: Tr.pick(entry.key.ja, entry.key.en),
                   traits: entry.value,
                   p: p,
                   currentTarget: p.traitTrainingTarget,
@@ -1037,17 +1108,17 @@ class _PlayerTrainingCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: Text(
-                  '性格特性は練習では身につかない。メンター(チームメイト)を'
-                  '指名しているか、監督が今週この選手に声をかけていた週にのみ、'
-                  '低確率で選んだ特性を獲得する。'
-                  '${p.mentorId == null && p.talkCooldownWeeks == 0 ? '(現在はどちらの条件も満たしていない)' : ''}',
+                  Tr.pick(
+                      '性格特性は練習では身につかない。メンター(チームメイト)を指名しているか、監督が今週この選手に声をかけていた週にのみ、低確率で選んだ特性を獲得する。${p.mentorId == null && p.talkCooldownWeeks == 0 ? '(現在はどちらの条件も満たしていない)' : ''}',
+                      "Personality traits cannot be trained. The player only has a small chance of picking one up in a week where he has a mentor among his team-mates, or where you had a word with him.${p.mentorId == null && p.talkCooldownWeeks == 0 ? ' (neither applies right now)' : ''}"),
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ),
               if (p.personalityTraitTrainingTarget != null)
                 ListTile(
                   leading: const Icon(Icons.cancel_outlined),
-                  title: const Text('性格の指導を解除する'),
+                  title: Text(
+                      Tr.pick('性格の指導を解除する', 'Stop the personality coaching')),
                   onTap: () {
                     context
                         .read<GameState>()
@@ -1059,7 +1130,7 @@ class _PlayerTrainingCard extends StatelessWidget {
                 ..._traitPickerSection(
                   context: context,
                   sheetContext: sheetContext,
-                  title: entry.key,
+                  title: Tr.pick(entry.key.ja, entry.key.en),
                   traits: entry.value,
                   p: p,
                   currentTarget: p.personalityTraitTrainingTarget,
@@ -1158,17 +1229,20 @@ class _PositionConvertPicker extends StatelessWidget {
           Expanded(
             child: Text(
               target == null
-                  ? '転向先ポジション: 未設定'
-                  : '転向先: ${target.label}(慣れ度${player.familiarityFor(target)}/100)',
+                  ? Tr.pick('転向先ポジション: 未設定', 'Retraining to: not set')
+                  : Tr.pick(
+                      '転向先: ${target.label}(慣れ度${player.familiarityFor(target)}/100)',
+                      'Retraining to ${target.label} (familiarity ${player.familiarityFor(target)}/100)'),
               style: const TextStyle(fontSize: 12, color: Colors.grey),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           DropdownButton<Position?>(
             value: target,
-            hint: const Text('選択'),
+            hint: Text(Tr.pick('選択', 'Choose')),
             items: [
-              const DropdownMenuItem<Position?>(value: null, child: Text('なし')),
+              DropdownMenuItem<Position?>(
+                  value: null, child: Text(Tr.pick('なし', 'None'))),
               ...candidates.map(
                 (pos) => DropdownMenuItem<Position?>(
                   value: pos,

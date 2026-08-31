@@ -30,6 +30,7 @@ import 'player_detail_screen.dart';
 import 'scout_report_screen.dart';
 import 'start_screen.dart';
 import 'youth_intake_screen.dart';
+import '../l10n/tr.dart';
 
 /// 移籍オファーを選手ごとにグループ化し、各グループ内は金額の高い順に並べる
 /// (複数クラブが競合している場合、最高額が先頭に来る)。
@@ -70,7 +71,7 @@ class HomeScreen extends StatelessWidget {
 
     return BusyOverlay(
       visible: gameState.isBusy,
-      label: 'シーズンを更新しています…',
+      label: Tr.pick('シーズンを更新しています…', 'Rolling the season over…'),
       child: Scaffold(
         appBar: AppBar(title: Text(save.clubName)),
         drawer: const QuickAccessDrawer(),
@@ -91,7 +92,9 @@ class HomeScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            '${gameState.leagueDisplayName} シーズン${league.season}',
+                            Tr.pick(
+                                '${gameState.leagueDisplayName} シーズン${league.season}',
+                                '${gameState.leagueDisplayName}, season ${league.season}'),
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           Chip(label: Text(userTeam.formation.label)),
@@ -99,8 +102,9 @@ class HomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '目標: ${save.boardTargetRank}位以内'
-                        '${gameState.boardCupTargetLabel != null ? '・カップ${gameState.boardCupTargetLabel}進出' : ''}',
+                        Tr.pick(
+                            '目標: ${save.boardTargetRank}位以内${gameState.boardCupTargetLabel != null ? '・カップ${gameState.boardCupTargetLabel}進出' : ''}',
+                            "Target: top ${save.boardTargetRank}${gameState.boardCupTargetLabel != null ? ' · reach the ${gameState.boardCupTargetLabel} in the cup' : ''}"),
                         style: TextStyle(color: scheme.onSurfaceVariant),
                       ),
                     ],
@@ -119,28 +123,29 @@ class HomeScreen extends StatelessWidget {
                   children: [
                     _StatTile(
                       icon: Icons.emoji_events,
-                      label: '順位',
+                      label: Tr.pick('順位', 'Position'),
                       value: '$userRank / ${standings.length}',
                       color: Colors.amber.shade800,
                     ),
                     _StatTile(
                       icon: Icons.account_balance_wallet,
-                      label: '資金',
-                      value: '${save.budget}万円',
-                      sub: '週収支 ${net >= 0 ? '+' : ''}$net万円',
+                      label: Tr.pick('資金', 'Funds'),
+                      value: Tr.pick('${save.budget}万円', '${save.budget}'),
+                      sub: Tr.pick('週収支 ${net >= 0 ? '+' : ''}$net万円',
+                          "Weekly ${net >= 0 ? '+' : ''}$net"),
                       color: net >= 0
                           ? SemanticColors.positive(context)
                           : SemanticColors.negative(context),
                     ),
                     _StatTile(
                       icon: Icons.bar_chart,
-                      label: '平均総合力',
+                      label: Tr.pick('平均総合力', 'Average overall'),
                       value: '${userTeam.overallRating}',
                       color: Colors.blue.shade700,
                     ),
                     _StatTile(
                       icon: Icons.shield,
-                      label: '監督への信頼度',
+                      label: Tr.pick('監督への信頼度', 'Board confidence'),
                       value: '${save.confidence}',
                       progress: save.confidence / 100,
                       color: save.confidence <= 25
@@ -149,17 +154,19 @@ class HomeScreen extends StatelessWidget {
                     ),
                     _StatTile(
                       icon: Icons.star,
-                      label: '監督としての評価',
+                      label: Tr.pick('監督としての評価', 'Your reputation'),
                       value: '${gameState.managerReputation}',
                       progress: gameState.managerReputation / 100,
                       color: Colors.deepPurple,
                     ),
                     _StatTile(
                       icon: Icons.groups,
-                      label: '観客動員',
-                      value:
+                      label: Tr.pick('観客動員', 'Attendance'),
+                      value: Tr.pick(
                           '${gameState.lastMatchAttendance ?? gameState.expectedAttendance}人',
-                      sub: '収容人数 ${gameState.stadiumCapacity}人',
+                          '${gameState.lastMatchAttendance ?? gameState.expectedAttendance}'),
+                      sub: Tr.pick('収容人数 ${gameState.stadiumCapacity}人',
+                          'Capacity ${gameState.stadiumCapacity}'),
                       color: Colors.brown.shade600,
                     ),
                   ],
@@ -181,7 +188,8 @@ class HomeScreen extends StatelessWidget {
                             Icon(Icons.gavel, color: Colors.indigo.shade700),
                             const SizedBox(width: 8),
                             Text(
-                              'シーズン中盤 理事会レビュー',
+                              Tr.pick(
+                                  'シーズン中盤 理事会レビュー', 'Mid-season board review'),
                               style: Theme.of(context)
                                   .textTheme
                                   .titleSmall
@@ -199,7 +207,7 @@ class HomeScreen extends StatelessWidget {
                               FeedbackService.tap();
                               gameState.dismissBoardReview();
                             },
-                            child: const Text('了解した'),
+                            child: Text(Tr.pick('了解した', 'Understood')),
                           ),
                         ),
                       ],
@@ -217,8 +225,10 @@ class HomeScreen extends StatelessWidget {
                   color: scheme.tertiaryContainer,
                   child: ListTile(
                     leading: const Icon(Icons.emoji_events_outlined),
-                    title: const Text('国内カップ戦の出番です'),
-                    subtitle: const Text('ブラケットの次の試合が自クラブの対戦になっています'),
+                    title: Text(Tr.pick(
+                        '国内カップ戦の出番です', 'You are up in the domestic cup')),
+                    subtitle: Text(Tr.pick('ブラケットの次の試合が自クラブの対戦になっています',
+                        'The next tie in the bracket is yours')),
                     trailing: FilledButton(
                       onPressed: () {
                         FeedbackService.tap();
@@ -226,7 +236,7 @@ class HomeScreen extends StatelessWidget {
                           MaterialPageRoute(builder: (_) => const CupScreen()),
                         );
                       },
-                      child: const Text('カップ戦へ'),
+                      child: Text(Tr.pick('カップ戦へ', 'Go to the cup')),
                     ),
                   ),
                 ),
@@ -235,9 +245,11 @@ class HomeScreen extends StatelessWidget {
                   color: scheme.secondaryContainer,
                   child: ListTile(
                     leading: const Icon(Icons.emoji_people),
-                    title: const Text('ユースインテーク'),
+                    title: Text(Tr.pick('ユースインテーク', 'Youth intake')),
                     subtitle: Text(
-                      '${gameState.pendingYouthIntake.length}名の新人候補が加入を待っています',
+                      Tr.pick(
+                          '${gameState.pendingYouthIntake.length}名の新人候補が加入を待っています',
+                          '${gameState.pendingYouthIntake.length} young hopefuls are waiting to join'),
                     ),
                     trailing: FilledButton(
                       onPressed: () => Navigator.of(context).push(
@@ -245,7 +257,7 @@ class HomeScreen extends StatelessWidget {
                           builder: (_) => const YouthIntakeScreen(),
                         ),
                       ),
-                      child: const Text('選抜する'),
+                      child: Text(Tr.pick('選抜する', 'Pick them')),
                     ),
                   ),
                 ),
@@ -257,7 +269,7 @@ class HomeScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '移籍オファー',
+                          Tr.pick('移籍オファー', 'Transfer offer'),
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
                         for (final entry in _groupOffersByPlayer(gameState))
@@ -270,7 +282,9 @@ class HomeScreen extends StatelessWidget {
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 2),
                                     child: Text(
-                                      '${entry.first.playerName}に競合オファー',
+                                      Tr.pick(
+                                          '${entry.first.playerName}に競合オファー',
+                                          'Rival bids for ${entry.first.playerName}'),
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
@@ -292,7 +306,9 @@ class HomeScreen extends StatelessWidget {
                                         ),
                                       Expanded(
                                         child: Text(
-                                          '${entry[i].buyerClubName}が${entry[i].playerName}に${entry[i].amount}万円',
+                                          Tr.pick(
+                                              '${entry[i].buyerClubName}が${entry[i].playerName}に${entry[i].amount}万円',
+                                              '${entry[i].buyerClubName} bid ${entry[i].amount} for ${entry[i].playerName}'),
                                         ),
                                       ),
                                       TextButton(
@@ -302,7 +318,7 @@ class HomeScreen extends StatelessWidget {
                                             entry[i].id,
                                           );
                                         },
-                                        child: const Text('拒否'),
+                                        child: Text(Tr.pick('拒否', 'Reject')),
                                       ),
                                       FilledButton(
                                         onPressed:
@@ -312,7 +328,7 @@ class HomeScreen extends StatelessWidget {
                                                       context,
                                                       entry[i],
                                                     ),
-                                        child: const Text('承諾'),
+                                        child: Text(Tr.pick('承諾', 'Accept')),
                                       ),
                                     ],
                                   ),
@@ -332,7 +348,7 @@ class HomeScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '親善試合',
+                          Tr.pick('親善試合', 'Friendly'),
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
                         for (int i = 0; i < save.friendlies.length; i++)
@@ -348,7 +364,7 @@ class HomeScreen extends StatelessWidget {
                                   ),
                                   OutlinedButton(
                                     onPressed: () => _playFriendly(context, i),
-                                    child: const Text('開催'),
+                                    child: Text(Tr.pick('開催', 'Play it')),
                                   ),
                                 ],
                               ),
@@ -374,20 +390,23 @@ class HomeScreen extends StatelessWidget {
                   ];
                   if (unavailable.isEmpty) return const SizedBox.shrink();
                   String reasonOf(Player p) => p.isInjured
-                      ? '負傷'
+                      ? Tr.pick('負傷', 'Injured')
                       : p.isSuspended
-                          ? '出場停止'
+                          ? Tr.pick('出場停止', 'Suspended')
                           : p.isOnInternationalDuty
-                              ? '代表召集'
-                              : 'ローン中';
+                              ? Tr.pick('代表召集', 'International duty')
+                              : Tr.pick('ローン中', 'Out on loan');
                   return Card(
                     color: scheme.errorContainer,
                     child: ListTile(
                       leading: const Icon(Icons.personal_injury),
-                      title: Text('スタメンに出場できない選手が${unavailable.length}人います'),
+                      title: Text(Tr.pick(
+                          'スタメンに出場できない選手が${unavailable.length}人います',
+                          '${unavailable.length} of your XI cannot play')),
                       subtitle: Text(
-                        '${unavailable.map((p) => '${p.name}(${reasonOf(p)})').join('、')}'
-                        '。このままでは人数の欠けた布陣で試合に臨みます。',
+                        Tr.pick(
+                            '${unavailable.map((p) => '${p.name}(${reasonOf(p)})').join('、')}。このままでは人数の欠けた布陣で試合に臨みます。',
+                            "${unavailable.map((p) => '${p.name} (${reasonOf(p)})').join(', ')}. As things stand you go into the match short-handed."),
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => Navigator.of(context).push(
@@ -406,10 +425,11 @@ class HomeScreen extends StatelessWidget {
                   color: scheme.tertiaryContainer,
                   child: ListTile(
                     leading: const Icon(Icons.handshake),
-                    title: const Text('スポンサー未契約'),
+                    title: Text(Tr.pick('スポンサー未契約', 'No sponsor')),
                     subtitle: Text(
-                      'スポンサーオファーが${save.pendingSponsorOffers.length}件届いています。'
-                      '契約すると毎週の収入が増えます。',
+                      Tr.pick(
+                          'スポンサーオファーが${save.pendingSponsorOffers.length}件届いています。契約すると毎週の収入が増えます。',
+                          '${save.pendingSponsorOffers.length} sponsorship offers are waiting. Signing one raises your weekly income.'),
                     ),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => Navigator.of(context).push(
@@ -422,11 +442,12 @@ class HomeScreen extends StatelessWidget {
                   color: scheme.primaryContainer,
                   child: ListTile(
                     leading: const Icon(Icons.flag),
-                    title: const Text('シーズン終了！'),
-                    subtitle: Text('最終順位: $userRank位'),
+                    title: Text(Tr.pick('シーズン終了！', 'Season over.')),
+                    subtitle: Text(Tr.pick(
+                        '最終順位: $userRank位', 'Final position: $userRank')),
                     trailing: FilledButton(
                       onPressed: () => _startNextSeason(context),
-                      child: const Text('次のシーズンへ'),
+                      child: Text(Tr.pick('次のシーズンへ', 'On to next season')),
                     ),
                   ),
                 )
@@ -461,16 +482,18 @@ class HomeScreen extends StatelessWidget {
                                 children: [
                                   Row(
                                     children: [
-                                      Text('第${next.matchday}節'),
+                                      Text(Tr.pick('第${next.matchday}節',
+                                          'Matchday ${next.matchday}')),
                                       if (gameState.isRivalFixture(next)) ...[
                                         const SizedBox(width: 6),
-                                        const Chip(
+                                        Chip(
                                           label: Text(
-                                            'ダービー',
-                                            style: TextStyle(fontSize: 11),
+                                            Tr.pick('ダービー', 'Derby'),
+                                            style:
+                                                const TextStyle(fontSize: 11),
                                           ),
                                           backgroundColor: Colors.redAccent,
-                                          labelStyle: TextStyle(
+                                          labelStyle: const TextStyle(
                                             color: Colors.white,
                                           ),
                                           visualDensity: VisualDensity.compact,
@@ -503,7 +526,9 @@ class HomeScreen extends StatelessWidget {
                                       child: Row(
                                         children: [
                                           Text(
-                                            '$oppRank位・総合${opp.overallRating}',
+                                            Tr.pick(
+                                                '$oppRank位・総合${opp.overallRating}',
+                                                '$oppRank in the table · overall ${opp.overallRating}'),
                                             style: const TextStyle(
                                               fontSize: 12,
                                               color: Colors.grey,
@@ -556,7 +581,7 @@ class HomeScreen extends StatelessWidget {
                         const SizedBox(height: 12),
                         FilledButton(
                           onPressed: () => _playMatch(context),
-                          child: const Text('試合を行う'),
+                          child: Text(Tr.pick('試合を行う', 'Play the match')),
                         ),
                         const SizedBox(height: 4),
                         Row(
@@ -565,16 +590,16 @@ class HomeScreen extends StatelessWidget {
                             TextButton(
                               onPressed: () =>
                                   _quickSimNextMatch(context, next),
-                              child: const Text(
-                                '結果だけ見る',
-                                style: TextStyle(fontSize: 12),
+                              child: Text(
+                                Tr.pick('結果だけ見る', 'Just the result'),
+                                style: const TextStyle(fontSize: 12),
                               ),
                             ),
                             TextButton(
                               onPressed: () => _showScoutReport(context, next),
-                              child: const Text(
-                                '偵察レポート',
-                                style: TextStyle(fontSize: 12),
+                              child: Text(
+                                Tr.pick('偵察レポート', 'Scout report'),
+                                style: const TextStyle(fontSize: 12),
                               ),
                             ),
                           ],
@@ -584,7 +609,8 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
               const SizedBox(height: 16),
-              Text('クラブ運営', style: Theme.of(context).textTheme.titleMedium),
+              Text(Tr.pick('クラブ運営', 'Running the club'),
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               LayoutBuilder(
                 builder: (context, constraints) => GridView.count(
@@ -710,7 +736,8 @@ class HomeScreen extends StatelessWidget {
   void _showProgressFailedSnackBar(BuildContext context, Object error) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('節の進行に失敗しました: $error'),
+        content: Text(Tr.pick(
+            '節の進行に失敗しました: $error', 'The matchday could not be played: $error')),
         backgroundColor: Colors.red.shade700,
         duration: const Duration(seconds: 6),
       ),
@@ -730,10 +757,10 @@ class HomeScreen extends StatelessWidget {
     final userGoals = isHome ? result.homeGoals : result.awayGoals;
     final oppGoals = isHome ? result.awayGoals : result.homeGoals;
     final resultLabel = userGoals > oppGoals
-        ? '勝利'
+        ? Tr.pick('勝利', 'Win')
         : userGoals < oppGoals
-            ? '敗北'
-            : '引き分け';
+            ? Tr.pick('敗北', 'Defeat')
+            : Tr.pick('引き分け', 'Draw');
     String teamNameOf(String teamId) =>
         teamId == userTeamId ? userTeamName : opponentName;
     String? scorerNameOf(String? playerId) {
@@ -775,7 +802,7 @@ class HomeScreen extends StatelessWidget {
                 ? SemanticColors.negative(dialogContext)
                 : SemanticColors.neutral(dialogContext);
         return AlertDialog(
-          title: Text('結果: $resultLabel'),
+          title: Text(Tr.pick('結果: $resultLabel', 'Result: $resultLabel')),
           content: SizedBox(
             width: double.maxFinite,
             child: Column(
@@ -792,13 +819,13 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 if (goals.isEmpty)
-                  const Text(
-                    '得点者はいませんでした',
-                    style: TextStyle(color: Colors.grey),
+                  Text(
+                    Tr.pick('得点者はいませんでした', 'Nobody scored'),
+                    style: const TextStyle(color: Colors.grey),
                   )
                 else ...[
                   Text(
-                    '得点者',
+                    Tr.pick('得点者', 'Scorers'),
                     style: Theme.of(dialogContext).textTheme.titleSmall,
                   ),
                   const SizedBox(height: 4),
@@ -843,7 +870,9 @@ class HomeScreen extends StatelessWidget {
                       children: [
                         const Icon(Icons.star, color: Colors.amber, size: 18),
                         const SizedBox(width: 4),
-                        Expanded(child: Text('マン・オブ・ザ・マッチ: $motmName')),
+                        Expanded(
+                            child: Text(Tr.pick('マン・オブ・ザ・マッチ: $motmName',
+                                'Man of the match: $motmName'))),
                       ],
                     ),
                   ),
@@ -854,7 +883,7 @@ class HomeScreen extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('閉じる'),
+              child: Text(Tr.pick('閉じる', 'Close')),
             ),
           ],
         );
@@ -885,9 +914,9 @@ class HomeScreen extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Text(
-          '${g.minute}\' ${g.scorerName ?? '不明'}'
-          '${g.assistName != null ? '（アシスト: ${g.assistName}）' : ''}'
-          '（${teamNameOf(g.teamId)}）',
+          Tr.pick(
+              '${g.minute}\' ${g.scorerName ?? '不明'}${g.assistName != null ? '（アシスト: ${g.assistName}）' : ''}（${teamNameOf(g.teamId)}）',
+              "${g.minute}' ${g.scorerName ?? 'Unknown'}${g.assistName != null ? ' (assist: ${g.assistName})' : ''} (${teamNameOf(g.teamId)})"),
         ),
       ),
     );
@@ -902,33 +931,56 @@ class HomeScreen extends StatelessWidget {
 
     final expired = gameState.lastContractExpirations;
     if (expired.isNotEmpty) {
-      messages.add(('ローン期間満了で契約元クラブへ復帰: ${expired.join('、')}', false));
+      messages.add((
+        Tr.pick('ローン期間満了で契約元クラブへ復帰: ${expired.join('、')}',
+            "Loan spells ended, returned to their parent clubs: ${expired.join(', ')}"),
+        false
+      ));
       gameState.lastContractExpirations = [];
     }
     final autoSold = gameState.lastReleaseClauseSales;
     if (autoSold.isNotEmpty) {
-      messages.add(('リリース条項が発動し移籍が成立: ${autoSold.join('、')}', false));
+      messages.add((
+        Tr.pick('リリース条項が発動し移籍が成立: ${autoSold.join('、')}',
+            "Release clauses triggered, transfers completed: ${autoSold.join(', ')}"),
+        false
+      ));
       gameState.lastReleaseClauseSales = [];
     }
     final calledUp = gameState.lastInternationalCallUps;
     if (calledUp.isNotEmpty) {
-      messages.add(('代表召集: ${calledUp.join('、')}', false));
+      messages.add((
+        Tr.pick('代表召集: ${calledUp.join('、')}',
+            "Called up for international duty: ${calledUp.join(', ')}"),
+        false
+      ));
       gameState.lastInternationalCallUps = [];
     }
     final loanReturns = gameState.lastLoanReturns;
     if (loanReturns.isNotEmpty) {
-      messages.add(('ローン放出から復帰: ${loanReturns.join('、')}', false));
+      messages.add((
+        Tr.pick('ローン放出から復帰: ${loanReturns.join('、')}',
+            "Back from loan: ${loanReturns.join(', ')}"),
+        false
+      ));
       gameState.lastLoanReturns = [];
     }
     final maturedDeposits = gameState.lastMaturedDeposits;
     if (maturedDeposits.isNotEmpty) {
       final total = maturedDeposits.fold<int>(0, (s, d) => s + d.maturityValue);
-      messages.add(('定期預金が満期を迎え、$total万円が払い戻されました', false));
+      messages.add((
+        Tr.pick('定期預金が満期を迎え、$total万円が払い戻されました',
+            'Your deposit matured and $total was paid back'),
+        false
+      ));
       gameState.lastMaturedDeposits = [];
     }
     final aiTransferNews = gameState.lastAiTransferNews;
     if (aiTransferNews != null) {
-      messages.add(('移籍市場: $aiTransferNews', false));
+      messages.add((
+        Tr.pick('移籍市場: $aiTransferNews', 'Transfer market: $aiTransferNews'),
+        false
+      ));
       gameState.lastAiTransferNews = null;
     }
     final budgetCrisis = gameState.lastBudgetCrisisWarning;
@@ -951,7 +1003,7 @@ class HomeScreen extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('今節のお知らせ'),
+        title: Text(Tr.pick('今節のお知らせ', 'This matchday')),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView(
@@ -979,7 +1031,7 @@ class HomeScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('閉じる'),
+            child: Text(Tr.pick('閉じる', 'Close')),
           ),
         ],
       ),
@@ -990,15 +1042,16 @@ class HomeScreen extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('この移籍オファーを承諾しますか？'),
+        title: Text(Tr.pick('この移籍オファーを承諾しますか？', 'Accept this transfer offer?')),
         content: Text(
-          '${offer.playerName}が${offer.buyerClubName}へ${offer.amount}万円で'
-          '移籍します。この操作は元に戻せません。',
+          Tr.pick(
+              '${offer.playerName}が${offer.buyerClubName}へ${offer.amount}万円で移籍します。この操作は元に戻せません。',
+              '${offer.playerName} joins ${offer.buyerClubName} for ${offer.amount}. This cannot be undone.'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('キャンセル'),
+            child: Text(Tr.pick('キャンセル', 'Cancel')),
           ),
           FilledButton(
             onPressed: () {
@@ -1006,7 +1059,7 @@ class HomeScreen extends StatelessWidget {
               FeedbackService.success();
               context.read<GameState>().acceptIncomingOffer(offer.id);
             },
-            child: const Text('承諾する'),
+            child: Text(Tr.pick('承諾する', 'Accept')),
           ),
         ],
       ),
@@ -1021,7 +1074,9 @@ class HomeScreen extends StatelessWidget {
     if (monthlyAward != null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('$monthlyAward 月間最優秀監督賞を受賞しました！')));
+      ).showSnackBar(SnackBar(
+          content: Text(Tr.pick('$monthlyAward 月間最優秀監督賞を受賞しました！',
+              'You won Manager of the Month for $monthlyAward.'))));
       gameState.lastMonthlyManagerAward = null;
     }
   }
@@ -1032,7 +1087,9 @@ class HomeScreen extends StatelessWidget {
     if (context.mounted && result != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('親善試合結果: ${result.homeGoals} - ${result.awayGoals}'),
+          content: Text(Tr.pick(
+              '親善試合結果: ${result.homeGoals} - ${result.awayGoals}',
+              'Friendly: ${result.homeGoals} - ${result.awayGoals}')),
         ),
       );
     }
@@ -1065,7 +1122,8 @@ class HomeScreen extends StatelessWidget {
       gameState.lastManagerContractNote = null;
     }
     if (gameState.lastSeasonManagerAwardWon) {
-      messages.add(('年間最優秀監督賞を受賞しました！', true));
+      messages.add(
+          (Tr.pick('年間最優秀監督賞を受賞しました！', 'You won Manager of the Year.'), true));
       gameState.lastSeasonManagerAwardWon = false;
     }
     final superCupNews = gameState.lastSuperCupNews;
@@ -1075,22 +1133,37 @@ class HomeScreen extends StatelessWidget {
     }
     final retirees = gameState.lastRetirements;
     if (retirees.isNotEmpty) {
-      messages.add(('引退: ${retirees.join('、')}', false));
+      messages.add((
+        Tr.pick('引退: ${retirees.join('、')}', "Retired: ${retirees.join(', ')}"),
+        false
+      ));
       gameState.lastRetirements = [];
     }
     final contractExpired = gameState.lastContractExpirations;
     if (contractExpired.isNotEmpty) {
-      messages.add(('契約満了で退団: ${contractExpired.join('、')}', false));
+      messages.add((
+        Tr.pick('契約満了で退団: ${contractExpired.join('、')}',
+            "Left on a free at the end of their contract: ${contractExpired.join(', ')}"),
+        false
+      ));
       gameState.lastContractExpirations = [];
     }
     final contractWarnings = gameState.lastContractWarnings;
     if (contractWarnings.isNotEmpty) {
-      messages.add(('契約最終年に突入: ${contractWarnings.join('、')}', false));
+      messages.add((
+        Tr.pick('契約最終年に突入: ${contractWarnings.join('、')}',
+            "Into the final year of their contract: ${contractWarnings.join(', ')}"),
+        false
+      ));
       gameState.lastContractWarnings = [];
     }
     final emergencySignings = gameState.lastEmergencySignings;
     if (emergencySignings.isNotEmpty) {
-      messages.add(('緊急補強: ${emergencySignings.join('、')}', false));
+      messages.add((
+        Tr.pick('緊急補強: ${emergencySignings.join('、')}',
+            "Emergency signings: ${emergencySignings.join(', ')}"),
+        false
+      ));
       gameState.lastEmergencySignings = [];
     }
 
@@ -1107,7 +1180,7 @@ class HomeScreen extends StatelessWidget {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('シーズン開始レポート'),
+        title: Text(Tr.pick('シーズン開始レポート', 'Pre-season report')),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView(
@@ -1136,7 +1209,7 @@ class HomeScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('閉じる'),
+            child: Text(Tr.pick('閉じる', 'Close')),
           ),
         ],
       ),
@@ -1161,7 +1234,7 @@ class HomeScreen extends StatelessWidget {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('昇格プレーオフ結果'),
+          title: Text(Tr.pick('昇格プレーオフ結果', 'Promotion play-off results')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1176,7 +1249,7 @@ class HomeScreen extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('閉じる'),
+              child: Text(Tr.pick('閉じる', 'Close')),
             ),
           ],
         ),
@@ -1190,7 +1263,7 @@ class HomeScreen extends StatelessWidget {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('シーズン成長サマリー'),
+          title: Text(Tr.pick('シーズン成長サマリー', 'Season growth summary')),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
@@ -1228,7 +1301,7 @@ class HomeScreen extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('閉じる'),
+              child: Text(Tr.pick('閉じる', 'Close')),
             ),
           ],
         ),
@@ -1257,7 +1330,8 @@ class _PressConferenceCard extends StatelessWidget {
               children: [
                 const Icon(Icons.mic, size: 18),
                 const SizedBox(width: 6),
-                Text('記者会見', style: Theme.of(context).textTheme.titleSmall),
+                Text(Tr.pick('記者会見', 'Press conference'),
+                    style: Theme.of(context).textTheme.titleSmall),
               ],
             ),
             const SizedBox(height: 6),
@@ -1302,9 +1376,12 @@ class _JobOfferCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('他クラブからのオファー', style: Theme.of(context).textTheme.titleSmall),
+            Text(Tr.pick('他クラブからのオファー', 'An offer from another club'),
+                style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 4),
-            Text('${team.name}の監督就任オファーが届いています(総合力 ${team.overallRating})'),
+            Text(Tr.pick(
+                '${team.name}の監督就任オファーが届いています(総合力 ${team.overallRating})',
+                '${team.name} want you as their manager (overall ${team.overallRating})')),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -1314,7 +1391,7 @@ class _JobOfferCard extends StatelessWidget {
                     FeedbackService.tap();
                     gameState.declineJobOffer();
                   },
-                  child: const Text('断る'),
+                  child: Text(Tr.pick('断る', 'Turn it down')),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
@@ -1322,7 +1399,7 @@ class _JobOfferCard extends StatelessWidget {
                     FeedbackService.success();
                     gameState.acceptJobOffer();
                   },
-                  child: const Text('就任する'),
+                  child: Text(Tr.pick('就任する', 'Take the job')),
                 ),
               ],
             ),
@@ -1353,9 +1430,11 @@ class _SuperCupCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('スーパーカップ', style: Theme.of(context).textTheme.titleSmall),
+            Text(Tr.pick('スーパーカップ', 'Super Cup'),
+                style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 4),
-            Text('開幕前特別マッチ: $opponentNameと対戦します'),
+            Text(Tr.pick('開幕前特別マッチ: $opponentNameと対戦します',
+                'The curtain-raiser: you face $opponentName')),
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerRight,
@@ -1367,11 +1446,11 @@ class _SuperCupCard extends StatelessWidget {
                       onPressed: () =>
                           playCupMatchLive(context, LiveCupKind.superCup),
                       icon: const Icon(Icons.sports_soccer),
-                      label: const Text('ライブで戦う'),
+                      label: Text(Tr.pick('ライブで戦う', 'Watch it live')),
                     ),
                   OutlinedButton(
                     onPressed: () => _play(context),
-                    child: const Text('クイック消化'),
+                    child: Text(Tr.pick('クイック消化', 'Sim it')),
                   ),
                 ],
               ),
@@ -1389,8 +1468,10 @@ class _SuperCupCard extends StatelessWidget {
     if (!context.mounted || result == null) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            MatchScreen(result: result, teams: teams, title: 'スーパーカップ'),
+        builder: (_) => MatchScreen(
+            result: result,
+            teams: teams,
+            title: Tr.pick('スーパーカップ', 'Super Cup')),
       ),
     );
   }
@@ -1417,7 +1498,7 @@ class _ThisWeekCard extends StatelessWidget {
         '${today.month}/${today.day}(${CalendarEngine.weekdayLabel(today.weekday)})';
     String matchLine;
     if (next == null) {
-      matchLine = 'リーグ戦は今シーズン終了しています';
+      matchLine = Tr.pick('リーグ戦は今シーズン終了しています', 'The league season is over');
     } else {
       final userId = gameState.userTeam.id;
       final isHome = next!.homeTeamId == userId;
@@ -1427,9 +1508,9 @@ class _ThisWeekCard extends StatelessWidget {
         orElse: () => league.teams.first,
       );
       final derby = gameState.isRivalFixture(next!);
-      matchLine =
-          '第${next!.matchday}節 ${isHome ? '(H)' : '(A)'} vs ${opponent.name}'
-          '${derby ? ' ・ダービー' : ''}';
+      matchLine = Tr.pick(
+          '第${next!.matchday}節 ${isHome ? '(H)' : '(A)'} vs ${opponent.name}${derby ? ' ・ダービー' : ''}',
+          "Matchday ${next!.matchday} ${isHome ? '(H)' : '(A)'} vs ${opponent.name}${derby ? ' · derby' : ''}");
     }
 
     return Card(
@@ -1442,7 +1523,7 @@ class _ThisWeekCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '今週の予定 ($dateLabel)',
+                  Tr.pick('今週の予定 ($dateLabel)', 'This week ($dateLabel)'),
                   style: Theme.of(context)
                       .textTheme
                       .titleSmall
@@ -1450,7 +1531,7 @@ class _ThisWeekCard extends StatelessWidget {
                 ),
                 TextButton.icon(
                   icon: const Icon(Icons.calendar_month, size: 16),
-                  label: const Text('カレンダー'),
+                  label: Text(Tr.pick('カレンダー', 'Calendar')),
                   onPressed: () {
                     FeedbackService.tap();
                     Navigator.of(context).push(
@@ -1470,15 +1551,17 @@ class _ThisWeekCard extends StatelessWidget {
             ),
             if (gameState.isUserDomesticCupMatchUpNext) ...[
               const SizedBox(height: 6),
-              const Row(
+              Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.emoji_events_outlined,
                     size: 18,
                     color: Colors.amber,
                   ),
-                  SizedBox(width: 6),
-                  Expanded(child: Text('国内カップ戦の出番も控えています')),
+                  const SizedBox(width: 6),
+                  Expanded(
+                      child: Text(Tr.pick('国内カップ戦の出番も控えています',
+                          'You also have a domestic cup tie coming up'))),
                 ],
               ),
             ],
@@ -1497,8 +1580,9 @@ class _ThisWeekCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   gameState.trainingDoneThisWeek
-                      ? '今週のトレーニングは実施済み'
-                      : '今週のトレーニングは未実施',
+                      ? Tr.pick('今週のトレーニングは実施済み', 'You have trained this week')
+                      : Tr.pick(
+                          '今週のトレーニングは未実施', 'You have not trained this week'),
                 ),
               ],
             ),
@@ -1640,12 +1724,16 @@ class _DismissalScreen extends StatelessWidget {
                 const Icon(Icons.gavel, size: 64, color: Colors.redAccent),
                 const SizedBox(height: 16),
                 Text(
-                  '$clubName の監督を解任されました',
+                  Tr.pick('$clubName の監督を解任されました',
+                      'You have been sacked by $clubName'),
                   style: Theme.of(context).textTheme.titleLarge,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                const Text('理事会からの信頼を失いました。', textAlign: TextAlign.center),
+                Text(
+                    Tr.pick(
+                        '理事会からの信頼を失いました。', "You lost the board's confidence."),
+                    textAlign: TextAlign.center),
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: () async {
@@ -1657,7 +1745,8 @@ class _DismissalScreen extends StatelessWidget {
                       );
                     }
                   },
-                  child: const Text('新しいクラブで再出発する'),
+                  child: Text(
+                      Tr.pick('新しいクラブで再出発する', 'Start again at a new club')),
                 ),
               ],
             ),
