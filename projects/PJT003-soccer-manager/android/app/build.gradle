@@ -5,6 +5,17 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// リリース署名の鍵情報は android/key.properties から読み込む。
+// このファイルは .gitignore 済みで、リポジトリには絶対に含めない。
+// CI では GitHub Secrets から復元して同じ場所に書き出す
+// (手順は docs/RELEASE_GUIDE.md を参照)。
+def keystorePropertiesFile = rootProject.file("key.properties")
+def keystoreProperties = new Properties()
+def hasKeystore = keystorePropertiesFile.exists()
+if (hasKeystore) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
     namespace = "com.kabuagari.soccer_manager"
     compileSdk = flutter.compileSdkVersion
@@ -20,21 +31,40 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // Google Play 上のアプリを一意に識別する ID。公開後は変更できない。
         applicationId = "com.kabuagari.soccer_manager"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        // key.properties がある時だけリリース署名を定義する。
+        // ない環境 (新しくクローンした開発機など) では下の buildTypes が
+        // debug 署名にフォールバックするので、flutter run --release は動き続ける。
+        if (hasKeystore) {
+            release {
+                keyAlias = keystoreProperties["keyAlias"]
+                keyPassword = keystoreProperties["keyPassword"]
+                storeFile = keystoreProperties["storeFile"] ? file(keystoreProperties["storeFile"]) : null
+                storePassword = keystoreProperties["storePassword"]
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            signingConfig = hasKeystore ? signingConfigs.release : signingConfigs.debug
+            // R8 による縮小・難読化は既定で無効にしてある。
+            // Dart のコードは AOT でネイティブに落ちるため R8 が触るのは
+            // 薄い Java/Kotlin 層だけで、削減効果に対して実機でしか
+            // 検出できない ClassNotFoundException のリスクが割に合わない。
+            // 有効にする場合は下の 2 行を true にし、必ず実機の
+            // リリースビルドで起動確認をすること (ルールは proguard-rules.pro に用意済み)。
+            minifyEnabled = false
+            shrinkResources = false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
     }
 }
