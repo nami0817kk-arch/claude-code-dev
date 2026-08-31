@@ -389,7 +389,9 @@ class _StandingsTab extends StatelessWidget {
                 ),
                 child: ListTile(
                   leading: SizedBox(
-                    width: 48,
+                    // 順位20 + 間隔6 + エンブレム24 = 50。ここを48にすると
+                    // 常に2pxはみ出す。
+                    width: 50,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

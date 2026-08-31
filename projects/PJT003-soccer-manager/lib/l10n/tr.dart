@@ -9,6 +9,7 @@ enum AppLanguage {
 
   String get label => switch (this) {
         AppLanguage.system => Tr.pick('端末の設定に従う', 'Follow device setting'),
+        // i18n-ignore: 言語名そのもの。英語表示でも「日本語」と出るのが正しい。
         AppLanguage.japanese => '日本語',
         AppLanguage.english => 'English',
       };
@@ -42,6 +43,9 @@ class Tr {
 
   /// 端末のロケールを英語とみなすか。テストから差し替えられるようにしてある。
   static bool Function() deviceIsEnglish = _deviceIsEnglish;
+
+  /// 既定の判定に戻すための参照(テストが差し替えた後に復帰するため)。
+  static bool Function() get deviceIsEnglishForTest => _deviceIsEnglish;
 
   static bool _deviceIsEnglish() {
     final resolved = resolvedLocaleIsEnglish;

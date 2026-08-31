@@ -131,9 +131,12 @@ class SoccerManagerApp extends StatelessWidget {
           alpha: 0.4,
         ),
       ),
+      // 横方向のパディングを省くと Material 既定の左右余白まで打ち消して
+      // しまい、ラベルがボタンの枠線に接する。縦だけ詰めたいので、左右は
+      // 明示的に指定しておく。
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -141,7 +144,7 @@ class SoccerManagerApp extends StatelessWidget {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),

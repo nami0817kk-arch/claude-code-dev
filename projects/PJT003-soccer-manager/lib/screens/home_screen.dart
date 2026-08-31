@@ -89,14 +89,18 @@ class HomeScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            Tr.pick(
-                                '${gameState.leagueDisplayName} シーズン${league.season}',
-                                '${gameState.leagueDisplayName}, season ${league.season}'),
-                            style: Theme.of(context).textTheme.titleMedium,
+                          // リーグ名は英語だと長くなりがちなので、余った幅を
+                          // 与えて折り返させる。Chipは内容ぶんの幅を保つ。
+                          Expanded(
+                            child: Text(
+                              Tr.pick(
+                                  '${gameState.leagueDisplayName} シーズン${league.season}',
+                                  '${gameState.leagueDisplayName}, season ${league.season}'),
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Chip(label: Text(userTeam.formation.label)),
                         ],
                       ),
@@ -119,7 +123,10 @@ class HomeScreen extends StatelessWidget {
                   crossAxisCount: constraints.maxWidth > 500 ? 3 : 2,
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
-                  childAspectRatio: 2.1,
+                  // 縦横比で高さを決めると、補足行やプログレスバーを持つ
+                  // タイルだけ中身がはみ出す。必要な高さを直接指定し、
+                  // 文字サイズ設定に合わせて伸ばす。
+                  mainAxisExtent: MediaQuery.textScalerOf(context).scale(104),
                   children: [
                     _StatTile(
                       icon: Icons.emoji_events,
@@ -1621,6 +1628,7 @@ class _StatTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
@@ -1638,13 +1646,20 @@ class _StatTile extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(context)
                 .textTheme
                 .titleLarge
                 ?.copyWith(fontWeight: FontWeight.bold),
           ),
           if (sub != null)
-            Text(sub!, style: TextStyle(fontSize: 11, color: color)),
+            Text(
+              sub!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11, color: color),
+            ),
           if (progress != null) ...[
             const SizedBox(height: 4),
             ClipRRect(

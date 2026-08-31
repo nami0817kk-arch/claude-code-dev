@@ -813,8 +813,13 @@ class _SquadSummaryCard extends StatelessWidget {
         margin: EdgeInsets.zero,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // 6項目を1行に並べると、英語のラベル(Needs attention など)では
+          // 幅に収まらない。折り返せるようにして、収まるときは
+          // これまでどおり均等配置になるようにする。
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               _SummaryItem(label: Tr.pick('人数', 'Players'), value: '$count'),
               _SummaryItem(
@@ -884,7 +889,9 @@ class _ConditionLine extends StatelessWidget {
     Widget cond(String label, int value, bool bad) => Padding(
           padding: const EdgeInsets.only(right: 8),
           child: Text(
-            '$label$value',
+            // 日本語は「疲労72」と続けて読めるが、英語は語と数字の間に
+            // 空白がないと «Fatigue72» になってしまう。
+            Tr.pick('$label$value', '$label $value'),
             style: TextStyle(
               fontSize: 11,
               color: bad ? Colors.redAccent : Colors.grey,
@@ -893,20 +900,22 @@ class _ConditionLine extends StatelessWidget {
           ),
         );
 
-    return Row(
+    // 英語ではラベルが長く1行に収まらないので折り返せるようにする。
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         cond(Tr.pick('疲労', 'Fatigue'), player.fatigue, player.fatigue >= 75),
         cond(Tr.pick('感覚', 'Sharpness'), player.matchSharpness,
             player.matchSharpness < 40),
         cond(Tr.pick('士気', 'Morale'), player.happiness, player.happiness < 40),
-        Flexible(
-          child: Text(
-            Tr.pick(
-                '今季${stats.appearances}試合${stats.goals}点${stats.averageRating != null ? '・評点${stats.averageRating!.toStringAsFixed(1)}' : ''}',
-                "${stats.appearances} apps, ${stats.goals} goals${stats.averageRating != null ? ', avg ${stats.averageRating!.toStringAsFixed(1)}' : ''}"),
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
-          ),
+        // Wrap の子に Flexible は使えない (FlexParentData を要求してしまう)。
+        // 折り返しは Wrap 側が面倒を見るので、そのまま置く。
+        Text(
+          Tr.pick(
+              '今季${stats.appearances}試合${stats.goals}点${stats.averageRating != null ? '・評点${stats.averageRating!.toStringAsFixed(1)}' : ''}',
+              "${stats.appearances} apps, ${stats.goals} goals${stats.averageRating != null ? ', avg ${stats.averageRating!.toStringAsFixed(1)}' : ''}"),
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11, color: Colors.grey),
         ),
       ],
     );

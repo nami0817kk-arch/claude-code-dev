@@ -251,17 +251,19 @@ class _SlotCard extends StatelessWidget {
                     ),
                   ),
                   // 言語によってラベルの長さが変わる (日本語より英語が長い)。
-                  // 幅に収まらないときは行を折り返さず省略させ、
-                  // ボタンの枠から文字がはみ出さないようにする。
-                  Flexible(
-                    child: OutlinedButton.icon(
-                      onPressed: onCreate,
-                      icon: const Icon(Icons.add),
-                      label: Text(
-                        context.l10n.startCreateClub,
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
+                  // ボタンをFlexibleにすると行幅を左右で等分してしまい、
+                  // 英語ラベルではボタンが内容より狭く潰されて左右の余白が
+                  // 消え、文字が枠線に接してしまう。ボタンは必要な幅を
+                  // そのまま取らせ、代わりに左のテキスト列(Expanded)を
+                  // 縮ませる。省略指定は極端に長い訳語への保険。
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: onCreate,
+                    icon: const Icon(Icons.add),
+                    label: Text(
+                      context.l10n.startCreateClub,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ],

@@ -254,6 +254,7 @@ class SaveGame {
     required this.clubName,
     required this.userTeamId,
     required this.league,
+    // i18n-ignore: セーブに保存されるデータの既定値(上のコメント参照)。
     this.leagueName = 'リーグ',
     this.budget = 6000,
     this.boardTargetRank = 4,
@@ -427,6 +428,7 @@ class SaveGame {
         clubName: json['clubName'] as String,
         userTeamId: json['userTeamId'] as String,
         league: League.fromJson(json['league'] as Map<String, dynamic>),
+        // i18n-ignore: 同上。古いセーブを読むときのフォールバック。
         leagueName: json['leagueName'] as String? ?? 'リーグ',
         budget: json['budget'] as int? ?? 3000,
         boardTargetRank: json['boardTargetRank'] as int? ?? 4,
