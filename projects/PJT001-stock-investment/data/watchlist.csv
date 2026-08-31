@@ -37,7 +37,6 @@ ticker,name,market,cap_type
 4478.T,フリー,JP,small
 3994.T,マネーフォワード,JP,small
 6200.T,インソース,JP,small
-7342.T,ウェルスナビ,JP,small
 4552.T,JCRファーマ,JP,small
 4565.T,そーせいグループ,JP,small
 6089.T,ウィルグループ,JP,small
@@ -68,5 +67,4 @@ CVX,Chevron,US,large
 BILL,Bill.com,US,mid
 GTLB,GitLab,US,mid
 DOCN,DigitalOcean,US,mid
-SMAR,Smartsheet,US,mid
 RELY,Remitly,US,mid

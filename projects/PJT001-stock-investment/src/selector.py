@@ -1,8 +1,8 @@
 """
 自動株選定モジュール
 
-pick_from_news  : ニュース → テクニカル+ファンダメンタル → Claude 判定
-pick_from_screen: スクリーニング → テクニカル+ファンダメンタル → Claude 判定
+pick_from_news   : ニュース → ファンダメンタル → Claude 判定
+pick_from_youtube: YouTube動画 → テクニカル+ファンダメンタル → Claude 判定
 
 両関数とも dict を返す:
 {
@@ -14,7 +14,8 @@ pick_from_screen: スクリーニング → テクニカル+ファンダメン�
 import json
 import re
 import os
-from datetime import date
+from datetime import date, datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import anthropic
 import pandas as pd
 import feedparser
@@ -22,8 +23,8 @@ import yfinance as yf
 
 from src.data.fetcher import fetch_price
 from src.analysis.indicators import add_indicators
-from src.analysis.screener import screen, load_watchlist
-from src.report.news import fetch_news, fetch_market_news, fetch_youtube_only_news, GOOGLE_NEWS_URL
+from src.analysis.screener import load_watchlist
+from src.report.news import fetch_news, fetch_market_news, fetch_kabutan_news, fetch_yahoo_finance_news, fetch_youtube_only_news, fetch_youtube_with_transcripts, fetch_article_body, GOOGLE_NEWS_URL
 from src.report.db_manager import load_performance_summary
 from src.data.market_sentiment import get_market_context, market_context_text
 
@@ -51,7 +52,12 @@ def _technical_summary(ticker: str) -> dict | None:
         def _f(col):
             return float(r[col]) if col in r.index and not pd.isna(r[col]) else None
 
-        close    = _f("Close")
+        # 最終行のCloseがNaN（当日の未確定バー）の場合は直前の有効値を使う
+        if "Close" in df.columns:
+            _close_series = df["Close"].dropna()
+            close = float(_close_series.iloc[-1]) if not _close_series.empty else None
+        else:
+            close = None
         sma20    = _f("SMA20")
         rsi      = _f("RSI14")
         macd     = _f("MACD")
@@ -85,21 +91,54 @@ def _technical_summary(ticker: str) -> dict | None:
         return None
 
 
+_REC_LABEL = {1: "強く買い", 2: "買い", 3: "中立", 4: "売り", 5: "強く売り"}
+
+
 def _fundamental_data(ticker: str) -> dict:
-    """yfinance から PER・ROE・売上成長率・配当利回りを取得する"""
+    """yfinance からファンダメンタル・アナリスト評価・決算日を取得する"""
     try:
         info = yf.Ticker(ticker).info
-        per      = info.get("trailingPE")
-        pbr      = info.get("priceToBook")
-        roe      = info.get("returnOnEquity")
-        rev_gr   = info.get("revenueGrowth")
+        per       = info.get("trailingPE")
+        pbr       = info.get("priceToBook")
+        roe       = info.get("returnOnEquity")
+        rev_gr    = info.get("revenueGrowth")
         div_yield = info.get("dividendYield")
+
+        # アナリスト目標株価
+        close = (info.get("currentPrice")
+                 or info.get("regularMarketPrice")
+                 or info.get("previousClose"))
+        target_mean  = info.get("targetMeanPrice")
+        num_analysts = info.get("numberOfAnalystOpinions")
+        rec_raw      = info.get("recommendationMean")
+        upside = None
+        if target_mean and close and close > 0:
+            upside = round((target_mean / close - 1) * 100, 1)
+
+        # 決算予定日（直近30日以内のみ表示）
+        earnings_str = None
+        try:
+            ts = info.get("earningsTimestamp") or info.get("earningsTimestampStart")
+            if ts and ts > 0:
+                d = datetime.fromtimestamp(ts).date()
+                days = (d - date.today()).days
+                if -3 <= days <= 30:
+                    earnings_str = f"{d.strftime('%m/%d')}({days:+d}日)"
+        except Exception:
+            pass
+
         return {
-            "PER":     round(per, 1)           if per      else None,
-            "PBR":     round(pbr, 1)           if pbr      else None,
-            "ROE":     round(roe * 100, 1)     if roe      else None,
-            "売上成長率": round(rev_gr * 100, 1) if rev_gr   else None,
-            "配当利回り": round(div_yield * 100, 2) if div_yield else None,
+            "close":       close,
+            "PER":        round(per, 1)            if per        else None,
+            "PBR":        round(pbr, 1)            if pbr        else None,
+            "ROE":        round(roe * 100, 1)      if roe        else None,
+            "売上成長率":  round(rev_gr * 100, 1)  if rev_gr     else None,
+            "配当利回り":  round(div_yield, 2) if div_yield else None,
+            "目標株価":    round(target_mean, 1)   if target_mean else None,
+            "目標乖離率":  upside,
+            "アナリスト数": num_analysts,
+            "推奨":        _REC_LABEL.get(round(rec_raw) if rec_raw else 0),
+            "決算予定":    earnings_str,
         }
     except Exception:
         return {}
@@ -119,10 +158,53 @@ def _bb_position(close, upper, lower) -> str:
     return "中央付近"
 
 
+def _fix_unescaped_quotes(text: str) -> str:
+    """JSON文字列値内の未エスケープ二重引用符を修正するステートマシン"""
+    result = []
+    in_string = False
+    i = 0
+    while i < len(text):
+        c = text[i]
+        if not in_string:
+            result.append(c)
+            if c == '"':
+                in_string = True
+        else:
+            if c == '\\':
+                result.append(c)
+                i += 1
+                if i < len(text):
+                    result.append(text[i])
+            elif c == '"':
+                # 後続文字（空白除く）が : , } ] なら文字列終端
+                rest = text[i + 1:i + 20].lstrip()
+                if rest and rest[0] in ':,}]\n':
+                    in_string = False
+                    result.append(c)
+                else:
+                    # 未エスケープ引用符 → エスケープして継続
+                    result.append('\\"')
+            else:
+                result.append(c)
+        i += 1
+    return ''.join(result)
+
+
 def _extract_json_obj(text: str) -> dict | None:
     """テキストからバランスブレースで最初のJSONオブジェクトを安全に抽出する"""
     # マークダウンコードブロックを除去
-    text = re.sub(r"```(?:json)?\s*", "", text)
+    text = re.sub(r"```(?:json)?", "", text).strip()
+    # 直接パース試行
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # 未エスケープ引用符を修正して再試行
+    try:
+        return json.loads(_fix_unescaped_quotes(text))
+    except json.JSONDecodeError:
+        pass
+    # バランスブレースで抽出
     start = text.find("{")
     if start < 0:
         return None
@@ -145,11 +227,12 @@ def _extract_json_obj(text: str) -> dict | None:
             elif ch == "}":
                 depth -= 1
                 if depth == 0:
+                    chunk = text[start:i + 1]
                     try:
-                        return json.loads(text[start:i + 1])
+                        return json.loads(chunk)
                     except json.JSONDecodeError:
                         try:
-                            return json.loads(text[start:i + 1], strict=False)
+                            return json.loads(_fix_unescaped_quotes(chunk))
                         except json.JSONDecodeError:
                             return None
     return None
@@ -206,13 +289,46 @@ _JUDGE_FORMAT_NEWS = """
       "name": "トヨタ自動車",
       "stars": "★★★★★",
       "confidence": 85,
-      "reason": "テクニカル・ファンダメンタル・市場環境を踏まえた推奨理由を1文で簡潔に",
+      "reason": "ニュース・ファンダメンタル・市場環境を踏まえた推奨理由を1文で簡潔に",
       "news_basis": "提供データ内の実際のニュース見出しのみ記載。関連ニュースがない銘柄は必ず空欄\"\"にすること。推測・要約・捏造禁止"
     }}
   ],
   "summary": "市場環境と銘柄全体を踏まえた総評を2文以内で",
   "market_outlook": "現在の市場環境における注意点を1文で"
 }}"""
+
+
+def _build_fund_text(tickers: list[str], fund_map: dict, wl) -> str:
+    """ニュース起点用：ファンダメンタルデータのみのテキストサマリー"""
+    lines = []
+    for t in tickers:
+        fund = fund_map.get(t, {})
+        name = wl[wl["ticker"] == t]["name"].values
+        name = name[0] if len(name) else t
+        close = fund.get("close")
+        line = f"  {t}({name}): 株価={close}"
+        if fund:
+            line += (
+                f" PER={fund.get('PER')} ROE={fund.get('ROE')}%"
+                f" 売上成長={fund.get('売上成長率')}% 配当={fund.get('配当利回り')}%"
+            )
+            line += _analyst_suffix(fund)
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def _analyst_suffix(fund: dict) -> str:
+    """アナリスト目標株価・推奨・決算予定の文字列を返す"""
+    parts = []
+    if fund.get("目標乖離率") is not None:
+        sign = "+" if fund["目標乖離率"] >= 0 else ""
+        n = fund.get("アナリスト数") or 0
+        parts.append(f"目標株価乖離={sign}{fund['目標乖離率']}%({n}人)")
+    if fund.get("推奨"):
+        parts.append(f"アナリスト推奨={fund['推奨']}")
+    if fund.get("決算予定"):
+        parts.append(f"⚠決算={fund['決算予定']}")
+    return ("  [" + " ".join(parts) + "]") if parts else ""
 
 
 def _build_tech_text(tech_list: list[dict], fund_map: dict) -> str:
@@ -231,32 +347,10 @@ def _build_tech_text(tech_list: list[dict], fund_map: dict) -> str:
                 f" | PER={fund.get('PER')} ROE={fund.get('ROE')}%"
                 f" 売上成長={fund.get('売上成長率')}% 配当={fund.get('配当利回り')}%"
             )
+            line += _analyst_suffix(fund)
         lines.append(line)
     return "\n".join(lines)
 
-
-def _build_swing_tech_text(tech_list: list[dict], fund_map: dict) -> str:
-    """スイング取引分析用のテキストサマリー（swing_score を先頭に表示、降順）"""
-    entries = []
-    for s in tech_list:
-        t     = s["ticker"]
-        fund  = fund_map.get(t, {})
-        score = s.get("swing_score", 0)
-        line = (
-            f"  [{score}pt] {t}({s.get('name','')}):"
-            f" 終値{s['close']} RSI={s['RSI14']} MACD={s['MACD方向']}"
-            f" Stoch%K={s.get('STOCH_K')} Stoch%D={s.get('STOCH_D')}"
-            f" BB={s['BB位置']} SMA20={s['SMA20比']}"
-            f" ATR14={s.get('ATR14')} OBV={s.get('OBV_trend')}"
-        )
-        if fund:
-            line += (
-                f" | 売上成長={fund.get('売上成長率')}%"
-                f" PER={fund.get('PER')} ROE={fund.get('ROE')}%"
-            )
-        entries.append((score, line))
-    entries.sort(key=lambda x: x[0], reverse=True)
-    return "\n".join(line for _, line in entries)
 
 
 # ──────────────────────────────────────────────
@@ -269,9 +363,9 @@ def pick_from_news(market: str | None = None, top_n: int = 20) -> dict:
         f"  {row['ticker']} ({row['name']})" for _, row in wl.iterrows()
     )
 
-    # Step1: 市況ニュース収集（株探 + YouTube）& Claude が候補銘柄を抽出
-    print("  [Step1] 市況ニュースを収集中（株探・YouTube）...")
-    raw_news  = fetch_market_news(max_items=45)
+    # Step1: 市況ニュース収集（株探 + Yahoo!ファイナンス）& Claude が候補銘柄を抽出
+    print("  [Step1] 市況ニュースを収集中（株探 + Yahoo!ファイナンス）...")
+    raw_news  = fetch_kabutan_news(max_items=20) + fetch_yahoo_finance_news(max_items=20)
     news_items = [f"- [{n['source']}] {n['title']}: {n['summary']}" for n in raw_news]
     news_text  = "\n".join(news_items)
 
@@ -296,34 +390,53 @@ def pick_from_news(market: str | None = None, top_n: int = 20) -> dict:
     except Exception:
         tickers = []
 
-    # ニュースから抽出が top_n に満たない場合はウォッチリスト全銘柄で補完
-    all_tickers = wl["ticker"].tolist()
-    for t in all_tickers:
-        if t not in tickers:
-            tickers.append(t)
-        if len(tickers) >= top_n:
-            break
-
     print(f"  [Step1] 候補 {len(tickers)} 件: {', '.join(tickers)}")
 
-    # Step2: テクニカル + ファンダメンタル分析
-    print("  [Step2] テクニカル・ファンダメンタル分析中...")
-    tech_list = []
-    for t in tickers:
-        s = _technical_summary(t)
-        if s:
-            name = wl[wl["ticker"] == t]["name"].values
-            s["name"] = name[0] if len(name) else t
-            tech_list.append(s)
-
+    # Step2: ファンダメンタル分析（テクニカル計算なし）
+    print("  [Step2] ファンダメンタル分析中...")
     fund_map = {}
     for t in tickers:
         fund_map[t] = _fundamental_data(t)
 
-    news_by_ticker = {}
+    # ニュース記事本文を並列フェッチ
+    print("  [Step2] ニュース記事本文を取得中（並列）...")
+    raw_news_map: dict[str, list[dict]] = {}
     for t in tickers:
-        items = fetch_news(t, max_items=5)
-        news_by_ticker[t] = [f"{i['title']} / {i['summary'][:100]}" for i in items] if items else ["関連ニュースなし"]
+        raw_news_map[t] = fetch_news(t, max_items=3)
+
+    # 記事本文を並列取得（タイムアウト30秒）
+    url_to_body: dict[str, str] = {}
+    all_urls = [
+        (t, item["link"])
+        for t, items in raw_news_map.items()
+        for item in items
+        if item.get("link")
+    ]
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        future_to_url = {ex.submit(fetch_article_body, url): (t, url) for t, url in all_urls}
+        for fut in as_completed(future_to_url, timeout=30):
+            _, url = future_to_url[fut]
+            try:
+                url_to_body[url] = fut.result()
+            except Exception:
+                pass
+
+    news_by_ticker: dict[str, list[str]] = {}
+    for t in tickers:
+        items = raw_news_map.get(t, [])
+        if not items:
+            news_by_ticker[t] = ["関連ニュースなし"]
+            continue
+        parts = []
+        for item in items:
+            body = url_to_body.get(item.get("link", ""), "")
+            text = f"[{item['source']}] {item['title']}"
+            if body:
+                text += f"【本文】{body[:300]}"
+            elif item.get("summary"):
+                text += f"【概要】{item['summary'][:150]}"
+            parts.append(text)
+        news_by_ticker[t] = parts
 
     # Step3: 市場センチメント取得
     print("  [Step3] 市場センチメントを確認中...")
@@ -334,40 +447,43 @@ def pick_from_news(market: str | None = None, top_n: int = 20) -> dict:
 
     # Step4: 最終判定
     print("  [Step4] Claude が総合判定中...")
-    tech_text  = _build_tech_text(tech_list, fund_map)
+    fund_text  = _build_fund_text(tickers, fund_map, wl)
     news_text2 = "\n".join(
         f"  {t}: {'; '.join(news_by_ticker.get(t, []))}" for t in tickers
     )
 
     judge_prompt = f"""あなたは機関投資家レベルの株式アナリストです。
-テクニカル・ファンダメンタル・ニュース・市場環境を総合して、投資推奨銘柄を上位{top_n}件ランキングしてください。
+ファンダメンタル・ニュース・市場環境を総合して、投資推奨銘柄を上位{top_n}件ランキングしてください。
 
 {ctx_text}
 {perf_section}
-【テクニカル + ファンダメンタルデータ】
-評価軸: RSI<30=強い売られすぎ、MACD買い=ポジティブ、BB下限=反発期待、Stoch%K<20=過売、OBV上昇=資金流入
-       PER低=割安、ROE>10%=良好、売上成長率>5%=成長株
-{tech_text}
+【ファンダメンタルデータ】
+評価軸: PER低=割安、ROE>10%=良好、売上成長率>5%=成長株、目標株価乖離が大きい=上値余地あり
+{fund_text}
 
-【銘柄別ニュース（タイトル/概要）】
+【銘柄別ニュース（タイトル/本文概要）】
 ※ 「関連ニュースなし」の銘柄は news_basis を必ず空欄にすること
 {news_text2}
 
 【評価の優先順位】
-1. テクニカル指標の複合シグナル（RSI+MACD+Stoch+BB）
-2. ファンダメンタル（PER割安 × 成長性 × 配当）
-3. ニュースのポジティブ/ネガティブ度
-4. 市場センチメントとの整合性
-5. 過去実績データで成績の良い条件パターン
+1. ニュースのポジティブ/ネガティブ度（業績・新製品・提携・規制）
+2. ファンダメンタル（PER割安 × 成長性 × アナリスト推奨）
+3. 市場センチメントとの整合性
+4. 過去実績データで成績の良い条件パターン
 
 【news_basis の記載ルール（厳守）】
 ・上記【銘柄別ニュース】に記載された実際のニュース見出しのみ引用すること
 ・「関連ニュースなし」の銘柄は news_basis を空欄（""）にすること
 ・ニュースの推測・要約・補足・捏造は一切禁止
+・文字列値の中にダブルクォート（"）を絶対に使用しないこと。「」を使うこと
 {_JUDGE_FORMAT_NEWS.format(top_n=top_n)}"""
 
     raw = _claude(judge_prompt, max_tokens=8192)
-    rankings, summary, market_outlook = _parse_judge(raw, tech_list)
+    rankings, summary, market_outlook = _parse_judge(raw, [])
+    # close を fund_map から補完
+    for item in rankings:
+        if item.get("close") is None:
+            item["close"] = fund_map.get(item.get("ticker", ""), {}).get("close")
 
     return {
         "flow":          "ニュース起点",
@@ -382,148 +498,7 @@ def pick_from_news(market: str | None = None, top_n: int = 20) -> dict:
 
 
 # ──────────────────────────────────────────────
-# Flow 2: スクリーニング → テクニカル+ファンダメンタル → 判定
-# ──────────────────────────────────────────────
-
-def pick_from_screen(
-    market: str | None = None,
-    top_n: int = 20,
-    cap_types: list[str] | None = None,
-    min_revenue_growth: float = 0.05,
-    max_per: float = 80,
-) -> dict:
-    """
-    中小型株（デフォルト: mid/small）× 好業績 × スイング取引特化スクリーニング。
-
-    スイング取引フィルタ（数日〜2週間の値幅狙い）:
-      - RSI 25〜55（売られすぎからの回復初期、オーバーボートを除外）
-      - MACD買い転換 OR RSI<35 の深売られすぎ
-      - Stoch%K < 70、BB上限付近を除外
-      - swing_score 上位順にソート（高いほど複合シグナル一致）
-
-    cap_types          : デフォルト ['small','mid']。None で全規模。
-    min_revenue_growth : 売上成長率下限（小数）。デフォルト 0.05 = 5%。
-    max_per            : PER 上限。デフォルト 80。
-    """
-    if cap_types is None:
-        cap_types = ["small", "mid"]
-
-    # Step1: スクリーニング（スイング + ファンダメンタル）
-    print(f"  [Step1] スイングスクリーニング中 (cap:{cap_types}, 売上成長≥{min_revenue_growth*100:.0f}%)...")
-    df = screen(
-        market=market,
-        swing_mode=True,
-        cap_types=cap_types,
-        min_revenue_growth=min_revenue_growth,
-        max_per=max_per,
-    )
-
-    # ファンダメンタル条件を緩和してリトライ（候補が少ない場合）
-    if len(df) < 5:
-        print(f"  [Step1] ヒット少（{len(df)}件）→ 売上成長条件を 0% に緩和...")
-        df = screen(market=market, swing_mode=True, cap_types=cap_types, max_per=max_per)
-
-    # さらに少なければ swing_mode を維持しつつ cap_types 拡大
-    if len(df) < 5:
-        print(f"  [Step1] ヒット少（{len(df)}件）→ 全規模に拡大...")
-        df = screen(market=market, swing_mode=True)
-
-    if df.empty:
-        return {"error": "スクリーニング条件に合う銘柄が見つかりませんでした。"}
-
-    # ウォッチリストで補完して top_n 確保
-    wl = load_watchlist(market, cap_types)
-    all_wl_tickers = load_watchlist(market)["ticker"].tolist()
-    screened = df["ticker"].tolist()
-    for t in all_wl_tickers:
-        if t not in screened:
-            screened.append(t)
-        if len(screened) >= top_n:
-            break
-
-    print(f"  [Step1] {len(df)} 件ヒット（補完後 {len(screened)} 件）: {', '.join(df['ticker'].tolist())}")
-
-    # swing_score マップ（スクリーニング結果から引き継ぐ）
-    score_map = dict(zip(df["ticker"], df.get("swing_score", pd.Series(dtype=int))))
-
-    # Step2: テクニカル + ファンダメンタル詳細
-    print("  [Step2] テクニカル・ファンダメンタル分析中...")
-    name_map = {**dict(zip(wl["ticker"], wl["name"])),
-                **dict(zip(load_watchlist(market)["ticker"], load_watchlist(market)["name"]))}
-    tech_list = []
-    for t in screened:
-        s = _technical_summary(t)
-        if s:
-            s["name"]        = name_map.get(t, t)
-            s["swing_score"] = score_map.get(t, 0)
-            tech_list.append(s)
-
-    if not tech_list:
-        return {"error": "テクニカルデータの取得に失敗しました。"}
-
-    fund_map = {}
-    for s in tech_list:
-        fund_map[s["ticker"]] = _fundamental_data(s["ticker"])
-
-    # Step3: 市場センチメント
-    print("  [Step3] 市場センチメントを確認中...")
-    ctx          = get_market_context()
-    ctx_text     = market_context_text(ctx)
-    perf         = load_performance_summary()
-    perf_section = f"\n{perf}\n" if perf else ""
-
-    # Step4: 最終判定（スイング特化プロンプト）
-    print("  [Step4] Claude がスイング判定中...")
-    tech_text = _build_swing_tech_text(tech_list, fund_map)
-
-    judge_prompt = f"""あなたはスイングトレード専門の株式アナリストです。
-【戦略】数日〜2週間での値幅取りを目的とするスイング取引に最適な銘柄を選定してください。
-「業績は好調だが株価が下押しされて反転シグナルが出ている中小型株」を最重要視します。
-
-{ctx_text}
-{perf_section}
-【テクニカル + ファンダメンタルデータ】
-swing_score: 0〜10点のスイング総合スコア（高いほど複合シグナル一致）
-評価軸（優先順）:
-  ① swing_score 8〜10: MACD転換+Stochゴールデンクロス+BB下限 が一致 → 最優先
-  ② swing_score 5〜7: 複数シグナルの部分一致 → 上位候補
-  ③ RSI 30〜50 かつ MACD買い転換: スイング黄金ゾーン（売られすぎ解消の初動）
-  ④ Stoch%K が 20以下から%Dを上抜け: 短期の強いリバウンドサイン
-  ⑤ BB 下限付近 + OBV 上昇: 出来高を伴った底打ち確認
-  ⑥ 業績好調（売上成長>5%、ROE>10%）で下落が一時的と判断できる銘柄を優遇
-  ⑦ ATR14 が適度に大きい（値幅が出る）銘柄を優遇
-{tech_text}
-
-【ランキング判断基準】
-- 1位: swing_score高 + MACD転換確認済み + 業績好調 → 今すぐエントリー候補
-- 2〜5位: swing_score高め + 反転シグナル出始め → 数日以内のエントリー候補
-- 6〜10位: シグナル1〜2個一致、業績は良い → 押し目待ち候補
-- 下位: シグナル弱いが業績で補完 or 補完銘柄
-
-【reason 欄に必ず含めること】
-・エントリータイミングの判断（例：MACD転換済み、底打ち確認待ち、等）
-・スイングの値幅目標（例：SMA20まで+8%の余地）
-・損切り目安（例：直近安値 or ATR×1.5 が損切りライン）
-
-{_JUDGE_FORMAT.format(top_n=top_n)}"""
-
-    raw = _claude(judge_prompt, max_tokens=8192)
-    rankings, summary, market_outlook = _parse_judge(raw, tech_list)
-
-    return {
-        "flow":           "スクリーニング起点",
-        "market":         market or "全銘柄",
-        "date":           str(date.today()),
-        "rankings":       rankings,
-        "summary":        summary,
-        "market_outlook": market_outlook,
-        "vix":            ctx.get("VIX"),
-        "fear_greed":     ctx.get("FearGreed"),
-    }
-
-
-# ──────────────────────────────────────────────
-# Flow 3: YouTube動画 → テクニカル+ファンダメンタル → 判定
+# Flow 2: YouTube動画 → テクニカル+ファンダメンタル → 判定
 # ──────────────────────────────────────────────
 
 def pick_from_youtube(market: str | None = None, top_n: int = 15) -> dict:
@@ -536,27 +511,33 @@ def pick_from_youtube(market: str | None = None, top_n: int = 15) -> dict:
         f"  {row['ticker']} ({row['name']})" for _, row in wl.iterrows()
     )
 
-    # Step1: YouTube動画タイトル取得 & Claude が候補銘柄を抽出
-    print("  [Step1] YouTube動画タイトルを収集中...")
-    yt_news = fetch_youtube_only_news(max_items=15)
+    # Step1: YouTube動画取得（24時間以内 + 文字起こし付き）& Claude が候補銘柄を抽出
+    print("  [Step1] YouTube動画を収集中（24時間以内・文字起こし付き）...")
+    yt_news = fetch_youtube_with_transcripts(max_videos=top_n)
+    if not yt_news:
+        print("  [Step1] 24時間以内の動画なし → 通常取得にフォールバック")
+        yt_news = fetch_youtube_only_news(max_items=15)
     if not yt_news:
         return {"error": "YouTubeニュースの取得に失敗しました。"}
 
     yt_lines = []
     for n in yt_news:
         line = f"- [{n['source']}] {n['title']}"
-        if n.get("summary"):
+        tr = n.get("transcript", "")
+        if tr:
+            line += f"\n  【文字起こし】{tr[:400]}"
+        elif n.get("summary"):
             line += f": {n['summary'][:150]}"
         yt_lines.append(line)
     yt_text = "\n".join(yt_lines)
 
-    print(f"  [Step1] {len(yt_news)} 本の動画タイトルを取得")
+    print(f"  [Step1] {len(yt_news)} 本の動画を取得（文字起こしあり: {sum(1 for n in yt_news if n.get('transcript'))} 本）")
 
     extract_prompt = f"""あなたは株式投資アナリストです。
-以下のYouTube動画タイトルを読み、ウォッチリストの中から「動画で取り上げられている、または関連性が高い銘柄」を最大{top_n}件選んでください。
-動画タイトルに含まれるキーワード（業種・テーマ・銘柄名・銘柄コード）との関連を重視して選定してください。
+以下のYouTube動画タイトル・文字起こしを読み、ウォッチリストの中から「動画で取り上げられている、または関連性が高い銘柄」を最大{top_n}件選んでください。
+動画タイトルや文字起こしに含まれるキーワード（業種・テーマ・銘柄名・銘柄コード）との関連を重視して選定してください。
 
-【YouTube動画タイトル一覧】
+【YouTube動画（タイトル + 文字起こし）】
 {yt_text}
 
 【ウォッチリスト】
@@ -568,22 +549,9 @@ def pick_from_youtube(market: str | None = None, top_n: int = 15) -> dict:
     print("  [Step1] Claude がYouTube動画から候補銘柄を抽出中...")
     raw = _claude(extract_prompt, max_tokens=512)
     data = _extract_json_obj(raw)
-    yt_tickers = data.get("tickers", []) if data else []  # YouTube動画から直接抽出した銘柄
-
-    # 不足分をウォッチリストで補完（補完銘柄を別リストで管理）
-    tickers = list(yt_tickers)
-    supplemented = []
-    all_tickers = wl["ticker"].tolist()
-    for t in all_tickers:
-        if t not in tickers:
-            tickers.append(t)
-            supplemented.append(t)
-        if len(tickers) >= top_n:
-            break
-
-    yt_ticker_set = set(yt_tickers)
-    print(f"  [Step1] YouTube言及: {len(yt_tickers)} 件, 補完: {len(supplemented)} 件")
-    print(f"  [Step1] 候補計 {len(tickers)} 件: {', '.join(tickers)}")
+    tickers = data.get("tickers", []) if data else []  # YouTube動画から直接抽出した銘柄
+    yt_ticker_set = set(tickers)
+    print(f"  [Step1] YouTube言及: {len(tickers)} 件: {', '.join(tickers)}")
 
     # Step2: テクニカル + ファンダメンタル分析
     print("  [Step2] テクニカル・ファンダメンタル分析中...")
@@ -611,14 +579,9 @@ def pick_from_youtube(market: str | None = None, top_n: int = 15) -> dict:
     print("  [Step4] Claude がYouTube動画起点で総合判定中...")
     tech_text = _build_tech_text(tech_list, fund_map)
 
-    # YouTube言及銘柄と補完銘柄を明示
     yt_mentioned_names = [
         f"{t}({wl[wl['ticker']==t]['name'].values[0] if len(wl[wl['ticker']==t]) else t})"
-        for t in yt_tickers
-    ]
-    supplemented_names = [
-        f"{t}({wl[wl['ticker']==t]['name'].values[0] if len(wl[wl['ticker']==t]) else t})"
-        for t in supplemented
+        for t in tickers
     ]
 
     judge_prompt = f"""あなたは株式投資アナリストです。
@@ -628,15 +591,11 @@ def pick_from_youtube(market: str | None = None, top_n: int = 15) -> dict:
 
 {ctx_text}
 {perf_section}
-【参考にしたYouTube動画タイトル】
+【参考にしたYouTube動画（タイトル + 文字起こし）】
 {yt_text}
 
-【銘柄の区分】
-■ YouTube動画で言及・関連する銘柄（news_basis にYouTube情報を記載してよい）:
-  {', '.join(yt_mentioned_names) if yt_mentioned_names else 'なし'}
-
-■ ウォッチリストから補完した銘柄（YouTube動画での言及なし。news_basis は空欄にすること）:
-  {', '.join(supplemented_names) if supplemented_names else 'なし'}
+【対象銘柄（全てYouTube動画で言及・関連する銘柄）】
+  {', '.join(yt_mentioned_names)}
 
 【テクニカル + ファンダメンタルデータ】
 {tech_text}
@@ -648,8 +607,9 @@ def pick_from_youtube(market: str | None = None, top_n: int = 15) -> dict:
 4. 市場センチメント（VIX・Fear&Greed）との整合性
 
 【news_basis の記載ルール（厳守）】
-・YouTube言及銘柄のみ: 上記【参考にしたYouTube動画タイトル】から該当する動画タイトルをそのまま引用すること
-・補完銘柄: news_basis は必ず空欄（""）にすること
+・上記【参考にしたYouTube動画】から該当する動画タイトルまたは文字起こし内の発言をそのまま引用すること
+・動画タイトル・文字起こしに明示されていない推測・捏造は一切禁止
+・文字列値の中にダブルクォート（"）を絶対に使用しないこと。「」を使うこと
 ・「〜として言及される見込み」「〜と関連すると考えられる」等の推測表現は禁止
 ・提供された動画タイトル以外の情報を作らないこと
 

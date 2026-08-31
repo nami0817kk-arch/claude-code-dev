@@ -20,9 +20,8 @@ C_DEFAULT = "F5F5F5"
 RANK_COLORS = {1: C_RANK1, 2: C_RANK2, 3: C_RANK3}
 
 FLOW_LABELS = {
-    "ニュース起点":       "ニュース分析",
-    "YouTube起点":        "YouTube動画分析",
-    "スクリーニング起点": "条件スクリーニング",
+    "ニュース起点":  "ニュース分析",
+    "YouTube起点":   "YouTube動画分析",
 }
 
 LEGEND_ROWS = [
@@ -270,5 +269,12 @@ def export(result: dict) -> Path:
     save_recommendations(result)
     update_prices()
 
-    wb.save(OUTPUT_FILE)
-    return OUTPUT_FILE
+    try:
+        wb.save(OUTPUT_FILE)
+        return OUTPUT_FILE
+    except PermissionError:
+        # ファイルが開かれている場合はタイムスタンプ付きで別名保存
+        alt = OUTPUT_FILE.parent / f"株式投資推奨レポート_{now.strftime('%H%M%S')}.xlsx"
+        wb.save(alt)
+        print(f"  ※ メインファイルが開かれているため別ファイルに保存しました")
+        return alt
