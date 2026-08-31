@@ -1,18 +1,22 @@
+import '../l10n/tr.dart';
+
 /// チケット価格戦略。値上げは1人あたり収入を増やす一方で観客動員率を下げ、
 /// 値下げはその逆になる(合計の増収効果は保証されない)。
 enum TicketPricing { budget, standard, premium }
 
 extension TicketPricingInfo on TicketPricing {
   String get label => switch (this) {
-        TicketPricing.budget => '低価格',
-        TicketPricing.standard => '標準',
-        TicketPricing.premium => '高価格',
+        TicketPricing.budget => Tr.pick('低価格', 'Cheap'),
+        TicketPricing.standard => Tr.pick('標準', 'Standard'),
+        TicketPricing.premium => Tr.pick('高価格', 'Expensive'),
       };
 
   String get description => switch (this) {
-        TicketPricing.budget => '観客動員率+15%だが、1人あたり収入-25%',
-        TicketPricing.standard => '標準の価格設定',
-        TicketPricing.premium => '1人あたり収入+30%だが、観客動員率-20%',
+        TicketPricing.budget => Tr.pick('観客動員率+15%だが、1人あたり収入-25%',
+            'Attendance +15%, but revenue per head -25%'),
+        TicketPricing.standard => Tr.pick('標準の価格設定', 'The standard pricing'),
+        TicketPricing.premium => Tr.pick('1人あたり収入+30%だが、観客動員率-20%',
+            'Revenue per head +30%, but attendance -20%'),
       };
 
   /// 観客動員率に対する倍率。
@@ -34,19 +38,24 @@ enum StaffRole { headCoach, scout, physio, youthCoach, fitnessCoach }
 
 extension StaffRoleInfo on StaffRole {
   String get label => switch (this) {
-        StaffRole.headCoach => 'ヘッドコーチ',
-        StaffRole.scout => 'スカウト',
-        StaffRole.physio => 'フィジオ',
-        StaffRole.youthCoach => 'ユースコーチ',
-        StaffRole.fitnessCoach => 'フィットネスコーチ',
+        StaffRole.headCoach => Tr.pick('ヘッドコーチ', 'Head Coach'),
+        StaffRole.scout => Tr.pick('スカウト', 'Scout'),
+        StaffRole.physio => Tr.pick('フィジオ', 'Physio'),
+        StaffRole.youthCoach => Tr.pick('ユースコーチ', 'Youth Coach'),
+        StaffRole.fitnessCoach => Tr.pick('フィットネスコーチ', 'Fitness Coach'),
       };
 
   String get description => switch (this) {
-        StaffRole.headCoach => 'トレーニングの成長効率を高める',
-        StaffRole.scout => 'スカウト選手の質を高め、費用を抑える',
-        StaffRole.physio => '負傷の発生率と療養期間を減らす',
-        StaffRole.youthCoach => 'アカデミー昇格候補の質を高める',
-        StaffRole.fitnessCoach => '週次トレーニングでの疲労回復量をさらに高める',
+        StaffRole.headCoach => Tr.pick(
+            'トレーニングの成長効率を高める', 'Raises how much players gain from training'),
+        StaffRole.scout => Tr.pick('スカウト選手の質を高め、費用を抑える',
+            'Raises the quality of scouted players and lowers the cost'),
+        StaffRole.physio => Tr.pick('負傷の発生率と療養期間を減らす',
+            'Cuts how often injuries happen and how long they last'),
+        StaffRole.youthCoach =>
+          Tr.pick('アカデミー昇格候補の質を高める', 'Raises the quality of academy graduates'),
+        StaffRole.fitnessCoach => Tr.pick('週次トレーニングでの疲労回復量をさらに高める',
+            'Further increases how much fatigue the weekly training recovers'),
       };
 }
 
@@ -60,19 +69,26 @@ enum FacilityType {
 
 extension FacilityTypeInfo on FacilityType {
   String get label => switch (this) {
-        FacilityType.trainingGround => 'トレーニング施設',
-        FacilityType.stadium => 'スタジアム',
-        FacilityType.youthFacility => 'ユース施設',
-        FacilityType.commercialFacility => '商業施設',
-        FacilityType.medicalCenter => 'メディカルセンター',
+        FacilityType.trainingGround =>
+          Tr.pick('トレーニング施設', 'Training Facilities'),
+        FacilityType.stadium => Tr.pick('スタジアム', 'Stadium'),
+        FacilityType.youthFacility => Tr.pick('ユース施設', 'Youth Facilities'),
+        FacilityType.commercialFacility =>
+          Tr.pick('商業施設', 'Commercial Facilities'),
+        FacilityType.medicalCenter => Tr.pick('メディカルセンター', 'Medical Centre'),
       };
 
   String get description => switch (this) {
-        FacilityType.trainingGround => '選手の成長速度と疲労回復を高める',
-        FacilityType.stadium => '試合ごとの観客収入を増やす',
-        FacilityType.youthFacility => 'ユース昇格候補の受け入れ枠を増やす',
-        FacilityType.commercialFacility => '観客収入とスポンサー収入をまとめて底上げする',
-        FacilityType.medicalCenter => 'フィジオの効果と合わせて負傷リスク・療養期間をさらに減らす',
+        FacilityType.trainingGround => Tr.pick(
+            '選手の成長速度と疲労回復を高める', 'Speeds up player growth and fatigue recovery'),
+        FacilityType.stadium =>
+          Tr.pick('試合ごとの観客収入を増やす', 'Increases gate receipts from each match'),
+        FacilityType.youthFacility => Tr.pick('ユース昇格候補の受け入れ枠を増やす',
+            'Increases how many academy graduates you can take on'),
+        FacilityType.commercialFacility => Tr.pick('観客収入とスポンサー収入をまとめて底上げする',
+            'Lifts both gate receipts and sponsorship income'),
+        FacilityType.medicalCenter => Tr.pick('フィジオの効果と合わせて負傷リスク・療養期間をさらに減らす',
+            'Works with your physio to cut injury risk and recovery time further'),
       };
 }
 

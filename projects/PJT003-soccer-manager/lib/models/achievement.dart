@@ -1,16 +1,17 @@
 import 'save_game.dart';
 import 'team.dart';
+import '../l10n/tr.dart';
 
 /// 実績のジャンル分け。実績画面での表示グルーピングに使う。
 enum AchievementCategory { title, record, management, squad, career }
 
 extension AchievementCategoryInfo on AchievementCategory {
   String get label => switch (this) {
-        AchievementCategory.title => 'タイトル',
-        AchievementCategory.record => '通算記録',
-        AchievementCategory.management => 'クラブ経営',
-        AchievementCategory.squad => '選手・育成',
-        AchievementCategory.career => '監督キャリア',
+        AchievementCategory.title => Tr.pick('タイトル', 'Trophies'),
+        AchievementCategory.record => Tr.pick('通算記録', 'Career Records'),
+        AchievementCategory.management => Tr.pick('クラブ経営', 'Club Management'),
+        AchievementCategory.squad => Tr.pick('選手・育成', 'Players & Development'),
+        AchievementCategory.career => Tr.pick('監督キャリア', 'Managerial Career'),
       };
 }
 

@@ -1,5 +1,6 @@
 import '../models/match_result.dart';
 import 'enum_json.dart';
+import '../l10n/tr.dart';
 
 /// カップ戦の不在(不戦勝)を表す仮想チームID。
 const String byeTeamId = '__BYE__';
@@ -8,8 +9,8 @@ enum CupType { domestic, continental }
 
 extension CupTypeInfo on CupType {
   String get label => switch (this) {
-        CupType.domestic => '国内カップ',
-        CupType.continental => '大陸カップ',
+        CupType.domestic => Tr.pick('国内カップ', 'Domestic Cup'),
+        CupType.continental => Tr.pick('大陸カップ', 'Continental Cup'),
       };
 }
 

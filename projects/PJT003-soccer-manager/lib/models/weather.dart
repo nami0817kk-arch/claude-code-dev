@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import '../l10n/tr.dart';
 
 /// 試合当日の天候。攻守のパフォーマンスやチャンスの数、疲労蓄積に影響する。
 enum Weather { clear, rain, wind, heatwave, snow }
 
 extension WeatherEffects on Weather {
   String get label => switch (this) {
-        Weather.clear => '晴れ',
-        Weather.rain => '雨',
-        Weather.wind => '強風',
-        Weather.heatwave => '猛暑',
-        Weather.snow => '雪',
+        Weather.clear => Tr.pick('晴れ', 'Clear'),
+        Weather.rain => Tr.pick('雨', 'Rain'),
+        Weather.wind => Tr.pick('強風', 'Windy'),
+        Weather.heatwave => Tr.pick('猛暑', 'Heatwave'),
+        Weather.snow => Tr.pick('雪', 'Snow'),
       };
 
   /// 天候アイコン。絵文字ではなく Material アイコンを使う。

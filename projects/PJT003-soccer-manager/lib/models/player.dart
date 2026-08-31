@@ -3,6 +3,7 @@ import 'dart:math';
 import 'attributes.dart';
 import 'enum_json.dart';
 import 'training_focus.dart';
+import '../l10n/tr.dart';
 
 /// Football Manager風の詳細ポジション（14種類）。
 enum Position { gk, dr, dc, dl, wbr, wbl, dm, mr, mc, ml, amr, amc, aml, st }
@@ -12,9 +13,9 @@ enum InjuryType { bruise, muscle, ligament }
 
 extension InjuryTypeInfo on InjuryType {
   String get label => switch (this) {
-        InjuryType.bruise => '打撲',
-        InjuryType.muscle => '肉離れ',
-        InjuryType.ligament => '靭帯損傷',
+        InjuryType.bruise => Tr.pick('打撲', 'Bruise'),
+        InjuryType.muscle => Tr.pick('肉離れ', 'Torn muscle'),
+        InjuryType.ligament => Tr.pick('靭帯損傷', 'Ligament damage'),
       };
 
   /// 典型的な療養期間(週)の範囲。
@@ -63,37 +64,37 @@ extension PositionLabel on Position {
     }
   }
 
-  /// 日本語での正式名称。
+  /// ポジションの正式名称。表示言語に応じて日本語/英語で返す。
   String get fullLabel {
     switch (this) {
       case Position.gk:
-        return 'ゴールキーパー';
+        return Tr.pick('ゴールキーパー', 'Goalkeeper');
       case Position.dr:
-        return '右サイドバック';
+        return Tr.pick('右サイドバック', 'Right Back');
       case Position.dc:
-        return 'センターバック';
+        return Tr.pick('センターバック', 'Centre Back');
       case Position.dl:
-        return '左サイドバック';
+        return Tr.pick('左サイドバック', 'Left Back');
       case Position.wbr:
-        return '右ウイングバック';
+        return Tr.pick('右ウイングバック', 'Right Wing Back');
       case Position.wbl:
-        return '左ウイングバック';
+        return Tr.pick('左ウイングバック', 'Left Wing Back');
       case Position.dm:
-        return '守備的MF';
+        return Tr.pick('守備的MF', 'Defensive Midfielder');
       case Position.mr:
-        return '右MF';
+        return Tr.pick('右MF', 'Right Midfielder');
       case Position.mc:
-        return 'センターMF';
+        return Tr.pick('センターMF', 'Central Midfielder');
       case Position.ml:
-        return '左MF';
+        return Tr.pick('左MF', 'Left Midfielder');
       case Position.amr:
-        return '右トップ下';
+        return Tr.pick('右トップ下', 'Right Attacking Midfielder');
       case Position.amc:
-        return 'トップ下';
+        return Tr.pick('トップ下', 'Attacking Midfielder');
       case Position.aml:
-        return '左トップ下';
+        return Tr.pick('左トップ下', 'Left Attacking Midfielder');
       case Position.st:
-        return 'ストライカー';
+        return Tr.pick('ストライカー', 'Striker');
     }
   }
 
@@ -130,17 +131,21 @@ enum SquadStatus { keyPlayer, regular, rotation, prospect }
 
 extension SquadStatusInfo on SquadStatus {
   String get label => switch (this) {
-        SquadStatus.keyPlayer => 'キープレイヤー',
-        SquadStatus.regular => '主力',
-        SquadStatus.rotation => 'ローテーション',
-        SquadStatus.prospect => '育成枠',
+        SquadStatus.keyPlayer => Tr.pick('キープレイヤー', 'Key Player'),
+        SquadStatus.regular => Tr.pick('主力', 'First Team'),
+        SquadStatus.rotation => Tr.pick('ローテーション', 'Squad Rotation'),
+        SquadStatus.prospect => Tr.pick('育成枠', 'Prospect'),
       };
 
   String get description => switch (this) {
-        SquadStatus.keyPlayer => '毎試合の出場を約束。外すと大きく不満だが、週給要求も高い',
-        SquadStatus.regular => '基本的に出場を想定する標準の立場',
-        SquadStatus.rotation => '出場は状況次第。ベンチでも不満が溜まりにくい',
-        SquadStatus.prospect => '出場より育成優先。不満はほぼ溜まらず週給も控えめ',
+        SquadStatus.keyPlayer => Tr.pick('毎試合の出場を約束。外すと大きく不満だが、週給要求も高い',
+            'Promised a start every match. Leaving them out upsets them badly, and they demand high wages.'),
+        SquadStatus.regular => Tr.pick('基本的に出場を想定する標準の立場',
+            'The standard billing: expected to play most weeks.'),
+        SquadStatus.rotation => Tr.pick('出場は状況次第。ベンチでも不満が溜まりにくい',
+            'Plays as circumstances allow. Rarely unsettled by a spell on the bench.'),
+        SquadStatus.prospect => Tr.pick('出場より育成優先。不満はほぼ溜まらず週給も控えめ',
+            'Development before minutes. Barely ever unsettled, and cheap on wages.'),
       };
 
   /// ベンチに置いたときの不満増加に掛かる倍率。
@@ -162,15 +167,19 @@ extension SquadStatusInfo on SquadStatus {
 
 extension PlayerDutyInfo on PlayerDuty {
   String get label => switch (this) {
-        PlayerDuty.defend => '守備的',
-        PlayerDuty.support => 'バランス',
-        PlayerDuty.attack => '攻撃的',
+        PlayerDuty.defend => Tr.pick('守備的', 'Defend'),
+        PlayerDuty.support => Tr.pick('バランス', 'Support'),
+        PlayerDuty.attack => Tr.pick('攻撃的', 'Attack'),
       };
 
   String get description => switch (this) {
-        PlayerDuty.defend => '守備力にボーナスが付く代わりに攻撃力が手薄になる。守備を安定させたい選手向け。',
-        PlayerDuty.support => '攻守どちらにも偏らない標準設定。',
-        PlayerDuty.attack => '攻撃力にボーナスが付く代わりに守備力が手薄になる。得点への関与を増やしたい選手向け。',
+        PlayerDuty.defend => Tr.pick('守備力にボーナスが付く代わりに攻撃力が手薄になる。守備を安定させたい選手向け。',
+            'Gains a defensive bonus at the cost of attacking output. For players you want holding the line.'),
+        PlayerDuty.support => Tr.pick('攻守どちらにも偏らない標準設定。',
+            'The balanced default, favouring neither attack nor defence.'),
+        PlayerDuty.attack => Tr.pick(
+            '攻撃力にボーナスが付く代わりに守備力が手薄になる。得点への関与を増やしたい選手向け。',
+            'Gains an attacking bonus at the cost of defensive cover. For players you want involved in goals.'),
       };
 }
 
@@ -202,49 +211,70 @@ enum PlayerRole {
 
 extension PlayerRoleInfo on PlayerRole {
   String get label => switch (this) {
-        PlayerRole.standard => '標準',
-        PlayerRole.sweeperKeeper => 'スイーパーキーパー',
-        PlayerRole.shotStopper => 'シュートストッパー',
-        PlayerRole.commandingKeeper => '制空型GK',
-        PlayerRole.ballPlayingDefender => 'ビルドアップCB',
-        PlayerRole.stopper => 'ストッパー',
-        PlayerRole.libero => 'リベロ',
-        PlayerRole.fullBack => '攻撃参加型SB',
-        PlayerRole.wingBack => '突破型WB',
-        PlayerRole.playmaker => 'プレーメイカー',
-        PlayerRole.boxToBox => 'ボックストゥボックス',
-        PlayerRole.anchorMan => 'アンカー',
-        PlayerRole.wideMidfielder => 'ワイドMF',
-        PlayerRole.mezzala => 'インサイドハーフ',
-        PlayerRole.poacher => 'ポーチャー',
-        PlayerRole.targetMan => 'ターゲットマン',
-        PlayerRole.insideForward => 'カットインアタッカー',
-        PlayerRole.wingerCrosser => 'クロッサー',
-        PlayerRole.deepLyingForward => '偽9番',
-        PlayerRole.completeForward => 'オールラウンドFW',
+        PlayerRole.standard => Tr.pick('標準', 'Standard'),
+        PlayerRole.sweeperKeeper => Tr.pick('スイーパーキーパー', 'Sweeper Keeper'),
+        PlayerRole.shotStopper => Tr.pick('シュートストッパー', 'Shot Stopper'),
+        PlayerRole.commandingKeeper => Tr.pick('制空型GK', 'Commanding Keeper'),
+        PlayerRole.ballPlayingDefender =>
+          Tr.pick('ビルドアップCB', 'Ball Playing Defender'),
+        PlayerRole.stopper => Tr.pick('ストッパー', 'Stopper'),
+        PlayerRole.libero => Tr.pick('リベロ', 'Libero'),
+        PlayerRole.fullBack => Tr.pick('攻撃参加型SB', 'Full Back'),
+        PlayerRole.wingBack => Tr.pick('突破型WB', 'Wing Back'),
+        PlayerRole.playmaker => Tr.pick('プレーメイカー', 'Playmaker'),
+        PlayerRole.boxToBox => Tr.pick('ボックストゥボックス', 'Box to Box'),
+        PlayerRole.anchorMan => Tr.pick('アンカー', 'Anchor Man'),
+        PlayerRole.wideMidfielder => Tr.pick('ワイドMF', 'Wide Midfielder'),
+        PlayerRole.mezzala => Tr.pick('インサイドハーフ', 'Inside Forward'),
+        PlayerRole.poacher => Tr.pick('ポーチャー', 'Poacher'),
+        PlayerRole.targetMan => Tr.pick('ターゲットマン', 'Target Man'),
+        PlayerRole.insideForward => Tr.pick('カットインアタッカー', 'Inverted Winger'),
+        PlayerRole.wingerCrosser => Tr.pick('クロッサー', 'Winger'),
+        PlayerRole.deepLyingForward => Tr.pick('偽9番', 'False Nine'),
+        PlayerRole.completeForward => Tr.pick('オールラウンドFW', 'Complete Forward'),
       };
 
   String get description => switch (this) {
-        PlayerRole.standard => '特定のプレースタイルを指定しない',
-        PlayerRole.sweeperKeeper => 'キック・ハンドリングを活かしたビルドアップ参加型のGK',
-        PlayerRole.shotStopper => '反射神経とワン・オン・ワンの強さで難しいシュートを止めるGK',
-        PlayerRole.commandingKeeper => '空中戦の制圧力でクロス・セットプレーに強いGK',
-        PlayerRole.ballPlayingDefender => 'パス・視野を活かして後方から組み立てるCB',
-        PlayerRole.stopper => 'タックル・積極性を活かして潰しにかかるCB',
-        PlayerRole.libero => '読みの鋭さでカバーリングし、危機を未然に防ぐDF',
-        PlayerRole.fullBack => 'スタミナを活かして上下動を繰り返す攻撃参加型のSB/WB',
-        PlayerRole.wingBack => 'スピードと仕掛けでサイドを切り裂くWB',
-        PlayerRole.playmaker => 'パス・視野で崩しの起点となるMF',
-        PlayerRole.boxToBox => 'スタミナ・運動量で攻守にわたって働くMF',
-        PlayerRole.anchorMan => 'タックルとポジショニングで潰し役に徹する守備的MF',
-        PlayerRole.wideMidfielder => 'クロスとスピードでサイドからチャンスを演出するMF',
-        PlayerRole.mezzala => 'ドリブルで持ち運び、攻撃参加するインサイドハーフ',
-        PlayerRole.poacher => 'フィニッシュ・オフザボールで得点を狙うFW',
-        PlayerRole.targetMan => 'ヘディング・強さを活かした起点となるFW',
-        PlayerRole.insideForward => 'ドリブルと中央への仕掛けでゴールに迫るFW',
-        PlayerRole.wingerCrosser => 'クロスとスピードでチャンスを供給するウイング',
-        PlayerRole.deepLyingForward => '下がってパス・視野で組み立てに参加するFW',
-        PlayerRole.completeForward => '技術と冷静さを兼ね備えたオールラウンドなFW',
+        PlayerRole.standard =>
+          Tr.pick('特定のプレースタイルを指定しない', 'No particular playing style.'),
+        PlayerRole.sweeperKeeper => Tr.pick('キック・ハンドリングを活かしたビルドアップ参加型のGK',
+            'A keeper who joins the build-up, using kicking and handling.'),
+        PlayerRole.shotStopper => Tr.pick('反射神経とワン・オン・ワンの強さで難しいシュートを止めるGK',
+            'A keeper who saves the hard ones through reflexes and one-on-one strength.'),
+        PlayerRole.commandingKeeper => Tr.pick('空中戦の制圧力でクロス・セットプレーに強いGK',
+            'A keeper who dominates the air, strong against crosses and set pieces.'),
+        PlayerRole.ballPlayingDefender => Tr.pick('パス・視野を活かして後方から組み立てるCB',
+            'A centre back who builds from the back with passing and vision.'),
+        PlayerRole.stopper => Tr.pick('タックル・積極性を活かして潰しにかかるCB',
+            'A centre back who steps out to win the ball with tackling and aggression.'),
+        PlayerRole.libero => Tr.pick('読みの鋭さでカバーリングし、危機を未然に防ぐDF',
+            'A defender who reads danger early and covers before it develops.'),
+        PlayerRole.fullBack => Tr.pick('スタミナを活かして上下動を繰り返す攻撃参加型のSB/WB',
+            'A full back or wing back who gets up and down the flank all match.'),
+        PlayerRole.wingBack => Tr.pick('スピードと仕掛けでサイドを切り裂くWB',
+            'A wing back who cuts the flank open with pace and dribbling.'),
+        PlayerRole.playmaker => Tr.pick('パス・視野で崩しの起点となるMF',
+            'A midfielder who starts the breakthrough with passing and vision.'),
+        PlayerRole.boxToBox => Tr.pick('スタミナ・運動量で攻守にわたって働くMF',
+            'A midfielder who covers both ends through stamina and work rate.'),
+        PlayerRole.anchorMan => Tr.pick('タックルとポジショニングで潰し役に徹する守備的MF',
+            'A holding midfielder who screens the defence with tackling and positioning.'),
+        PlayerRole.wideMidfielder => Tr.pick('クロスとスピードでサイドからチャンスを演出するMF',
+            'A midfielder who creates from wide with crossing and pace.'),
+        PlayerRole.mezzala => Tr.pick('ドリブルで持ち運び、攻撃参加するインサイドハーフ',
+            'An inside forward who carries the ball and joins the attack.'),
+        PlayerRole.poacher => Tr.pick('フィニッシュ・オフザボールで得点を狙うFW',
+            'A forward who hunts goals through finishing and movement off the ball.'),
+        PlayerRole.targetMan => Tr.pick('ヘディング・強さを活かした起点となるFW',
+            'A forward who holds the ball up with heading and strength.'),
+        PlayerRole.insideForward => Tr.pick('ドリブルと中央への仕掛けでゴールに迫るFW',
+            'A forward who dribbles infield to threaten goal.'),
+        PlayerRole.wingerCrosser => Tr.pick('クロスとスピードでチャンスを供給するウイング',
+            'A winger who supplies chances with crossing and pace.'),
+        PlayerRole.deepLyingForward => Tr.pick('下がってパス・視野で組み立てに参加するFW',
+            'A forward who drops deep to join the build-up with passing and vision.'),
+        PlayerRole.completeForward => Tr.pick('技術と冷静さを兼ね備えたオールラウンドなFW',
+            'An all-round forward combining technique with composure.'),
       };
 
   /// このロールを選択できるポジション大分類(standardは全ポジション共通)。
@@ -383,49 +413,74 @@ enum PlayerPersonality {
 
 extension PlayerPersonalityInfo on PlayerPersonality {
   String get label => switch (this) {
-        PlayerPersonality.professional => 'プロフェッショナル',
-        PlayerPersonality.balanced => 'バランス型',
-        PlayerPersonality.ambitious => '野心家',
-        PlayerPersonality.temperamental => '気分屋',
-        PlayerPersonality.loyal => '忠誠心の強い選手',
-        PlayerPersonality.modelCitizen => '模範選手',
-        PlayerPersonality.resolute => '動じない性格',
-        PlayerPersonality.spirited => '闘争心旺盛',
-        PlayerPersonality.determined => '負けず嫌い',
-        PlayerPersonality.driven => '成り上がり志向',
-        PlayerPersonality.perfectionist => '完璧主義',
-        PlayerPersonality.laidBack => 'おおらか',
-        PlayerPersonality.easilyDiscouraged => 'メンタルが弱い',
-        PlayerPersonality.volatile => '非常に不安定',
-        PlayerPersonality.unambitious => '向上心が低い',
-        PlayerPersonality.lowDetermination => '根性がない',
-        PlayerPersonality.fairlyProfessional => 'まずまず堅実',
-        PlayerPersonality.veryAmbitious => '非常に野心的',
-        PlayerPersonality.mercenary => '契約至上主義',
-        PlayerPersonality.clubLegendType => '生え抜き気質',
+        PlayerPersonality.professional => Tr.pick('プロフェッショナル', 'Professional'),
+        PlayerPersonality.balanced => Tr.pick('バランス型', 'Balanced'),
+        PlayerPersonality.ambitious => Tr.pick('野心家', 'Ambitious'),
+        PlayerPersonality.temperamental => Tr.pick('気分屋', 'Temperamental'),
+        PlayerPersonality.loyal => Tr.pick('忠誠心の強い選手', 'Loyal'),
+        PlayerPersonality.modelCitizen => Tr.pick('模範選手', 'Model Professional'),
+        PlayerPersonality.resolute => Tr.pick('動じない性格', 'Unflappable'),
+        PlayerPersonality.spirited => Tr.pick('闘争心旺盛', 'Fighter'),
+        PlayerPersonality.determined => Tr.pick('負けず嫌い', 'Driven'),
+        PlayerPersonality.driven => Tr.pick('成り上がり志向', 'Self-Promoting'),
+        PlayerPersonality.perfectionist => Tr.pick('完璧主義', 'Perfectionist'),
+        PlayerPersonality.laidBack => Tr.pick('おおらか', 'Easygoing'),
+        PlayerPersonality.easilyDiscouraged => Tr.pick('メンタルが弱い', 'Fragile'),
+        PlayerPersonality.volatile => Tr.pick('非常に不安定', 'Highly Volatile'),
+        PlayerPersonality.unambitious => Tr.pick('向上心が低い', 'Unambitious'),
+        PlayerPersonality.lowDetermination => Tr.pick('根性がない', 'Faint-Hearted'),
+        PlayerPersonality.fairlyProfessional =>
+          Tr.pick('まずまず堅実', 'Fairly Professional'),
+        PlayerPersonality.veryAmbitious => Tr.pick('非常に野心的', 'Very Ambitious'),
+        PlayerPersonality.mercenary => Tr.pick('契約至上主義', 'Money Motivated'),
+        PlayerPersonality.clubLegendType =>
+          Tr.pick('生え抜き気質', 'Devoted to the Club'),
       };
 
   String get description => switch (this) {
-        PlayerPersonality.professional => '不満が溜まりにくく、安定した意欲を保つ',
-        PlayerPersonality.balanced => '標準的な反応を示す',
-        PlayerPersonality.ambitious => 'ベンチや低成績にすぐ不満を抱く',
-        PlayerPersonality.temperamental => '状況次第で気分が大きく変動する',
-        PlayerPersonality.loyal => '多少の不満があってもクラブに留まりやすい',
-        PlayerPersonality.modelCitizen => '常に高い意欲を保ち、若手の手本となる',
-        PlayerPersonality.resolute => '逆境でも動揺せず冷静さを保つ',
-        PlayerPersonality.spirited => '困難な状況でも闘争心を燃やして奮起する',
-        PlayerPersonality.determined => '結果へのこだわりが強く、成長への意欲も高い',
-        PlayerPersonality.driven => '自らの評価・待遇の向上に強くこだわる',
-        PlayerPersonality.perfectionist => 'ベンチや低評価に強い不満を抱く一方、自己研鑽への意欲は高い',
-        PlayerPersonality.laidBack => '何事にも動じないが、向上心もやや控えめ',
-        PlayerPersonality.easilyDiscouraged => '結果が振るわないとすぐに意気消沈する',
-        PlayerPersonality.volatile => '気分の浮き沈みが極端で、扱いが難しい',
-        PlayerPersonality.unambitious => '現状に満足しやすく、成長への意欲は控えめ',
-        PlayerPersonality.lowDetermination => '困難な状況で粘り強さに欠ける',
-        PlayerPersonality.fairlyProfessional => 'プロフェッショナルとバランス型の中間的な気質',
-        PlayerPersonality.veryAmbitious => '常により高みを目指し、現状への不満を抱きやすい',
-        PlayerPersonality.mercenary => '待遇・移籍金への関心が非常に強い',
-        PlayerPersonality.clubLegendType => 'クラブへの忠誠心が非常に強く、多少の不満では移籍を望まない',
+        PlayerPersonality.professional => Tr.pick('不満が溜まりにくく、安定した意欲を保つ',
+            'Rarely becomes unsettled and keeps a steady level of motivation.'),
+        PlayerPersonality.balanced =>
+          Tr.pick('標準的な反応を示す', 'Reacts in the ordinary way.'),
+        PlayerPersonality.ambitious => Tr.pick('ベンチや低成績にすぐ不満を抱く',
+            'Quickly grows unhappy on the bench or after poor results.'),
+        PlayerPersonality.temperamental => Tr.pick('状況次第で気分が大きく変動する',
+            'Swings sharply in mood depending on how things are going.'),
+        PlayerPersonality.loyal => Tr.pick('多少の不満があってもクラブに留まりやすい',
+            'Tends to stay at the club even when somewhat unhappy.'),
+        PlayerPersonality.modelCitizen => Tr.pick('常に高い意欲を保ち、若手の手本となる',
+            'Keeps motivation high at all times and sets the example for younger players.'),
+        PlayerPersonality.resolute => Tr.pick('逆境でも動揺せず冷静さを保つ',
+            'Stays calm and unshaken when things turn against the team.'),
+        PlayerPersonality.spirited => Tr.pick('困難な状況でも闘争心を燃やして奮起する',
+            'Digs in and fights harder the more difficult the situation.'),
+        PlayerPersonality.determined => Tr.pick('結果へのこだわりが強く、成長への意欲も高い',
+            'Cares deeply about results and is eager to keep improving.'),
+        PlayerPersonality.driven => Tr.pick('自らの評価・待遇の向上に強くこだわる',
+            'Pushes hard for a better standing and better terms.'),
+        PlayerPersonality.perfectionist => Tr.pick(
+            'ベンチや低評価に強い不満を抱く一方、自己研鑽への意欲は高い',
+            'Deeply resents the bench and poor ratings, but works relentlessly on their game.'),
+        PlayerPersonality.laidBack => Tr.pick('何事にも動じないが、向上心もやや控えめ',
+            'Nothing rattles them, though their drive to improve is modest.'),
+        PlayerPersonality.easilyDiscouraged => Tr.pick(
+            '結果が振るわないとすぐに意気消沈する', 'Loses heart quickly when results go badly.'),
+        PlayerPersonality.volatile => Tr.pick('気分の浮き沈みが極端で、扱いが難しい',
+            'Extreme highs and lows, and difficult to manage.'),
+        PlayerPersonality.unambitious => Tr.pick('現状に満足しやすく、成長への意欲は控えめ',
+            'Content with their lot, with little appetite for improvement.'),
+        PlayerPersonality.lowDetermination => Tr.pick(
+            '困難な状況で粘り強さに欠ける', 'Lacks resilience when the going gets hard.'),
+        PlayerPersonality.fairlyProfessional => Tr.pick(
+            'プロフェッショナルとバランス型の中間的な気質',
+            'A temperament sitting between professional and balanced.'),
+        PlayerPersonality.veryAmbitious => Tr.pick('常により高みを目指し、現状への不満を抱きやすい',
+            'Always chasing the next level, and easily dissatisfied with the present.'),
+        PlayerPersonality.mercenary => Tr.pick('待遇・移籍金への関心が非常に強い',
+            'Intensely interested in terms and transfer money.'),
+        PlayerPersonality.clubLegendType => Tr.pick(
+            'クラブへの忠誠心が非常に強く、多少の不満では移籍を望まない',
+            'Fiercely loyal to the club, and will not push for a move over minor grievances.'),
       };
 
   double get benchSensitivity => switch (this) {
@@ -646,117 +701,178 @@ enum PlayerTrait {
 
 extension PlayerTraitInfo on PlayerTrait {
   String get label => switch (this) {
-        PlayerTrait.giantKiller => '格上キラー',
-        PlayerTrait.frontRunner => '横綱相撲',
-        PlayerTrait.underdogSpirit => '判官びいき',
-        PlayerTrait.dominantForce => '圧倒的優位',
-        PlayerTrait.bigGameHunter => 'ビッグゲームハンター',
-        PlayerTrait.bullyBall => '弱者いじめ',
-        PlayerTrait.homeBoy => '我が家が一番',
-        PlayerTrait.roadWarrior => '遠征上等',
-        PlayerTrait.rainMaster => '雨のスペシャリスト',
-        PlayerTrait.windMaster => '強風マイスター',
-        PlayerTrait.heatwaveMaster => '猛暑をものともせず',
-        PlayerTrait.snowMaster => '雪上のアーティスト',
-        PlayerTrait.fairWeatherPlayer => '快晴主義',
-        PlayerTrait.ironLungs => '鉄の肺',
-        PlayerTrait.freshLegs => 'フレッシュレッグ',
-        PlayerTrait.confidentMind => '自信家',
-        PlayerTrait.clutchNerves => '逆境をはねのける',
-        PlayerTrait.contentPlayer => '満ち足りた心',
-        PlayerTrait.sharpShooter => '絶好調',
-        PlayerTrait.rustyButReady => '錆びついても衰えぬ',
-        PlayerTrait.wonderkid => '若き才能',
-        PlayerTrait.oldHead => '百戦錬磨',
-        PlayerTrait.primeTime => '脂の乗った時期',
-        PlayerTrait.warriorSpirit => '闘将',
-        PlayerTrait.calmHead => '冷静沈着',
-        PlayerTrait.leaderOnPitch => 'ピッチの統率者',
-        PlayerTrait.streaky => '波がある',
-        PlayerTrait.volatileTalent => '気分屋の天才',
-        PlayerTrait.metronome => 'メトロノーム',
-        PlayerTrait.visionary => '視野の魔術師',
-        PlayerTrait.paceMerchant => 'スピードスター',
-        PlayerTrait.powerhouse => 'パワーハウス',
-        PlayerTrait.enginesRunning => '尽きぬスタミナ',
-        PlayerTrait.silkyDribbler => '華麗なドリブラー',
-        PlayerTrait.playmakerTrait => '司令塔の才',
-        PlayerTrait.ballWinner => 'ボールハンター',
-        PlayerTrait.shadowMarker => '影のマーカー',
-        PlayerTrait.clinicalFinisher => '冷徹なフィニッシャー',
-        PlayerTrait.distanceShooter => 'ロングレンジシューター',
-        PlayerTrait.aerialThreat => '空中戦の脅威',
-        PlayerTrait.showman => 'ショーマン',
-        PlayerTrait.sureTouch => '確かなファーストタッチ',
-        PlayerTrait.crossSpecialist => 'クロスの名手',
-        PlayerTrait.setPieceMaestro => 'セットプレーの達人',
-        PlayerTrait.clockwork => '予測の天才',
-        PlayerTrait.decisiveMind => '的確な判断',
-        PlayerTrait.teamPlayer => '献身的なチームワーク',
-        PlayerTrait.tirelessRunner => '尽きせぬ運動量',
-        PlayerTrait.explosiveStart => '爆発的な加速',
-        PlayerTrait.fearlessDefender => '恐れを知らぬ守備',
-        PlayerTrait.divineReflexes => '神がかった反応',
-        PlayerTrait.awayDayHero => 'アウェイの逆境児',
-        PlayerTrait.risingPhoenix => '不屈の闘志',
-        PlayerTrait.veteranAce => '伝説のベテランエース',
+        PlayerTrait.giantKiller => Tr.pick('格上キラー', 'Giant Killer'),
+        PlayerTrait.frontRunner => Tr.pick('横綱相撲', 'Front Runner'),
+        PlayerTrait.underdogSpirit => Tr.pick('判官びいき', "Underdog's Friend"),
+        PlayerTrait.dominantForce => Tr.pick('圧倒的優位', 'Ruthless Favourite'),
+        PlayerTrait.bigGameHunter => Tr.pick('ビッグゲームハンター', 'Big Game Hunter'),
+        PlayerTrait.bullyBall => Tr.pick('弱者いじめ', 'Flat Track Bully'),
+        PlayerTrait.homeBoy => Tr.pick('我が家が一番', 'Home Comforts'),
+        PlayerTrait.roadWarrior => Tr.pick('遠征上等', 'Road Warrior'),
+        PlayerTrait.rainMaster => Tr.pick('雨のスペシャリスト', 'Rain Specialist'),
+        PlayerTrait.windMaster => Tr.pick('強風マイスター', 'Master of the Gale'),
+        PlayerTrait.heatwaveMaster => Tr.pick('猛暑をものともせず', 'Heatproof'),
+        PlayerTrait.snowMaster => Tr.pick('雪上のアーティスト', 'Artist on Snow'),
+        PlayerTrait.fairWeatherPlayer => Tr.pick('快晴主義', 'Fair Weather Player'),
+        PlayerTrait.ironLungs => Tr.pick('鉄の肺', 'Iron Lungs'),
+        PlayerTrait.freshLegs => Tr.pick('フレッシュレッグ', 'Fresh Legs'),
+        PlayerTrait.confidentMind => Tr.pick('自信家', 'Confident'),
+        PlayerTrait.clutchNerves => Tr.pick('逆境をはねのける', 'Defies Adversity'),
+        PlayerTrait.contentPlayer => Tr.pick('満ち足りた心', 'Contented Mind'),
+        PlayerTrait.sharpShooter => Tr.pick('絶好調', 'In the Zone'),
+        PlayerTrait.rustyButReady => Tr.pick('錆びついても衰えぬ', 'Never Rusts'),
+        PlayerTrait.wonderkid => Tr.pick('若き才能', 'Young Talent'),
+        PlayerTrait.oldHead => Tr.pick('百戦錬磨', 'Battle Hardened'),
+        PlayerTrait.primeTime => Tr.pick('脂の乗った時期', 'At His Peak'),
+        PlayerTrait.warriorSpirit => Tr.pick('闘将', 'Warrior'),
+        PlayerTrait.calmHead => Tr.pick('冷静沈着', 'Ice Cool'),
+        PlayerTrait.leaderOnPitch =>
+          Tr.pick('ピッチの統率者', 'Commander on the Pitch'),
+        PlayerTrait.streaky => Tr.pick('波がある', 'Streaky'),
+        PlayerTrait.volatileTalent => Tr.pick('気分屋の天才', 'Volatile Talent'),
+        PlayerTrait.metronome => Tr.pick('メトロノーム', 'Metronome'),
+        PlayerTrait.visionary => Tr.pick('視野の魔術師', 'Vision Magician'),
+        PlayerTrait.paceMerchant => Tr.pick('スピードスター', 'Speed Merchant'),
+        PlayerTrait.powerhouse => Tr.pick('パワーハウス', 'Powerhouse'),
+        PlayerTrait.enginesRunning => Tr.pick('尽きぬスタミナ', 'Endless Stamina'),
+        PlayerTrait.silkyDribbler => Tr.pick('華麗なドリブラー', 'Elegant Dribbler'),
+        PlayerTrait.playmakerTrait => Tr.pick('司令塔の才', 'Natural Playmaker'),
+        PlayerTrait.ballWinner => Tr.pick('ボールハンター', 'Ball Hunter'),
+        PlayerTrait.shadowMarker => Tr.pick('影のマーカー', 'Shadow Marker'),
+        PlayerTrait.clinicalFinisher =>
+          Tr.pick('冷徹なフィニッシャー', 'Clinical Finisher'),
+        PlayerTrait.distanceShooter =>
+          Tr.pick('ロングレンジシューター', 'Long Range Shooter'),
+        PlayerTrait.aerialThreat => Tr.pick('空中戦の脅威', 'Aerial Threat'),
+        PlayerTrait.showman => Tr.pick('ショーマン', 'Showman'),
+        PlayerTrait.sureTouch => Tr.pick('確かなファーストタッチ', 'Sure First Touch'),
+        PlayerTrait.crossSpecialist => Tr.pick('クロスの名手', 'Master Crosser'),
+        PlayerTrait.setPieceMaestro =>
+          Tr.pick('セットプレーの達人', 'Set Piece Specialist'),
+        PlayerTrait.clockwork => Tr.pick('予測の天才', 'Gifted Reader of the Game'),
+        PlayerTrait.decisiveMind => Tr.pick('的確な判断', 'Sound Decision Maker'),
+        PlayerTrait.teamPlayer => Tr.pick('献身的なチームワーク', 'Selfless Team Player'),
+        PlayerTrait.tirelessRunner => Tr.pick('尽きせぬ運動量', 'Tireless Runner'),
+        PlayerTrait.explosiveStart =>
+          Tr.pick('爆発的な加速', 'Explosive Acceleration'),
+        PlayerTrait.fearlessDefender =>
+          Tr.pick('恐れを知らぬ守備', 'Fearless Defender'),
+        PlayerTrait.divineReflexes => Tr.pick('神がかった反応', 'Miracle Reflexes'),
+        PlayerTrait.awayDayHero =>
+          Tr.pick('アウェイの逆境児', 'Thrives on Hostile Grounds'),
+        PlayerTrait.risingPhoenix => Tr.pick('不屈の闘志', 'Indomitable Spirit'),
+        PlayerTrait.veteranAce => Tr.pick('伝説のベテランエース', 'Legendary Old Head'),
       };
 
   String get description => switch (this) {
-        PlayerTrait.giantKiller => '自チームより格上の相手との試合でパフォーマンスが上がる。',
-        PlayerTrait.frontRunner => '自チームより格下の相手との試合でパフォーマンスが上がる。',
-        PlayerTrait.underdogSpirit => '大きく格上の相手との大金星がかかる試合で、特に奮起する。',
-        PlayerTrait.dominantForce => '大きく格下の相手に対し、危なげなく実力を発揮する。',
-        PlayerTrait.bigGameHunter => '相手の実力が高いほど燃えるタイプで、強豪との試合で輝く。',
-        PlayerTrait.bullyBall => '実力の劣る相手には容赦なく、着実に力を発揮する。',
-        PlayerTrait.homeBoy => 'ホームゲームで観客の後押しを受けて力を発揮する。',
-        PlayerTrait.roadWarrior => 'アウェイゲームでも物怖じせず、普段通りの力を出せる。',
-        PlayerTrait.rainMaster => '雨天の試合でも足元が乱れず、パフォーマンスを落とさない。',
-        PlayerTrait.windMaster => '強風下でもボールコントロールを乱さない。',
-        PlayerTrait.heatwaveMaster => '猛暑の試合でも運動量が落ちにくい。',
-        PlayerTrait.snowMaster => '雪の中でも普段以上の輝きを見せる稀有な選手。',
-        PlayerTrait.fairWeatherPlayer => '天候の良い試合でこそ本領を発揮する。',
-        PlayerTrait.ironLungs => '疲労が溜まった状態でも動きが落ちない。',
-        PlayerTrait.freshLegs => '疲労が少ない状態では特に鋭さを増す。',
-        PlayerTrait.confidentMind => '士気が高いときにさらに調子を上げる。',
-        PlayerTrait.clutchNerves => '士気が落ち込んでいてもむしろ闘志を燃やす。',
-        PlayerTrait.contentPlayer => 'クラブへの満足度が高いと安定した力を発揮する。',
-        PlayerTrait.sharpShooter => 'マッチシャープネスが最高潮のときに爆発的な力を見せる。',
-        PlayerTrait.rustyButReady => '実戦感覚が鈍っていても崩れない安定感を持つ。',
-        PlayerTrait.wonderkid => '若さゆえの勢いでプレーに勢いが出る。',
-        PlayerTrait.oldHead => '豊富な経験に裏打ちされた読みでプレーする。',
-        PlayerTrait.primeTime => '選手としての全盛期にひときわ輝く。',
-        PlayerTrait.warriorSpirit => '闘志の高さがそのままプレーの迫力に変わる。',
-        PlayerTrait.calmHead => '冷静さが持ち味で、大舞台でも動じない。',
-        PlayerTrait.leaderOnPitch => '統率力の高さでチーム全体を引っ張る。',
-        PlayerTrait.streaky => '調子の波が激しく、試合ごとのパフォーマンスのブレが大きい。',
-        PlayerTrait.volatileTalent => '極端に調子の良し悪しが分かれる、より波の激しいタイプ。',
-        PlayerTrait.metronome => '常に安定したパフォーマンスを崩さない。',
-        PlayerTrait.visionary => '卓越した視野でチャンスを作り出す。',
-        PlayerTrait.paceMerchant => 'スピードを活かしたプレーで違いを生む。',
-        PlayerTrait.powerhouse => '圧倒的なフィジカルの強さで相手を圧倒する。',
-        PlayerTrait.enginesRunning => '豊富なスタミナで最後まで運動量を落とさない。',
-        PlayerTrait.silkyDribbler => '卓越したドリブルで局面を打開する。',
-        PlayerTrait.playmakerTrait => '高いパス精度でチームの攻撃を組み立てる。',
-        PlayerTrait.ballWinner => '鋭いタックルで相手からボールを奪う。',
-        PlayerTrait.shadowMarker => '高いマーキング能力で相手を封じ込める。',
-        PlayerTrait.clinicalFinisher => '決定力の高さでチャンスを確実に決めきる。',
-        PlayerTrait.distanceShooter => '遠目からのシュートで違いを見せる。',
-        PlayerTrait.aerialThreat => '高い制空力でセットプレーの脅威となる。',
-        PlayerTrait.showman => '閃きのあるプレーで観客を沸かせる。',
-        PlayerTrait.sureTouch => '正確なファーストタッチでプレーの精度を高める。',
-        PlayerTrait.crossSpecialist => '精度の高いクロスでチャンスを演出する。',
-        PlayerTrait.setPieceMaestro => 'フリーキックの精度で得点機会を作る。',
-        PlayerTrait.clockwork => '鋭い予測でプレーの一歩先を読む。',
-        PlayerTrait.decisiveMind => '高い判断力で最適なプレーを選択する。',
-        PlayerTrait.teamPlayer => '高いチームワークでチームに貢献する。',
-        PlayerTrait.tirelessRunner => '豊富な運動量でピッチを走り回る。',
-        PlayerTrait.explosiveStart => '鋭い加速力で相手を置き去りにする。',
-        PlayerTrait.fearlessDefender => '勇敢さを武器に体を張ったプレーを見せる。',
-        PlayerTrait.divineReflexes => '神がかった反応速度で、並みのシュートを寄せ付けない守護神。',
-        PlayerTrait.awayDayHero => 'アウェイでの大きな逆境ほど、燃え上がって真価を発揮する。',
-        PlayerTrait.risingPhoenix => '苦境で意気消沈するどころか、そこから闘志を燃やして這い上がる。',
-        PlayerTrait.veteranAce => '経験を積んだベテランが、大一番でこそその真価を見せつける。',
+        PlayerTrait.giantKiller => Tr.pick('自チームより格上の相手との試合でパフォーマンスが上がる。',
+            'Raises their game against opponents stronger than their own side.'),
+        PlayerTrait.frontRunner => Tr.pick('自チームより格下の相手との試合でパフォーマンスが上がる。',
+            'Raises their game against opponents weaker than their own side.'),
+        PlayerTrait.underdogSpirit => Tr.pick('大きく格上の相手との大金星がかかる試合で、特に奮起する。',
+            'Rises to the occasion when a famous upset is on the line.'),
+        PlayerTrait.dominantForce => Tr.pick('大きく格下の相手に対し、危なげなく実力を発揮する。',
+            'Sees off far weaker opposition without any alarm.'),
+        PlayerTrait.bigGameHunter => Tr.pick('相手の実力が高いほど燃えるタイプで、強豪との試合で輝く。',
+            'The stronger the opponent, the more they fire up. Shines against the best.'),
+        PlayerTrait.bullyBall => Tr.pick('実力の劣る相手には容赦なく、着実に力を発揮する。',
+            'Shows no mercy to weaker opposition and delivers reliably.'),
+        PlayerTrait.homeBoy => Tr.pick('ホームゲームで観客の後押しを受けて力を発揮する。',
+            'Feeds off the home crowd and performs at home.'),
+        PlayerTrait.roadWarrior => Tr.pick('アウェイゲームでも物怖じせず、普段通りの力を出せる。',
+            'Unfazed away from home and plays to their usual level.'),
+        PlayerTrait.rainMaster => Tr.pick('雨天の試合でも足元が乱れず、パフォーマンスを落とさない。',
+            'Keeps their footing in the rain without dropping off.'),
+        PlayerTrait.windMaster => Tr.pick('強風下でもボールコントロールを乱さない。',
+            'Keeps control of the ball even in a strong wind.'),
+        PlayerTrait.heatwaveMaster => Tr.pick(
+            '猛暑の試合でも運動量が落ちにくい。', 'Holds their work rate even in fierce heat.'),
+        PlayerTrait.snowMaster => Tr.pick('雪の中でも普段以上の輝きを見せる稀有な選手。',
+            'A rare player who shines even brighter in the snow.'),
+        PlayerTrait.fairWeatherPlayer => Tr.pick('天候の良い試合でこそ本領を発揮する。',
+            'Comes into their own when the weather is fine.'),
+        PlayerTrait.ironLungs => Tr.pick('疲労が溜まった状態でも動きが落ちない。',
+            'Does not slow down even when fatigue has set in.'),
+        PlayerTrait.freshLegs =>
+          Tr.pick('疲労が少ない状態では特に鋭さを増す。', 'Especially sharp when fresh.'),
+        PlayerTrait.confidentMind => Tr.pick('士気が高いときにさらに調子を上げる。',
+            'Lifts their level further when morale is high.'),
+        PlayerTrait.clutchNerves => Tr.pick('士気が落ち込んでいてもむしろ闘志を燃やす。',
+            'Fires up rather than folds when morale is low.'),
+        PlayerTrait.contentPlayer => Tr.pick('クラブへの満足度が高いと安定した力を発揮する。',
+            'Performs consistently while happy at the club.'),
+        PlayerTrait.sharpShooter => Tr.pick('マッチシャープネスが最高潮のときに爆発的な力を見せる。',
+            'Explosive when match sharpness is at its peak.'),
+        PlayerTrait.rustyButReady => Tr.pick('実戦感覚が鈍っていても崩れない安定感を持つ。',
+            'Holds their standard even when short of match sharpness.'),
+        PlayerTrait.wonderkid => Tr.pick(
+            '若さゆえの勢いでプレーに勢いが出る。', 'Plays with the momentum that youth brings.'),
+        PlayerTrait.oldHead => Tr.pick('豊富な経験に裏打ちされた読みでプレーする。',
+            'Plays on a reading of the game built from long experience.'),
+        PlayerTrait.primeTime => Tr.pick(
+            '選手としての全盛期にひときわ輝く。', 'Shines brightest in their prime years.'),
+        PlayerTrait.warriorSpirit => Tr.pick('闘志の高さがそのままプレーの迫力に変わる。',
+            'Turns sheer determination into the force of their play.'),
+        PlayerTrait.calmHead => Tr.pick('冷静さが持ち味で、大舞台でも動じない。',
+            'Composure is their hallmark, and the big stage does not shake them.'),
+        PlayerTrait.leaderOnPitch => Tr.pick('統率力の高さでチーム全体を引っ張る。',
+            'Drags the whole team along through sheer leadership.'),
+        PlayerTrait.streaky => Tr.pick('調子の波が激しく、試合ごとのパフォーマンスのブレが大きい。',
+            'Runs hot and cold, with wide swings between matches.'),
+        PlayerTrait.volatileTalent => Tr.pick('極端に調子の良し悪しが分かれる、より波の激しいタイプ。',
+            'Swings even harder between brilliant and dreadful.'),
+        PlayerTrait.metronome => Tr.pick('常に安定したパフォーマンスを崩さない。',
+            'Never departs from a consistent level of performance.'),
+        PlayerTrait.visionary => Tr.pick(
+            '卓越した視野でチャンスを作り出す。', 'Creates chances through outstanding vision.'),
+        PlayerTrait.paceMerchant => Tr.pick(
+            'スピードを活かしたプレーで違いを生む。', 'Makes the difference through sheer pace.'),
+        PlayerTrait.powerhouse => Tr.pick('圧倒的なフィジカルの強さで相手を圧倒する。',
+            'Overpowers opponents with sheer physical strength.'),
+        PlayerTrait.enginesRunning => Tr.pick('豊富なスタミナで最後まで運動量を落とさない。',
+            'Keeps running to the final whistle on deep reserves of stamina.'),
+        PlayerTrait.silkyDribbler => Tr.pick('卓越したドリブルで局面を打開する。',
+            'Breaks the game open with outstanding dribbling.'),
+        PlayerTrait.playmakerTrait => Tr.pick(
+            '高いパス精度でチームの攻撃を組み立てる。', 'Builds the attack with precise passing.'),
+        PlayerTrait.ballWinner => Tr.pick(
+            '鋭いタックルで相手からボールを奪う。', 'Wins the ball back with sharp tackling.'),
+        PlayerTrait.shadowMarker => Tr.pick('高いマーキング能力で相手を封じ込める。',
+            'Shuts opponents out with excellent marking.'),
+        PlayerTrait.clinicalFinisher => Tr.pick('決定力の高さでチャンスを確実に決めきる。',
+            'Puts chances away with reliable finishing.'),
+        PlayerTrait.distanceShooter => Tr.pick('遠目からのシュートで違いを見せる。',
+            'Makes the difference with shots from distance.'),
+        PlayerTrait.aerialThreat => Tr.pick('高い制空力でセットプレーの脅威となる。',
+            'A threat at set pieces through dominance in the air.'),
+        PlayerTrait.showman => Tr.pick('閃きのあるプレーで観客を沸かせる。',
+            'Lifts the crowd with flashes of inspiration.'),
+        PlayerTrait.sureTouch => Tr.pick('正確なファーストタッチでプレーの精度を高める。',
+            'Raises the quality of everything with a clean first touch.'),
+        PlayerTrait.crossSpecialist => Tr.pick(
+            '精度の高いクロスでチャンスを演出する。', 'Creates chances with accurate crossing.'),
+        PlayerTrait.setPieceMaestro => Tr.pick('フリーキックの精度で得点機会を作る。',
+            'Manufactures chances with accurate free kicks.'),
+        PlayerTrait.clockwork => Tr.pick('鋭い予測でプレーの一歩先を読む。',
+            'Reads the game a step ahead through sharp anticipation.'),
+        PlayerTrait.decisiveMind => Tr.pick('高い判断力で最適なプレーを選択する。',
+            'Picks the right option through excellent decision-making.'),
+        PlayerTrait.teamPlayer =>
+          Tr.pick('高いチームワークでチームに貢献する。', 'Contributes through strong teamwork.'),
+        PlayerTrait.tirelessRunner => Tr.pick('豊富な運動量でピッチを走り回る。',
+            'Covers every blade of grass on a huge work rate.'),
+        PlayerTrait.explosiveStart => Tr.pick('鋭い加速力で相手を置き去りにする。',
+            'Leaves opponents behind with fierce acceleration.'),
+        PlayerTrait.fearlessDefender => Tr.pick('勇敢さを武器に体を張ったプレーを見せる。',
+            'Puts their body on the line through sheer bravery.'),
+        PlayerTrait.divineReflexes => Tr.pick('神がかった反応速度で、並みのシュートを寄せ付けない守護神。',
+            'Reflexes so quick that ordinary shots never trouble them.'),
+        PlayerTrait.awayDayHero => Tr.pick('アウェイでの大きな逆境ほど、燃え上がって真価を発揮する。',
+            'The more hostile the away ground, the more they come alive.'),
+        PlayerTrait.risingPhoenix => Tr.pick('苦境で意気消沈するどころか、そこから闘志を燃やして這い上がる。',
+            'Rather than sink in adversity, they fight their way back out of it.'),
+        PlayerTrait.veteranAce => Tr.pick('経験を積んだベテランが、大一番でこそその真価を見せつける。',
+            'A seasoned veteran who proves their worth when it matters most.'),
       };
 }
 
@@ -769,15 +885,18 @@ enum PlayerTraitCategory { technical, personality, talent }
 
 extension PlayerTraitCategoryInfo on PlayerTraitCategory {
   String get label => switch (this) {
-        PlayerTraitCategory.technical => '技術',
-        PlayerTraitCategory.personality => '性格',
-        PlayerTraitCategory.talent => '才能',
+        PlayerTraitCategory.technical => Tr.pick('技術', 'Technical'),
+        PlayerTraitCategory.personality => Tr.pick('性格', 'Personality'),
+        PlayerTraitCategory.talent => Tr.pick('才能', 'Natural'),
       };
 
   String get acquisitionHint => switch (this) {
-        PlayerTraitCategory.technical => '特訓(練習)で狙って身につけられる',
-        PlayerTraitCategory.personality => 'メンターや監督の声かけを通じて育っていく',
-        PlayerTraitCategory.talent => '生まれ持った資質。特訓では身につけられない',
+        PlayerTraitCategory.technical => Tr.pick('特訓(練習)で狙って身につけられる',
+            'Can be picked up deliberately through focused training.'),
+        PlayerTraitCategory.personality => Tr.pick('メンターや監督の声かけを通じて育っていく',
+            'Grows through mentoring and words from the manager.'),
+        PlayerTraitCategory.talent => Tr.pick('生まれ持った資質。特訓では身につけられない',
+            'Innate. Cannot be acquired through training.'),
       };
 }
 
@@ -854,15 +973,18 @@ enum PlayerGrowthType { early, balanced, late }
 
 extension PlayerGrowthTypeInfo on PlayerGrowthType {
   String get label => switch (this) {
-        PlayerGrowthType.early => '早熟',
-        PlayerGrowthType.balanced => '標準',
-        PlayerGrowthType.late => '大器晩成',
+        PlayerGrowthType.early => Tr.pick('早熟', 'Early Developer'),
+        PlayerGrowthType.balanced => Tr.pick('標準', 'Standard'),
+        PlayerGrowthType.late => Tr.pick('大器晩成', 'Late Bloomer'),
       };
 
   String get description => switch (this) {
-        PlayerGrowthType.early => '若いうちの伸びが早い一方、衰え始めるのも早い',
-        PlayerGrowthType.balanced => '年齢による伸び・衰えの標準的なカーブをたどる',
-        PlayerGrowthType.late => '若いうちの伸びは遅いが、その分長く成長し衰えも遅い',
+        PlayerGrowthType.early => Tr.pick('若いうちの伸びが早い一方、衰え始めるのも早い',
+            'Improves quickly when young, but starts to decline early too.'),
+        PlayerGrowthType.balanced => Tr.pick('年齢による伸び・衰えの標準的なカーブをたどる',
+            'Follows the standard curve of improvement and decline with age.'),
+        PlayerGrowthType.late => Tr.pick('若いうちの伸びは遅いが、その分長く成長し衰えも遅い',
+            'Slow to improve when young, but grows for longer and declines later.'),
       };
 }
 

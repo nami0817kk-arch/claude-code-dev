@@ -16,6 +16,7 @@ import 'season_award.dart';
 import 'season_record.dart';
 import 'sponsor.dart';
 import 'team.dart';
+import '../l10n/tr.dart';
 
 /// ゲーム難易度。ニューゲーム時に選択し、初期資金と理事会の目標順位の
 /// 厳しさに影響する(旧セーブには存在しないためnormalへフォールバック)。
@@ -23,15 +24,17 @@ enum GameDifficulty { easy, normal, hard }
 
 extension GameDifficultyInfo on GameDifficulty {
   String get label => switch (this) {
-        GameDifficulty.easy => 'イージー',
-        GameDifficulty.normal => 'ノーマル',
-        GameDifficulty.hard => 'ハード',
+        GameDifficulty.easy => Tr.pick('イージー', 'Easy'),
+        GameDifficulty.normal => Tr.pick('ノーマル', 'Normal'),
+        GameDifficulty.hard => Tr.pick('ハード', 'Hard'),
       };
 
   String get description => switch (this) {
-        GameDifficulty.easy => '初期資金1.5倍・理事会の目標が2つ緩い',
-        GameDifficulty.normal => '標準バランス',
-        GameDifficulty.hard => '初期資金0.6倍・理事会の目標が1つ厳しい',
+        GameDifficulty.easy => Tr.pick('初期資金1.5倍・理事会の目標が2つ緩い',
+            "1.5x starting funds, and the board's target is two places softer"),
+        GameDifficulty.normal => Tr.pick('標準バランス', 'The standard balance'),
+        GameDifficulty.hard => Tr.pick('初期資金0.6倍・理事会の目標が1つ厳しい',
+            "0.6x starting funds, and the board's target is one place harder"),
       };
 
   /// 初期資金に掛ける倍率。
@@ -55,6 +58,11 @@ class SaveGame {
   League league;
 
   /// 所属リーグの表示名(例: 「アルビオン・リーグ」)。
+  ///
+  /// これはセーブに保存される「データ」であってUIのラベルではないため、
+  /// 翻訳の対象にしない。実際の値はニューゲーム時にリーグテーマから決まり、
+  /// テーマ名自体が表示言語に応じて英語になる。既定値の'リーグ'は、この
+  /// フィールドが存在しなかった頃の古いセーブを読むときのフォールバック。
   String leagueName;
 
   /// クラブ資金（万円）

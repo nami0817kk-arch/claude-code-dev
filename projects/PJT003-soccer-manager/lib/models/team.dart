@@ -3,6 +3,7 @@ import 'formation.dart';
 import 'player.dart';
 import 'tactic_preset.dart';
 import 'training_focus.dart';
+import '../l10n/tr.dart';
 
 /// 保存できる戦術プリセットの上限数。
 const int maxTacticPresets = 5;
@@ -20,19 +21,24 @@ enum TeamMentality {
 
 extension TeamMentalityInfo on TeamMentality {
   String get label => switch (this) {
-        TeamMentality.veryDefensive => '超守備的',
-        TeamMentality.defensive => '守備的',
-        TeamMentality.balanced => 'バランス',
-        TeamMentality.attacking => '攻撃的',
-        TeamMentality.veryAttacking => '超攻撃的',
+        TeamMentality.veryDefensive => Tr.pick('超守備的', 'Very Defensive'),
+        TeamMentality.defensive => Tr.pick('守備的', 'Defensive'),
+        TeamMentality.balanced => Tr.pick('バランス', 'Balance'),
+        TeamMentality.attacking => Tr.pick('攻撃的', 'Attacking'),
+        TeamMentality.veryAttacking => Tr.pick('超攻撃的', 'Very Attacking'),
       };
 
   String get description => switch (this) {
-        TeamMentality.veryDefensive => '守備を最優先。攻撃力-12% / 守備力+10%',
-        TeamMentality.defensive => 'やや守備寄り。攻撃力-6% / 守備力+5%',
-        TeamMentality.balanced => '攻守のバランスを取る標準の姿勢',
-        TeamMentality.attacking => 'やや攻撃寄り。攻撃力+6% / 守備力-5%',
-        TeamMentality.veryAttacking => '攻撃に全振り。攻撃力+12% / 守備力-10%',
+        TeamMentality.veryDefensive => Tr.pick('守備を最優先。攻撃力-12% / 守備力+10%',
+            'Defence above all. Attack -12% / Defence +10%'),
+        TeamMentality.defensive => Tr.pick('やや守備寄り。攻撃力-6% / 守備力+5%',
+            'Slightly cautious. Attack -6% / Defence +5%'),
+        TeamMentality.balanced => Tr.pick('攻守のバランスを取る標準の姿勢',
+            'The balanced default, weighing attack against defence'),
+        TeamMentality.attacking => Tr.pick('やや攻撃寄り。攻撃力+6% / 守備力-5%',
+            'Slightly positive. Attack +6% / Defence -5%'),
+        TeamMentality.veryAttacking => Tr.pick('攻撃に全振り。攻撃力+12% / 守備力-10%',
+            'Everything forward. Attack +12% / Defence -10%'),
       };
 
   double get attackFactor => switch (this) {
@@ -66,21 +72,27 @@ enum TacticalStyle {
 
 extension TacticalStyleInfo on TacticalStyle {
   String get label => switch (this) {
-        TacticalStyle.flexible => '柔軟',
-        TacticalStyle.possession => 'ポゼッション',
-        TacticalStyle.gegenpress => 'ゲーゲンプレス',
-        TacticalStyle.counter => 'カウンター',
-        TacticalStyle.longBall => 'ロングボール',
-        TacticalStyle.wingPlay => 'ウイングプレー',
+        TacticalStyle.flexible => Tr.pick('柔軟', 'Flexible'),
+        TacticalStyle.possession => Tr.pick('ポゼッション', 'Possession'),
+        TacticalStyle.gegenpress => Tr.pick('ゲーゲンプレス', 'Gegenpress'),
+        TacticalStyle.counter => Tr.pick('カウンター', 'Counter Attack'),
+        TacticalStyle.longBall => Tr.pick('ロングボール', 'Direct'),
+        TacticalStyle.wingPlay => Tr.pick('ウイングプレー', 'Wing Play'),
       };
 
   String get description => switch (this) {
-        TacticalStyle.flexible => '型を決めず相手に合わせる。補正も弱点もない中立スタイル',
-        TacticalStyle.possession => 'ボールを保持して主導権を握る。パス・テクニック・視野が生命線',
-        TacticalStyle.gegenpress => '失った瞬間に前から奪い返す。労働量・スタミナ・積極性が必要',
-        TacticalStyle.counter => '受けて裏の一撃で仕留める。スピード・オフザボール・予測が武器',
-        TacticalStyle.longBall => '長いボールで最前線へ届ける。ヘディング・強さ・ジャンプ力が土台',
-        TacticalStyle.wingPlay => 'サイドを起点に崩す。クロス・ドリブル・スピードで勝負',
+        TacticalStyle.flexible => Tr.pick('型を決めず相手に合わせる。補正も弱点もない中立スタイル',
+            'No fixed shape; you adapt to the opponent. A neutral style with neither bonus nor weakness.'),
+        TacticalStyle.possession => Tr.pick('ボールを保持して主導権を握る。パス・テクニック・視野が生命線',
+            'Keep the ball and dictate. Passing, technique and vision are everything.'),
+        TacticalStyle.gegenpress => Tr.pick('失った瞬間に前から奪い返す。労働量・スタミナ・積極性が必要',
+            'Win it back the moment you lose it. Demands work rate, stamina and aggression.'),
+        TacticalStyle.counter => Tr.pick('受けて裏の一撃で仕留める。スピード・オフザボール・予測が武器',
+            'Absorb, then kill on the break. Pace, movement off the ball and anticipation are the weapons.'),
+        TacticalStyle.longBall => Tr.pick('長いボールで最前線へ届ける。ヘディング・強さ・ジャンプ力が土台',
+            'Long balls to the front line. Built on heading, strength and jumping reach.'),
+        TacticalStyle.wingPlay => Tr.pick('サイドを起点に崩す。クロス・ドリブル・スピードで勝負',
+            'Break them down from wide. Crossing, dribbling and pace decide it.'),
       };
 }
 
