@@ -102,6 +102,15 @@ flutter:
           weight: 400
         - asset: assets/fonts/ShipporiMincho-SemiBold.ttf
           weight: 600
+    # 本文用のゴシック体も同梱する。同梱しないと Flutter Web が
+    # 不足した字形を fonts.gstatic.com から取りに行くため、Web版だけ
+    # 通信が残ってしまう (詳細は assets/fonts/README.md)。
+    - family: NotoSansJP
+      fonts:
+        - asset: assets/fonts/NotoSansJP-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/NotoSansJP-Bold.ttf
+          weight: 700
 
   # To add assets to your application, add an assets section, like this:
   # assets:

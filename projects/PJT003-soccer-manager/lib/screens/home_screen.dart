@@ -1429,7 +1429,7 @@ class _ThisWeekCard extends StatelessWidget {
       final derby = gameState.isRivalFixture(next!);
       matchLine =
           '第${next!.matchday}節 ${isHome ? '(H)' : '(A)'} vs ${opponent.name}'
-          '${derby ? ' ⚡ダービー' : ''}';
+          '${derby ? ' ・ダービー' : ''}';
     }
 
     return Card(

@@ -44,6 +44,9 @@ class SoccerManagerApp extends StatelessWidget {
   /// アセットとして同梱しているので、表示にあたって外部への通信は発生しない。
   static const String _serifFamily = 'ShipporiMincho';
 
+  /// 本文用のゴシック体。こちらも同梱している。
+  static const String _sansFamily = 'NotoSansJP';
+
   /// 大見出しなど「たまにしか出てこない大きな文字」だけ明朝体にする。
   /// titleMedium/titleSmallはListTileの標準スタイルとして選手名などの
   /// 一覧行にも使われるため対象外(可読性優先で本文用ゴシック体のまま)。
@@ -82,6 +85,11 @@ class SoccerManagerApp extends StatelessWidget {
       colorScheme: scheme,
       useMaterial3: true,
       brightness: brightness,
+      // 本文も同梱フォントで描く。端末の標準フォント任せにすると、
+      // Flutter Web が不足した字形を Google から取りに行ってしまい、
+      // Web版だけ外部通信が残る。同梱すれば通信が消え、
+      // iOS/Android/Web で見た目も揃う。
+      fontFamily: _sansFamily,
     );
     var textTheme = _withSerifHeadlines(base.textTheme);
     if (boldText) textTheme = _bolden(textTheme);

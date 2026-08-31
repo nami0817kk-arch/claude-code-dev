@@ -28,7 +28,7 @@ class WeatherBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(weather.emoji, style: const TextStyle(fontSize: 12)),
+          Icon(weather.icon, size: 13, color: color),
           const SizedBox(width: 4),
           Text(
             weather.label,

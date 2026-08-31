@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>サッカー経営マネージャー — 下部リーグから頂点へ</title>
+<meta name="description" content="5部リーグの弱小クラブを率いて頂点を目指す、本格サッカークラブ経営シミュレーション。広告なし・課金なし・通信なし。ブラウザですぐ遊べます。">
+<meta property="og:title" content="サッカー経営マネージャー">
+<meta property="og:description" content="5部リーグの弱小クラブを率いて頂点へ。育成・移籍・戦術・経営。広告なし・課金なし・通信なし。">
+<meta property="og:type" content="website">
+<meta property="og:image" content="shots/06_live_match.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root {
+    --navy: #16233d;
+    --navy-deep: #0d1626;
+    --gold: #b99248;
+    --bg: #fbfaf6;
+    --fg: #16233d;
+    --muted: #5b6478;
+    --card: #ffffff;
+    --line: #e3e0d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1626;
+      --fg: #eceaf2;
+      --muted: #a2aabb;
+      --card: #16233d;
+      --line: #2a3854;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+    line-height: 1.75;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px; }
+  header { text-align: center; padding: 72px 20px 48px; }
+  h1 {
+    font-family: "Hiragino Mincho ProN", "Shippori Mincho", serif;
+    font-size: clamp(28px, 6vw, 44px);
+    margin: 0 0 8px;
+    letter-spacing: 0.04em;
+  }
+  .tagline { color: var(--muted); margin: 0 0 32px; font-size: clamp(15px, 3vw, 18px); }
+  .cta {
+    display: inline-block;
+    background: var(--navy);
+    color: #fff;
+    padding: 16px 40px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 17px;
+    border: 2px solid var(--gold);
+  }
+  @media (prefers-color-scheme: dark) { .cta { background: var(--gold); color: var(--navy-deep); } }
+  .cta:hover { opacity: .9; }
+  .note { color: var(--muted); font-size: 13px; margin-top: 12px; }
+
+  section { padding: 48px 0; border-top: 1px solid var(--line); }
+  h2 {
+    font-family: "Hiragino Mincho ProN", "Shippori Mincho", serif;
+    font-size: clamp(20px, 4vw, 26px);
+    margin: 0 0 24px;
+  }
+  .features { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .feature { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .feature h3 { margin: 0 0 6px; font-size: 16px; }
+  .feature p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  .shots { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .shots figure { margin: 0; }
+  .shots img {
+    width: 100%; height: auto; display: block;
+    border-radius: 12px; border: 1px solid var(--line);
+  }
+  .shots figcaption { color: var(--muted); font-size: 13px; margin-top: 8px; text-align: center; }
+
+  ul.plain { padding-left: 1.2em; color: var(--muted); }
+  ul.plain li { margin-bottom: 6px; }
+  footer { padding: 40px 0 64px; color: var(--muted); font-size: 13px; text-align: center; }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>サッカー経営マネージャー</h1>
+    <p class="tagline">5部リーグの弱小クラブを率いて、頂点へ。</p>
+    <a class="cta" href="../">ブラウザで遊ぶ（無料）</a>
+    <p class="note">インストール不要・アカウント不要・広告なし・課金なし</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section>
+    <h2>試合は、見るだけでは終わらない</h2>
+    <div class="shots">
+      <figure>
+        <img src="shots/06_live_match.png" alt="決定機の判断ダイアログ。対峙する2人の能力値と、選択肢ごとの成功率が表示されている">
+        <figcaption>決定機のたびに、あなたが決める</figcaption>
+      </figure>
+      <figure>
+        <img src="shots/02_home.png" alt="クラブのホーム画面。順位・資金・信頼度などが並ぶダッシュボード">
+        <figcaption>クラブの今が一目で分かる</figcaption>
+      </figure>
+    </div>
+    <p style="color:var(--muted)">
+      シュートか、パスか。守備では積極的に奪いにいくか、カバーに徹するか。
+      成功率はその場で対峙する2人の能力値から計算され、画面に「誰と誰の勝負か」が出ます。
+      結果を眺めるだけのシミュレーションではありません。
+    </p>
+  </section>
+
+  <section>
+    <h2>選手は、数字の塊ではない</h2>
+    <div class="features">
+      <div class="feature">
+        <h3>42の能力値</h3>
+        <p>決定力・タックル・冷静さ・闘志まで。すべてが試合と育成のどこかで実際に効きます。</p>
+      </div>
+      <div class="feature">
+        <h3>54種類の特性</h3>
+        <p>大舞台に強い、レジェンド肌、終盤に伸びる。特性は試合中の挙動を変えます。</p>
+      </div>
+      <div class="feature">
+        <h3>20種類の性格</h3>
+        <p>性格は成長効率、ベンチへの不満、移籍希望の出やすさに影響します。</p>
+      </div>
+      <div class="feature">
+        <h3>成長タイプ</h3>
+        <p>早熟・標準・大器晩成。誰をいつ我慢して使うかが、数年後に効いてきます。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>クラブを、経営する</h2>
+    <div class="shots">
+      <figure>
+        <img src="shots/03_squad.png" alt="スカッド画面。選手ごとの能力・疲労・実戦感覚・契約年数が並ぶ">
+        <figcaption>スカッド管理</figcaption>
+      </figure>
+      <figure>
+        <img src="shots/04_tactics.png" alt="戦術画面">
+        <figcaption>戦術</figcaption>
+      </figure>
+      <figure>
+        <img src="shots/05_standings.png" alt="リーグ順位表">
+        <figcaption>順位表</figcaption>
+      </figure>
+    </div>
+    <ul class="plain">
+      <li>5部から1部までの昇降格。国内カップ・大陸カップ・スーパーカップ</li>
+      <li>移籍市場、値切り交渉、ローン移籍、フリーエージェント</li>
+      <li>スタジアム拡張、スタッフ雇用、スポンサー契約、銀行融資</li>
+      <li>ユースアカデミー、武者修行、育成プラン</li>
+      <li>理事会の目標と信頼度。応えられなければ解任されます</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>作り手からの、正直な話</h2>
+    <ul class="plain">
+      <li><strong>実在のクラブ・選手は登場しません。</strong>ライセンスの都合です。クラブ名・選手名はすべて架空のものです。</li>
+      <li><strong>日本語のみです。</strong></li>
+      <li><strong>個人開発です。</strong>粗いところは残っていると思います。不具合や感想をもらえると助かります。</li>
+      <li><strong>収集する情報はありません。</strong>セーブデータは端末の中だけに保存され、どこにも送信されません。</li>
+    </ul>
+  </section>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    <p>
+      <a href="../legal/privacy.html">プライバシーポリシー</a> ・
+      <a href="../legal/terms.html">利用規約</a> ・
+      <a href="https://github.com/nami0817kk-arch/claude-code-dev/issues">不具合・ご意見</a>
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 /// 試合当日の天候。攻守のパフォーマンスやチャンスの数、疲労蓄積に影響する。
 enum Weather { clear, rain, wind, heatwave, snow }
 
@@ -10,12 +12,15 @@ extension WeatherEffects on Weather {
         Weather.snow => '雪',
       };
 
-  String get emoji => switch (this) {
-        Weather.clear => '☀️',
-        Weather.rain => '🌧️',
-        Weather.wind => '💨',
-        Weather.heatwave => '🥵',
-        Weather.snow => '❄️',
+  /// 天候アイコン。絵文字ではなく Material アイコンを使う。
+  /// 絵文字はアプリが同梱しているフォントに収録が無く、Web版では
+  /// 端末に頼れないため豆腐(□)になってしまう。
+  IconData get icon => switch (this) {
+        Weather.clear => Icons.wb_sunny,
+        Weather.rain => Icons.umbrella,
+        Weather.wind => Icons.air,
+        Weather.heatwave => Icons.thermostat,
+        Weather.snow => Icons.ac_unit,
       };
 
   /// 攻撃力への倍率。悪天候ほどボールコントロール・シュート精度が落ちる。

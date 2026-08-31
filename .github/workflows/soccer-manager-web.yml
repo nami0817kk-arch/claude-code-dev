@@ -48,6 +48,11 @@ jobs:
           mkdir -p dist/soccer-manager/legal
           cp -r projects/PJT003-soccer-manager/build/web/* dist/soccer-manager/
           cp projects/PJT003-soccer-manager/legal/*.html dist/soccer-manager/legal/
+          # 紹介ページ。コミュニティやSNSからのリンク先として、
+          # アプリ本体より先に「どんなゲームか」を見せるために置く。
+          mkdir -p dist/soccer-manager/lp/shots
+          cp projects/PJT003-soccer-manager/marketing/landing/index.html dist/soccer-manager/lp/
+          cp projects/PJT003-soccer-manager/marketing/screenshots/*.png dist/soccer-manager/lp/shots/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
