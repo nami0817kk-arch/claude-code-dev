@@ -13,9 +13,9 @@
 | 対象年齢 | 全年齢（暴力表現・実写、ギャンブル要素なし。クラブ経営の「融資」「スポンサー契約」はすべて架空のゲーム内通貨） |
 | 価格モデル | 買い切り（アプリ内課金・広告なし） |
 | 対応言語 | 日本語 |
-| プライバシーポリシー | https://nami0817kk-arch.github.io/kabu-agari-ranking/legal/privacy.html |
-| 利用規約 | https://nami0817kk-arch.github.io/kabu-agari-ranking/legal/terms.html |
-| サポート窓口 | https://github.com/nami0817kk-arch/kabu-agari-ranking/issues |
+| プライバシーポリシー | https://nami0817kk-arch.github.io/claude-code-dev/soccer-manager/legal/privacy.html |
+| 利用規約 | https://nami0817kk-arch.github.io/claude-code-dev/soccer-manager/legal/terms.html |
+| サポート窓口 | https://github.com/nami0817kk-arch/claude-code-dev/issues |
 
 ## 短い説明文（Google Play「簡単な説明」80字以内 目安）
 
@@ -79,3 +79,51 @@
   Reviewer向けメモ（App Store Connect の「レビュー用メモ」欄等）に明記すると良い。
 - Web版（GitHub Pages、`.github/workflows/soccer-manager-web.yml`）は無料の試遊版として
   引き続き公開する想定。ストア版と機能差分が出た場合はこのドキュメントを更新する。
+
+## 申請チェックリスト
+
+ビルドと鍵の作り方は [`docs/RELEASE_GUIDE.md`](docs/RELEASE_GUIDE.md) を参照。
+ここは「ストアの画面で何を埋めるか」のチェックリスト。
+
+### 共通（提出前）
+
+- [ ] 上記のプライバシーポリシーURL・利用規約URLをブラウザで開いて表示を確認する
+      （Web版のデプロイが一度も走っていないと404になる）
+- [ ] `pubspec.yaml` の `version:` を今回の提出内容に合わせて更新した
+- [ ] スクリーンショットを撮影した（下記「スクリーンショット方針」の6画面）
+- [ ] 実機で一度リリースビルドを起動し、初回起動〜ニューゲーム〜1試合消化まで通した
+
+### Google Play
+
+- [ ] アプリ署名（Play App Signing）を有効にした
+- [ ] AAB をアップロードした（APK ではなく AAB）
+- [ ] データセーフティ フォームを「データを収集しない」で提出した
+      （外部通信・アカウント登録・広告・IAP がいずれも無いため）
+- [ ] コンテンツのレーティング アンケートに回答した
+- [ ] ターゲット層と広告の申告で「広告なし」を選んだ
+- [ ] プライバシーポリシーURLを登録した（必須。未入力だと公開できない）
+- [ ] クローズドテスト（テスター20人・14日間）を開始した
+      ※個人開発者アカウントの新規登録では製品版公開の前提条件
+- [ ] 短い説明（80字以内）・詳しい説明を上記の文面から転記した
+- [ ] アプリアイコン（512×512）・フィーチャーグラフィック（1024×500）を用意した
+
+### App Store
+
+- [ ] App Store Connect でアプリレコードを作成した
+      （バンドルID `com.kabuagari.soccerManager`）
+- [ ] IPA をアップロードし、TestFlight にビルドが出たことを確認した
+- [ ] App プライバシーを「データを収集しません」で回答した
+- [ ] 年齢制限レーティングのアンケートに回答した
+- [ ] サポートURL・マーケティングURLを登録した
+- [ ] キーワード（100字以内）を上記から転記した
+- [ ] レビュー用メモに、ゲーム内の「融資」「スポンサー契約」が実際の金銭を
+      伴わない架空のゲーム内経済である旨を記載した
+- [ ] 輸出コンプライアンスの申告が求められないことを確認した
+      （`Info.plist` の `ITSAppUsesNonExemptEncryption=false` で自動回答される）
+
+### 注意
+
+- Android の applicationId は `com.kabuagari.soccer_manager`、
+  iOS のバンドルIDは `com.kabuagari.soccerManager` で**意図的に異なる**。
+  iOS のバンドルIDはアンダースコアを使えないため。一致させる必要はない。
+- どちらのIDも**公開後は変更できない**。初回提出前に確定させること。
