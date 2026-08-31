@@ -65,6 +65,7 @@ import '../logic/transfer_market.dart';
 import '../logic/weather_engine.dart';
 import '../logic/youth_match_engine.dart';
 import '../data/name_pool.dart';
+import '../models/first_run_step.dart';
 
 const int maxSquadSize = 26;
 
@@ -629,6 +630,29 @@ class GameState extends ChangeNotifier {
     notifyListeners();
     await _persist();
     return true;
+  }
+
+  /// 初回ガイドのステップを踏んだことを記録する。
+  ///
+  /// 画面を開いた側から呼ぶ。既に記録済みなら何もしないので、
+  /// build のたびに呼ばれても保存が走り続けることはない。
+  void markFirstRunStep(FirstRunStep step) {
+    final save = _save;
+    if (save == null) return;
+    if (save.firstRunStepsSeen.contains(step.name)) return;
+    save.firstRunStepsSeen.add(step.name);
+    notifyListeners();
+    _persist();
+  }
+
+  /// 初回ガイドを閉じる。以後このセーブでは表示しない。
+  void dismissFirstRunGuide() {
+    final save = _save;
+    if (save == null) return;
+    if (save.firstRunGuideDismissed) return;
+    save.firstRunGuideDismissed = true;
+    notifyListeners();
+    _persist();
   }
 
   /// チーム既定のトレーニング方針を設定する（個別方針未設定の選手に適用される）。

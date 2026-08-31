@@ -88,6 +88,13 @@ class SaveGame {
   /// (自クラブ以外の選手も含む、閲覧専用のウォッチリスト)。
   List<String> watchlistPlayerIds;
 
+  /// 初回ガイドで既に開いた画面のステップ名(FirstRunStep.name)。
+  /// 試合数や成長のように既存のカウンタから判定できるものは記録しない。
+  List<String> firstRunStepsSeen;
+
+  /// 初回ガイドを本人が閉じたか。閉じたら二度と出さない。
+  bool firstRunGuideDismissed;
+
   /// 現在のチケット価格戦略(観客動員率と1人あたり収入のトレードオフ)。
   TicketPricing ticketPricing;
 
@@ -249,6 +256,8 @@ class SaveGame {
     List<Player>? transferMarketPlayers,
     List<Player>? pendingYouthIntake,
     List<String>? watchlistPlayerIds,
+    List<String>? firstRunStepsSeen,
+    this.firstRunGuideDismissed = false,
     this.ticketPricing = TicketPricing.standard,
     ClubInfrastructure? infrastructure,
     List<Cup>? cups,
@@ -311,6 +320,7 @@ class SaveGame {
         transferMarketPlayers = transferMarketPlayers ?? [],
         pendingYouthIntake = pendingYouthIntake ?? [],
         watchlistPlayerIds = watchlistPlayerIds ?? [],
+        firstRunStepsSeen = firstRunStepsSeen ?? [],
         infrastructure = infrastructure ?? ClubInfrastructure(),
         cups = cups ?? [],
         continentalTeams = continentalTeams ?? [],
@@ -349,6 +359,8 @@ class SaveGame {
         'pendingYouthIntake':
             pendingYouthIntake.map((p) => p.toJson()).toList(),
         'watchlistPlayerIds': watchlistPlayerIds,
+        'firstRunStepsSeen': firstRunStepsSeen,
+        'firstRunGuideDismissed': firstRunGuideDismissed,
         'ticketPricing': ticketPricing.name,
         'infrastructure': infrastructure.toJson(),
         'cups': cups.map((c) => c.toJson()).toList(),
@@ -429,6 +441,14 @@ class SaveGame {
                 ?.map((e) => e as String)
                 .toList() ??
             [],
+        firstRunStepsSeen: (json['firstRunStepsSeen'] as List?)
+                ?.map((e) => e as String)
+                .toList() ??
+            [],
+        // 旧セーブには存在しない。既に遊んでいる人にいまさらガイドを
+        // 出すのは邪魔なので、試合をこなしていれば出ない導出側に任せる。
+        firstRunGuideDismissed:
+            json['firstRunGuideDismissed'] as bool? ?? false,
         ticketPricing: enumFromName(
           TicketPricing.values,
           json['ticketPricing'] as String?,

@@ -17,6 +17,7 @@ import '../widgets/achievement_unlock_notifier.dart';
 import '../widgets/busy_overlay.dart';
 import '../widgets/club_emblem.dart';
 import '../widgets/match_widgets.dart';
+import '../widgets/first_run_guide_card.dart';
 import '../widgets/quick_access_drawer.dart';
 import '../widgets/responsive_body.dart';
 import 'calendar_screen.dart';
@@ -77,6 +78,9 @@ class HomeScreen extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              // 初見の人を週次サイクルに一周させるガイド。
+              // 4ステップ終えるか閉じられると自動的に消える。
+              const FirstRunGuideCard(),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
