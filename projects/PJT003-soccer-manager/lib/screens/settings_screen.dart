@@ -4,6 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../l10n/tr.dart';
 import '../state/game_state.dart';
 import '../state/settings_controller.dart';
 import '../widgets/quick_access_drawer.dart';
@@ -35,7 +36,33 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('表示', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            Tr.pick('言語', 'Language'),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: Column(
+              children: [
+                for (final option in AppLanguage.values)
+                  ListTile(
+                    title: Text(option.label),
+                    trailing: option == settings.language
+                        ? Icon(
+                            Icons.check,
+                            color: Theme.of(context).colorScheme.primary,
+                          )
+                        : null,
+                    onTap: () => settings.setLanguage(option),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            Tr.pick('表示', 'Display'),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           Card(
             child: Column(

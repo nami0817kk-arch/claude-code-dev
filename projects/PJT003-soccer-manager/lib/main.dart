@@ -175,8 +175,14 @@ class SoccerManagerApp extends StatelessWidget {
         builder: (context, settings, _) {
           FeedbackService.attach(settings);
           return MaterialApp(
-            // 端末の言語が英語なら英語で、それ以外は日本語で表示する。
+            // 既定は端末の言語に従い、設定画面で日本語/英語に固定もできる。
             // 日本語が原本で、英語はその翻訳 (l10n.yaml を参照)。
+            //
+            // localeにnullを渡すと端末準拠になる。ウィジェット外で使う `Tr` も
+            // 同じ判定をしているので、両者の表示言語は常に一致する。
+            locale: settings.localeCode == null
+                ? null
+                : Locale(settings.localeCode!),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
