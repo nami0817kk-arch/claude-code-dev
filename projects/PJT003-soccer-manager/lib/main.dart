@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'l10n/app_localizations.dart';
+import 'l10n/tr.dart';
 import 'monetization/monetization_controller.dart';
 import 'package:provider/provider.dart';
 
@@ -55,8 +56,7 @@ class SoccerManagerApp extends StatelessWidget {
   /// 一覧行にも使われるため対象外(可読性優先で本文用ゴシック体のまま)。
   /// headlineMediumは試合スコアの数字表示に使われるため同様に対象外。
   TextTheme _withSerifHeadlines(TextTheme t) {
-    TextStyle? serif(TextStyle? s) =>
-        s?.copyWith(fontFamily: _serifFamily);
+    TextStyle? serif(TextStyle? s) => s?.copyWith(fontFamily: _serifFamily);
     return t.copyWith(
       displayLarge: serif(t.displayLarge),
       displayMedium: serif(t.displayMedium),
@@ -185,7 +185,8 @@ class SoccerManagerApp extends StatelessWidget {
                 : Locale(settings.localeCode!),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
-            onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
+            onGenerateTitle: (context) =>
+                AppLocalizations.of(context)!.appTitle,
             theme: _buildTheme(
               Brightness.light,
               boldText: settings.boldTextMode,
@@ -196,6 +197,12 @@ class SoccerManagerApp extends StatelessWidget {
             ),
             themeMode: settings.themeMode,
             builder: (context, child) {
+              // ウィジェット外で使う Tr を、Flutter が実際に解決したロケールに
+              // 合わせる。PlatformDispatcher を直接読むと、テストや
+              // localeResolutionCallback の結果と食い違い、ARB(日本語)と
+              // Tr(英語)が同じ画面に混在することがある。
+              Tr.resolvedLocaleIsEnglish =
+                  Localizations.localeOf(context).languageCode == 'en';
               final mediaQuery = MediaQuery.of(context);
               return MediaQuery(
                 data: mediaQuery.copyWith(

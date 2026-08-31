@@ -4,6 +4,7 @@ import 'package:soccer_manager/l10n/tr.dart';
 void main() {
   tearDown(() {
     Tr.language = AppLanguage.system;
+    Tr.resolvedLocaleIsEnglish = null;
     Tr.deviceIsEnglish = () => false;
   });
 

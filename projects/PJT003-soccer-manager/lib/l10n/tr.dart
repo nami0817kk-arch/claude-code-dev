@@ -29,10 +29,23 @@ class Tr {
   /// 現在の設定値。`SettingsController` から設定され、既定は端末準拠。
   static AppLanguage language = AppLanguage.system;
 
+  /// Flutter が実際に解決したロケールが英語かどうか。`main.dart` がビルドの
+  /// たびに書き込む。
+  ///
+  /// PlatformDispatcher を直接読むだけでは足りない。テストの
+  /// `localesTestValue` や `localeResolutionCallback` の結果は
+  /// PlatformDispatcher.instance に反映されないため、ARB(AppLocalizations)が
+  /// 日本語を返しているのに Tr が英語を返す、という食い違いが起きる。
+  /// 値(boolean)で持つのは、context を掴んだクロージャを保持すると
+  /// ウィジェット破棄後に「deactivated widget の祖先を参照した」で落ちるため。
+  static bool? resolvedLocaleIsEnglish;
+
   /// 端末のロケールを英語とみなすか。テストから差し替えられるようにしてある。
   static bool Function() deviceIsEnglish = _deviceIsEnglish;
 
   static bool _deviceIsEnglish() {
+    final resolved = resolvedLocaleIsEnglish;
+    if (resolved != null) return resolved;
     final locale = PlatformDispatcher.instance.locale;
     return locale.languageCode.toLowerCase() == 'en';
   }
