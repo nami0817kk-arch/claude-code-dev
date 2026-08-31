@@ -1,0 +1,140 @@
+# Google Play 提出用の Android リリースビルド。
+#
+# 手動実行 (workflow_dispatch) か、soccer-manager-v* タグの push で走る。
+# 署名鍵は GitHub Secrets から復元するため、リポジトリには一切含まれない。
+# 必要な Secrets と鍵の作り方は docs/RELEASE_GUIDE.md を参照。
+name: Build Soccer Manager (Android Release)
+
+on:
+  push:
+    tags:
+      - "soccer-manager-v*"
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: "versionCode の上書き (空なら pubspec.yaml の +N を使う)。Play は同じ versionCode を二度受け付けないので、再提出時はここを増やす"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projects/PJT003-soccer-manager
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
+
+      # 鍵が揃っていない状態で走らせると、debug 署名の AAB が
+      # 出来上がって Play に弾かれるまで気付けない。先に落とす。
+      - name: Verify signing secrets are present
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          missing=""
+          [ -n "$KEYSTORE_BASE64" ] || missing="$missing ANDROID_KEYSTORE_BASE64"
+          [ -n "$STORE_PASSWORD" ]  || missing="$missing ANDROID_KEYSTORE_PASSWORD"
+          [ -n "$KEY_PASSWORD" ]    || missing="$missing ANDROID_KEY_PASSWORD"
+          [ -n "$KEY_ALIAS" ]       || missing="$missing ANDROID_KEY_ALIAS"
+          if [ -n "$missing" ]; then
+            echo "::error::次の GitHub Secrets が未設定です:$missing"
+            echo "::error::登録手順は docs/RELEASE_GUIDE.md の「GitHub Secrets の登録」を参照してください。"
+            exit 1
+          fi
+
+      - name: Restore keystore from secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          KEYSTORE_PATH="$PWD/android/upload-keystore.jks"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          # key.properties 自体は build.gradle が rootProject (= android/) から読む。
+          # 一方 storeFile の file() は app/build.gradle の中で評価されるため
+          # android/app/ 基準の相対パスになってしまう。取り違えを避けるため
+          # storeFile は絶対パスで書く。
+          cat > android/key.properties <<EOF
+          storeFile=$KEYSTORE_PATH
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+          echo "keystore を復元しました ($(wc -c < "$KEYSTORE_PATH") bytes)"
+
+      - name: Build AAB (Google Play 提出用)
+        run: |
+          set -euo pipefail
+          EXTRA=""
+          if [ -n "${{ github.event.inputs.build_number }}" ]; then
+            EXTRA="--build-number=${{ github.event.inputs.build_number }}"
+          fi
+          flutter build appbundle --release $EXTRA
+
+      - name: Build APK (実機での動作確認用)
+        run: |
+          set -euo pipefail
+          EXTRA=""
+          if [ -n "${{ github.event.inputs.build_number }}" ]; then
+            EXTRA="--build-number=${{ github.event.inputs.build_number }}"
+          fi
+          flutter build apk --release $EXTRA
+
+      # デバッグ鍵で署名された成果物を誤って提出しないための最終確認。
+      # デバッグ鍵は必ず CN=Android Debug になる。
+      - name: Assert the artifact is not debug-signed
+        run: |
+          set -euo pipefail
+          AAB=build/app/outputs/bundle/release/app-release.aab
+          CERT=$(keytool -printcert -jarfile "$AAB")
+          echo "$CERT"
+          # keytool が何も出さなかった場合、判定できていないだけなので通してはいけない。
+          if [ -z "$CERT" ]; then
+            echo "::error::AAB の署名証明書を読み取れませんでした。署名されていない可能性があります。"
+            exit 1
+          fi
+          if echo "$CERT" | grep -q "Android Debug"; then
+            echo "::error::AAB がデバッグ鍵で署名されています。key.properties が読まれていません。"
+            exit 1
+          fi
+
+      - name: Remove signing material from the runner
+        if: always()
+        run: rm -f android/key.properties android/upload-keystore.jks
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: soccer-manager-android
+          path: |
+            projects/PJT003-soccer-manager/build/app/outputs/bundle/release/app-release.aab
+            projects/PJT003-soccer-manager/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14

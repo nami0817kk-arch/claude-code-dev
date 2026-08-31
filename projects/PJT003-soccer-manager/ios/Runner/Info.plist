@@ -10,7 +10,12 @@
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-		<key>CFBundleInfoDictionaryVersion</key>
+		<!-- 本アプリは OS 標準の HTTPS 以外に暗号化を使わないため、輸出コンプライアンス上の
+	     申告対象外。宣言しておかないと App Store Connect へのアップロードのたびに
+	     手動での回答を求められ、TestFlight への配信が止まる。 -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
 		<key>CFBundleName</key>
 		<string>サカマネ</string>
