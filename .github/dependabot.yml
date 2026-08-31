@@ -13,10 +13,3 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 3
-
-  - package-ecosystem: pub
-    directory: "/projects/PJT003-soccer-manager"
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 3
