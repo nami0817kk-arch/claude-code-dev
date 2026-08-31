@@ -49,8 +49,10 @@ def fetch_fear_greed() -> tuple[int | None, str]:
         }
         label = label_map.get(data["data"][0]["value_classification"], data["data"][0]["value_classification"])
         return score, label
-    except Exception:
-        pass
+    except Exception as e:
+        # 取れなくても後続のフォールバックで続行できるが、
+        # 黙って「取得失敗」に落ちると原因が分からなくなる。
+        print(f"  [WARN] Fear & Greed 指数の取得に失敗しました: {e}")
 
     # 方法2: VIX から推定（フォールバック）
     return None, "取得失敗"

@@ -1,0 +1,22 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: pip
+    directory: "/projects/PJT001-stock-investment"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: pub
+    directory: "/projects/PJT003-soccer-manager"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3

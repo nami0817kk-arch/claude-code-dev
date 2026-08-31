@@ -177,7 +177,10 @@ def fetch_news(ticker: str, max_items: int = 10) -> list[dict]:
                 })
                 if len(items) >= max_items:
                     break
-        except Exception:
+        except Exception as e:
+            # 1つのフィードが落ちても他は読み続ける。ただしどのフィードが
+            # 取れなかったのかは残す（無言だと記事が減った理由が追えない）。
+            print(f"  [WARN] フィードの取得・解析に失敗しました: {e}")
             continue
 
     return items

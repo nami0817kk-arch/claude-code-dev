@@ -11,8 +11,10 @@
 |---|---|
 | `src/data/fetcher.py` | yfinance で株価・銘柄情報を取得 |
 | `src/analysis/indicators.py` | SMA / RSI / MACD / ボリンジャーバンドを計算 |
-| `src/analysis/screener.py` | 条件でスクリーニング |
-| `src/portfolio/manager.py` | 保有銘柄の損益管理 |
+| `src/analysis/screener.py` | 条件でスクリーニング（RSI / MACD / SMA / スイング条件・ファンダ条件） |
+| `src/selector.py` | ニュース・スクリーニング・YouTube からの銘柄選定 |
+| `src/report/db_manager.py` | 推奨銘柄の記録と現在値更新、成績集計（SQL Server） |
+| `src/report/excel_exporter.py` | Excel へのレポート出力 |
 | `src/report/chart.py` | Plotly でローソク足・構成比チャート生成 |
 | `src/report/news.py` | RSS 収集 + Claude API でニュース要約 |
 
@@ -23,13 +25,12 @@ PJT001-stock-investment/
 ├── src/
 │   ├── data/          # 株価取得
 │   ├── analysis/      # 指標・スクリーニング
-│   ├── portfolio/     # 保有管理
 │   └── report/        # チャート・ニュース分析
 ├── tests/
 ├── docs/
 ├── data/
 │   ├── raw/           # 取得した生データ（git 除外）
-│   └── portfolio.csv  # 保有銘柄リスト
+│   └── watchlist.csv  # 対象銘柄リスト（ticker/name/market/cap_type）
 ├── .env               # API キー（git 除外）
 ├── .env.example       # キーのひな型
 └── requirements.txt
