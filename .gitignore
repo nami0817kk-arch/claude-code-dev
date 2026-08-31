@@ -36,3 +36,11 @@ npm-debug.log*
 *.log
 tmp/
 temp/
+
+# 生成物（実行のたびに作られるもの。リポジトリには入れない）
+projects/*/data/cache/
+projects/*/data/db/
+projects/*/data/reports/
+projects/PJT002-ai-blog/output/
+*.accdb
+*.xlsx
