@@ -1,0 +1,2042 @@
+From 9b90b3204aac41ece2c98f7436d413ac92982c65 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 2 Sep 2026 12:54:20 +0000
+Subject: [PATCH 2/2] =?UTF-8?q?feat(videoedit):=20=E3=83=86=E3=83=AD?=
+ =?UTF-8?q?=E3=83=83=E3=83=97=E3=81=A8=E5=8F=B0=E6=9C=AC=E9=A7=86=E5=8B=95?=
+ =?UTF-8?q?=E3=81=AE=E3=83=93=E3=83=AB=E3=83=89=E3=82=92=E8=BF=BD=E5=8A=A0?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+動画編集スキルの Phase 2。
+
+- text   テロップを1枚焼き込む（位置・色・サイズ・背景の帯・表示区間）
+- build  台本(YAML/JSON)から、シーンの切り出し→テロップ→連結までを一括で
+
+台本ではシーンごとに trim / text / transition を書ける。継ぎ目ごとに違う
+トランジションを指定できるよう、xfade の数珠つなぎを継ぎ目単位に一般化した
+（効果なしの継ぎ目は concat で繋ぎ、そこでは尺が縮まない）。
+
+エスケープの規則は ffmpeg 6.1 で実測して決めた。フィルタの引数値は '...' で
+包んだうえで : を \: と書く。包むだけでも、\: だけでも読めない。しかも読めない
+とき ffmpeg は落ちず、別のフォントに差し替えて終了コード 0 を返すため、
+書き出した画像のハッシュを比べて判定した。テロップの本文自体は textfile= で
+ファイルに逃がし、エスケープが要るのをパスだけに閉じ込めている。
+
+台本は段階ビルドにした。1本の巨大な filter_complex を組まず、シーンごとに
+中間ファイルへ書き出してから繋ぐ。壊れたときにどのシーンが原因か分かり、
+解像度を揃えてからテロップを重ねられる（順が逆だと文字まで拡大縮小される）。
+
+実素材で見つけて直したもの:
+- 音声を持たない素材のシーンは中間ファイルにも音声トラックができず、連結の
+  filter_complex が [n:a] を解決できずに失敗していた。中間ファイルの姿を
+  素材から予想する際に、音声の有無を引き継ぐようにした
+- 連結の前に中間ファイルを ffprobe し直すようにした。予想した尺のままだと
+  エンコーダの丸めでトランジションの位置が少しずつ狂う
+- 文字サイズ 0 が偽値として素通りし、自動サイズになっていた
+- --dry-run が中間ファイルの置き場を作ってしまっていた
+
+台本の知らないキーは黙って無視せず止める。bgm: と書いたのに BGM が乗らない、
+という失敗の仕方を避けるため（未対応のキーはその旨を伝えて止まる）。
+
+テストは 171 件（うち 15 件は実際に ffmpeg を起動）。
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GyMwXZyroa9cAT5LMB51cT
+---
+ .claude/skills/video-edit/SKILL.md  |  48 +++-
+ CLAUDE.md                           |  13 +-
+ README.md                           |  72 ++++-
+ docs/videoedit.md                   |  67 ++++-
+ src/videoedit/cli.py                | 160 ++++++++++-
+ src/videoedit/clip.py               | 103 +++++---
+ src/videoedit/overlay.py            | 165 ++++++++++++
+ src/videoedit/timeline.py           | 393 ++++++++++++++++++++++++++++
+ tests/videoedit/test_cli.py         |  72 ++++-
+ tests/videoedit/test_clip.py        |  41 ++-
+ tests/videoedit/test_integration.py | 133 ++++++++++
+ tests/videoedit/test_overlay.py     | 110 ++++++++
+ tests/videoedit/test_timeline.py    | 274 +++++++++++++++++++
+ 13 files changed, 1601 insertions(+), 50 deletions(-)
+ create mode 100644 src/videoedit/overlay.py
+ create mode 100644 src/videoedit/timeline.py
+ create mode 100644 tests/videoedit/test_overlay.py
+ create mode 100644 tests/videoedit/test_timeline.py
+
+diff --git a/.claude/skills/video-edit/SKILL.md b/.claude/skills/video-edit/SKILL.md
+index dc28428..79e863f 100644
+--- a/.claude/skills/video-edit/SKILL.md
++++ b/.claude/skills/video-edit/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: video-edit
+-description: このリポジトリで動画を編集する。ユーザーが「動画を切って」「つないで」「YouTube 用に書き出して」「Shorts の縦型にして」「サムネを作って」「動画の長さを調べて」と言ったときに使う。ffmpeg を呼ぶ videoedit コマンドで、カット・連結・トランジション・書き出しプリセット・サムネ切り出しを行う。
++description: このリポジトリで動画を編集する。ユーザーが「動画を切って」「つないで」「テロップを入れて」「字幕を焼いて」「台本から動画を作って」「YouTube 用に書き出して」「Shorts の縦型にして」「サムネを作って」「動画の長さを調べて」と言ったときに使う。ffmpeg を呼ぶ videoedit コマンドで、カット・連結・トランジション・テロップ・台本駆動のビルド・書き出しプリセット・サムネ切り出しを行う。
+ ---
+ 
+ # 動画編集
+@@ -43,12 +43,49 @@ python -m videoedit concat a.mp4 b.mp4 -o out.mp4 --transition crossfade --durat
+ python -m videoedit export in.mp4 --preset youtube-1080p -o out.mp4
+ python -m videoedit presets            # 一覧
+ 
++# テロップを1枚焼き込む
++python -m videoedit text in.mp4 -o out.mp4 --value "ここがポイント" --at 3 --for 4
++
++# 台本からまとめて組み立てる
++python -m videoedit build script.yaml
++
+ # サムネイル（省略時は <素材名>_thumb.jpg）
+ python -m videoedit thumb in.mp4 --at 00:00:12 --width 1280
+ ```
+ 
+ 時刻は `00:01:30` でも `90`（秒）でもよい。
+ 
++## 台本（`build`）
++
++シーンが2つ以上あるとき、または同じ編集を作り直す見込みがあるときは、
++コマンドを並べるより台本を書くほうが早い。
++
++```yaml
++output: output/ep01.mp4
++preset: youtube-1080p          # 省略時も youtube-1080p
++scenes:
++  - source: raw/opening.mp4
++    trim: [0, 12.5]            # [開始, 終了]。片方は null で省略できる
++    text:
++      - { value: "今日のテーマ", at: 1, for: 3, pos: bottom }
++  - source: raw/main.mp4
++    trim: [30, 210]
++    transition: { type: crossfade, duration: 0.5 }
++    text: "本編"               # 文字列だけなら、シーンの間ずっと出る
++  - source: raw/ending.mp4
++    transition: wipeleft       # 名前だけの略記もできる
++```
++
++- `text` の `pos` は `bottom` / `top` / `center` / `bottom-left` など。
++  `color`、`size`、`box: false`（背景の帯を消す）も指定できる。
++- `for` は「出しておく長さ」、`until` は「消す位置」。どちらか一方。
++- 相対パスは**台本ファイルの場所**を基準に解決する。
++- **知らないキーはエラーになる。** `bgm:` などの未対応キーも、黙って無視せず止まる。
++- `.json` でも書ける（PyYAML を入れずに済ませたいとき）。
++
++`build` はシーンごとに中間ファイルを作ってから繋ぐ。`--work-dir` を付けると
++中間ファイルを残すので、どのシーンで崩れたか確かめられる。
++
+ ## 使い分け
+ 
+ - **プリセットは用途で選ぶ。** `youtube-1080p`（既定の書き出し）/ `shorts`（縦型 1080x1920）/
+@@ -58,8 +95,10 @@ python -m videoedit thumb in.mp4 --at 00:00:12 --width 1280
+   下書きや、キーフレームが密な素材だけに使う。仕上げでは使わない。
+ - **連結で `--copy` が使えるのは、素材の形式が完全に同じときだけ**（同じコーデック・解像度・fps）。
+   少しでも違えば既定（再エンコード）を使う。自動で解像度と fps を揃えてくれる。
+-- **トランジションは最短の素材より短くする。** 長いとエラーになる。
++- **トランジションは、繋ぐ2本のどちらよりも短くする。** 長いとエラーになる。
+ - 縦横比が違う素材は引き伸ばさず、黒帯で埋めて指定サイズに収める。
++- **テロップが1枚だけなら `text`、2枚以上またはシーンをまたぐなら `build`。**
++  `text` を何度も重ねると、そのたびに再エンコードされて画質が落ちる。
+ 
+ ## 注意
+ 
+@@ -68,6 +107,9 @@ python -m videoedit thumb in.mp4 --at 00:00:12 --width 1280
+   既定で上書きするので、消えて困るものが出力先にあるときは `--no-overwrite` を付ける。
+ - 書き出しは重い。同じ素材に何度も手を入れるときは、
+   中間ファイルを残して段階的に進める（毎回1本目からやり直さない）。
+-- **テロップ・BGM・字幕・台本駆動のビルドはまだ無い。** 計画は `docs/videoedit.md` の
++- **テロップには日本語の入ったフォントが要る。** 見つからなければ止まるので、
++  `--font C:/Windows/Fonts/meiryo.ttc` のように指定するか、環境変数
++  `VIDEOEDIT_FONT` に設定する。英字だけのフォントを渡すと日本語が豆腐になる。
++- **BGM・ダッキング・字幕(SRT)の焼き込みはまだ無い。** 計画は `docs/videoedit.md` の
+   「これから作るもの」を参照。頼まれたら、今できるところまでやって、
+   残りは手作業が要ることを伝える。
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 5998b3a..e4db439 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -146,7 +146,7 @@ ailab doctor         # 実際に接続して確認
+ - **pip の依存を足さない。** 動画処理は外部バイナリの ffmpeg に任せる。
+   Python 側で編集ライブラリを入れると、この前提が崩れる。
+ - **プロセスを起動するのは `core.run` だけ。** `clip.py` / `thumbnail.py` /
+-  `presets.py` は「ffmpeg の引数リストを返す純粋関数」に保つ。
++  `presets.py` / `overlay.py` / `timeline.py` は「ffmpeg の引数リストを返す純粋関数」に保つ。
+   ffmpeg が無い環境でもコマンドの組み立てを検証できることと、
+   `--dry-run` が全サブコマンドで成立することが、この分離に依存している。
+ - **新しいサブコマンドには必ず `--dry-run` を付ける。** 長い動画の書き出しは
+@@ -157,4 +157,15 @@ ailab doctor         # 実際に接続して確認
+ - テストは `subprocess.run` を conftest で塞いである。実際に ffmpeg を動かす
+   確認は `tests/videoedit/test_integration.py` に隔離し、`integration` マーカーと
+   ffmpeg の有無による skip を付ける。
++- **テロップの本文は `text=` に直接埋めない。** 必ずファイルに書いて `textfile=`
++  で渡す。エスケープが要るのをパスだけに閉じ込めるため。
++- **フィルタの引数値は `overlay.quote()` を通す。** `'...'` で包んだうえで `:` を
++  `\:` にする規則で、実測して決めてある。読めないとき ffmpeg は落ちずに
++  別のフォントへ差し替えて終了コード 0 を返すので、目視でしか気づけない。
++- **台本は段階ビルド。** シーンごとに中間ファイルへ書き出してから繋ぐ。
++  1本の巨大な filter_complex にしない。
++- **連結の前に中間ファイルを ffprobe し直す。** 予想した尺のままだと、
++  エンコーダの丸めでトランジションの位置が少しずつ狂う。
++- **台本の知らないキーは黙って無視せず、その場で指摘する。** `bgm:` と書いたのに
++  BGM が乗らない、という失敗の仕方が一番たちが悪い。
+ - 設計の詳細は `docs/videoedit.md`。
+diff --git a/README.md b/README.md
+index 723191e..76c9541 100644
+--- a/README.md
++++ b/README.md
+@@ -19,7 +19,7 @@
+ | [`adsite`](#adsite--広告収益型の実用ツールサイト) | 実用ツールを置いた静的サイトを生成し、広告収益を同じ台帳に取り込む |
+ | [`growth`](#growth--成長ループ) | 全プロジェクトを定期点検し、次にやることを提示する |
+ | [`audiogen`](#audiogen--bgm--効果音ジェネレータ) | BGM と効果音を手続き的に合成して WAV に書き出す |
+-| [`videoedit`](#videoedit--動画編集) | ffmpeg で動画を切り・繋ぎ・書き出す（YouTube / Shorts のプリセット付き） |
++| [`videoedit`](#videoedit--動画編集) | ffmpeg で動画を切り・繋ぎ・テロップを入れて書き出す（台本からの一括ビルドも） |
+ | [`browser`](#chrome-の自動操作) | Chrome を自動操作する（ヘッドレス Chromium / ローカル Chrome を CDP 経由で） |
+ 
+ ## セットアップ
+@@ -572,12 +572,76 @@ python -m videoedit concat a.mp4 b.mp4 -o joined.mp4 --transition crossfade --du
+ python -m videoedit export joined.mp4 --preset youtube-1080p -o ep01.mp4
+ python -m videoedit export joined.mp4 --preset shorts -o ep01_vertical.mp4
+ 
++# テロップを1枚焼き込む
++python -m videoedit text cut.mp4 -o telop.mp4 --value "ここがポイント" --at 3 --for 4
++
+ # サムネイル（省略時は <素材名>_thumb.jpg）
+ python -m videoedit thumb ep01.mp4 --at 00:00:12 --width 1280
+ ```
+ 
+ 冒頭のセットアップを済ませてあれば `videoedit ...` でも同じことができる。
+ 
++### 台本から組み立てる
++
++シーンが2つ以上あるなら、コマンドを並べるより台本を書くほうが早い。
++
++```yaml
++# script.yaml
++output: output/ep01.mp4
++preset: youtube-1080p
++scenes:
++  - source: raw/opening.mp4
++    trim: [0, 12.5]              # [開始, 終了]。片方は null で省略できる
++    text:
++      - { value: "今日のテーマ", at: 1, for: 3, pos: bottom }
++  - source: raw/main.mp4
++    trim: [30, 210]
++    transition: { type: crossfade, duration: 0.5 }
++    text: "本編"                 # 文字列だけなら、シーンの間ずっと出る
++  - source: raw/ending.mp4
++    transition: wipeleft         # 名前だけの略記もできる
++```
++
++```bash
++python -m videoedit build script.yaml
++# [1/4] シーン 1/3: opening.mp4
++# [2/4] シーン 2/3: main.mp4
++# [3/4] シーン 3/3: ending.mp4
++# [4/4] 連結: 3 シーン -> ep01.mp4
++# wrote output/ep01.mp4 (221.53s / 1920x1080 / 30fps / h264 / aac 48000Hz)
++```
++
++シーンごとに中間ファイルを作ってから繋ぐので、崩れたときにどのシーンが原因か分かる。
++`--work-dir` を付けると中間ファイルを残す。
++
++台本に書けるもの:
++
++| キー | 場所 | 内容 |
++|---|---|---|
++| `output` | 台本 | 書き出し先。`-o` で上書きできる |
++| `preset` | 台本 | 書き出しプリセット（既定 `youtube-1080p`） |
++| `font` | 台本 | テロップのフォント。`--font` で上書きできる |
++| `source` | シーン | 素材のパス。相対パスは**台本ファイルの場所**が基準 |
++| `trim` | シーン | `[開始, 終了]`。`00:01:30` でも `90` でもよい |
++| `transition` | シーン | 直前のシーンとの繋ぎ。`crossfade` / `wipeleft` など |
++| `text` | シーン | テロップ。`value` / `at` / `for` / `until` / `pos` / `color` / `size` / `box` |
++
++**知らないキーはエラーになる。** `bgm:` などの未対応キーも、黙って無視せず止まる
++（書いたのに効かない、という失敗の仕方を避けるため）。
++`.json` でも書ける（PyYAML を入れずに済ませたいとき）。
++
++### テロップのフォント
++
++日本語を含むテロップには、日本語の入ったフォントが要る。
++見つからなければ止まるので、次のどれかで指定する。
++
++```bash
++python -m videoedit text in.mp4 -o out.mp4 --value "字幕" --font C:/Windows/Fonts/meiryo.ttc
++setx VIDEOEDIT_FONT C:/Windows/Fonts/meiryo.ttc    # 環境変数でもよい
++```
++
++指定が無ければ Meiryo / 游ゴシック / Noto など心当たりのパスを順に探す。
++
+ ### プリセット
+ 
+ ```bash
+@@ -617,8 +681,10 @@ wrote out.mp4 (11.03s / 1280x720 / 25fps / h264 / aac 48000Hz)
+   指定より長い動画が出ることがある。下書き用と割り切る。
+ - **連結で `--copy` が使えるのは、素材の形式が完全に同じときだけ。**
+   違うなら既定（再エンコード）を使う。
+-- テロップ・BGM・字幕・台本駆動のビルドは**まだ無い**。
++- BGM・ダッキング・字幕(SRT)の焼き込みは**まだ無い**。
+   計画は [`docs/videoedit.md`](docs/videoedit.md) の「これから作るもの」。
++- テロップを1枚ずつ `text` で重ねると、そのたびに再エンコードされて画質が落ちる。
++  2枚以上なら台本にまとめる。
+ 
+ 設計の詳細は [`docs/videoedit.md`](docs/videoedit.md) を参照。
+ 
+@@ -640,7 +706,7 @@ pytest tests/ailab          # ツール単位で回す
+ | `src/adsite/` | 広告収益型ツールサイトのジェネレータ |
+ | `src/growth/` | 成長ループ（観測・診断・横展開・台帳） |
+ | `src/audiogen/` | BGM / 効果音の合成ツールキット（標準ライブラリのみ） |
+-| `src/videoedit/` | 動画編集（ffmpeg を呼ぶ。pip の依存は増やさない） |
++| `src/videoedit/` | 動画編集・テロップ・台本ビルド（ffmpeg を呼ぶ。pip の依存は増やさない） |
+ | `src/browser/` | Chrome の自動操作（ヘッドレス Chromium / ローカル Chrome を CDP 経由で） |
+ | `site/` | adsite のコンテンツとアセット |
+ | `config/` | 設定ファイル（ニッチ・情報源・プラン・サイト設定） |
+diff --git a/docs/videoedit.md b/docs/videoedit.md
+index 6493812..019c1f9 100644
+--- a/docs/videoedit.md
++++ b/docs/videoedit.md
+@@ -29,9 +29,11 @@ ffmpeg は外部バイナリなので、**pip の依存は 1つも増えない**
+ ```
+ core        ffmpeg / ffprobe の実行、時刻の変換、エラー
+   ├ probe       ffprobe の JSON を MediaInfo に変換
++  ├ overlay     テロップ(drawtext)の組み立てとフォント探し
+   ├ presets     書き出しプリセットと正規化フィルタ
+   │    ├ clip        カット・連結・トランジション・書き出しのコマンド組み立て
+-  │    └ thumbnail   1フレーム切り出しのコマンド組み立て
++  │    ├ thumbnail   1フレーム切り出しのコマンド組み立て
++  │    └ timeline    台本(YAML/JSON)を読んで、ビルドの手順に変換
+   └ cli       コマンドライン
+ ```
+ 
+@@ -85,6 +87,56 @@ concat フィルタは全入力の本数が揃っていないと失敗する。1
+ `source` プリセットで 1080p を3本繋いだら 1080p のまま出したい。
+ プリセットが解像度を持たない場合は、先頭の素材の解像度と fps を目標にする。
+ 
++### テロップの本文は必ずファイル経由で渡す
++
++`drawtext` の `text=` に本文を直接埋めると、`:` `'` `\` `%` と改行のエスケープで
++必ず事故る。本文を `textfile=` に逃がせば、エスケープが要るのは
++**ファイルのパスだけ**になる。中間ファイルの置き場に `text_001.txt` と連番で
++書き出し、フィルタからはそのパスを指す。
++
++### フィルタの引数の : は、包んだうえで \: と書く
++
++エスケープ規則は ffmpeg 6.1 で実測して決めた。ややこしいので記録しておく。
++
++| 書き方 | 結果 |
++|---|---|
++| `fontfile=/a:b/f.ttf` | 区切りに化けて読めない |
++| `fontfile=/a\:b/f.ttf` | 読めない（1段目のパーサが `\` を食う） |
++| `fontfile=/a\\:b/f.ttf` | 読める |
++| `fontfile='/a:b/f.ttf'` | 読めない（包むだけでは足りない） |
++| `fontfile='/a\:b/f.ttf'` | 読める ← これを採用 |
++
++**しかも、読めないときに ffmpeg は落ちない。** 別のフォントに勝手に差し替えて
++終了コード 0 を返す。終了コードでは気づけないので、上の表は書き出した画像の
++ハッシュを比べて判定した。
++
++包む形に統一したのは、`,` や `;` を含む式（`enable='between(t,1,5)'`）も
++同じ包み方で守れるため。Windows のパスは `\` を `/` に寄せてから包む
++（`C:/Windows/Fonts/meiryo.ttc` の形なら Windows でもそのまま開ける）。
++
++### 台本は段階ビルドする
++
++1本の巨大な `filter_complex` を組むのではなく、シーンごとに中間ファイルへ
++書き出してから連結する。
++
++- フィルタが壊れたとき、どのシーンが原因か分かる。
++- シーンごとに解像度を揃えてからテロップを重ねられる
++  （順番が逆だと、テロップまで拡大縮小される）。
++- 後から差分ビルド（変わったシーンだけ作り直す）を足せる。
++
++### 連結の前に中間ファイルを実測する
++
++シーンの尺は台本の `trim` から予想できるが、エンコーダの丸めで数十ミリ秒ずれる。
++予想値のまま繋ぐとトランジションの位置が少しずつ狂うので、**書き出した中間
++ファイルを ffprobe し直してから**連結のコマンドを組む。`--dry-run` のときだけ、
++ファイルがまだ無いので予想値を使う。
++
++### 台本の知らないキーは黙って無視しない
++
++`bgm:` と書いてあるのに BGM が乗らない、という失敗の仕方が一番たちが悪い。
++未対応のキーは「Phase 3 以降で対応予定」と言って止まる。誤字も同様に、
++どのシーンのどのキーかを添えて指摘する。
++
+ ### 書き出したファイルは読み直して報告する
+ 
+ `wrote out.mp4 (12.03s / 1920x1080 / 30fps / h264 / aac 48000Hz)` のように、
+@@ -95,14 +147,13 @@ concat フィルタは全入力の本数が揃っていないと失敗する。1
+ 
+ | フェーズ | 内容 |
+ |---|---|
+-| 2 | 台本(YAML)駆動の `build`。テロップ（`drawtext`） |
+ | 3 | BGM ミックス・ダッキング・音量正規化(loudnorm)、字幕(SRT)の焼き込み |
+ | 4 | ailab の画像生成 / audiogen をサムネ・BGM に接続。`youtube-video-creation` から呼ぶ |
+ 
+-想定しているつまずきと対処は、claude-code-dev の
+-`docs/video-editing-skill-plan.md` にまとめた計画のとおり。特に効くのは次の2つ。
++Phase 3 以降で効いてくる見込みのもの。
+ 
+-- **`drawtext` のテキストは直接埋め込まず `textfile=` でファイル経由にする。**
+-  `:` `'` `\` と日本語のエスケープで必ず事故る。
+-- **`filter_complex` を巨大化させない。** シーン単位で中間ファイルに書き出し、
+-  ハッシュでキャッシュして変更のあったシーンだけ作り直す。
++- **差分ビルド。** 中間ファイルをハッシュでキャッシュし、変わったシーンだけ
++  作り直す。置き場（`--work-dir`）と段階ビルドは既にあるので、あとは
++  「シーンの定義＋素材の更新時刻」から鍵を作るだけで足せる。
++- **音量の正規化(loudnorm)は2パス。** 1パス目で測って2パス目で当てる。
++  段階ビルドの中に素直に収まる。
+diff --git a/src/videoedit/cli.py b/src/videoedit/cli.py
+index e7715fc..2d101c4 100644
+--- a/src/videoedit/cli.py
++++ b/src/videoedit/cli.py
+@@ -4,6 +4,8 @@
+     python -m videoedit cut in.mp4 --from 00:01:30 --to 00:02:10 -o out.mp4
+     python -m videoedit concat a.mp4 b.mp4 -o out.mp4 --transition crossfade
+     python -m videoedit export in.mp4 --preset shorts -o out.mp4
++    python -m videoedit text in.mp4 -o out.mp4 --value "ここがポイント" --at 3 --for 4
++    python -m videoedit build script.yaml
+     python -m videoedit thumb in.mp4 --at 12
+     python -m videoedit presets
+ 
+@@ -20,8 +22,11 @@ import sys
+ import tempfile
+ import unicodedata
+ from collections.abc import Sequence
++from contextlib import contextmanager
++from dataclasses import replace
+ 
+-from . import clip, presets
++from . import clip, presets, timeline
++from . import overlay as overlay_module
+ from .core import VideoEditError, format_command, format_time, parse_time, run
+ from .probe import MediaInfo, probe
+ from .thumbnail import thumbnail_command
+@@ -143,6 +148,130 @@ def _concat_copy(args: argparse.Namespace) -> int:
+     return 0
+ 
+ 
++def cmd_text(args: argparse.Namespace) -> int:
++    """1枚のテロップを焼き込む。台本を書くほどでもない用に。"""
++    start = parse_time(args.at) if args.at else 0.0
++    end = None
++    if args.until and args.duration:
++        raise VideoEditError("--until と --for は同時に指定できません")
++    if args.until:
++        end = parse_time(args.until)
++    elif args.duration:
++        end = start + parse_time(args.duration)
++
++    item = overlay_module.Overlay(
++        text=args.value,
++        start=start,
++        end=end,
++        position=args.pos,
++        size=args.size,
++        color=args.color,
++        box_color=None if args.no_box else overlay_module.DEFAULT_BOX_COLOR,
++    )
++    font = overlay_module.find_font(args.font)
++    preset = _preset_for(args.preset)
++    height = preset.height or _source_height(args.source, dry_run=args.dry_run)
++
++    with _work_dir(args.work_dir, near=args.output, dry_run=args.dry_run) as work_dir:
++        text_path = os.path.join(work_dir, overlay_module.text_filename(1))
++        _write_text(text_path, item.text, dry_run=args.dry_run)
++        command = clip.cut_command(
++            args.source,
++            args.output,
++            preset=preset,
++            filters=[
++                overlay_module.drawtext_filter(
++                    item, text_path=text_path, font_path=font, height=height
++                )
++            ],
++            overwrite=not args.no_overwrite,
++        )
++        _execute(command, dry_run=args.dry_run, verbose=args.verbose)
++    _report(args.output, dry_run=args.dry_run)
++    return 0
++
++
++def _source_height(source: str, *, dry_run: bool) -> int | None:
++    """テロップの文字サイズを決めるために素材の高さを見る。"""
++    try:
++        return probe(source).height
++    except VideoEditError:
++        if dry_run:
++            return None  # --dry-run では素材が無くてもコマンドを見せたい
++        raise
++
++
++def cmd_build(args: argparse.Namespace) -> int:
++    """台本から一気に組み立てる。
++
++    シーンごとに中間ファイルへ書き出してから繋ぐ。1本の巨大な filter_complex に
++    せず段階を分けるのは、壊れたときにどのシーンが原因か分かるようにするため。
++    """
++    script = timeline.load_script(args.script)
++    script = replace(script, output=args.output or script.output)
++
++    infos = [probe(scene.source) for scene in script.scenes]
++    font = overlay_module.find_font(args.font or script.font)
++    multiple = len(script.scenes) > 1
++
++    with _work_dir(args.work_dir, near=script.output, dry_run=args.dry_run) as work_dir:
++        steps = timeline.scene_steps(script, infos=infos, work_dir=work_dir, font=font)
++        total = len(steps) + (1 if multiple else 0)
++        for number, step in enumerate(steps, start=1):
++            print(f"[{number}/{total}] {step.description}")
++            for path, body in step.text_files.items():
++                _write_text(path, body, dry_run=args.dry_run)
++            _execute(step.command, dry_run=args.dry_run, verbose=args.verbose)
++
++        if multiple:
++            # 書き出した中間ファイルを実測する。エンコーダの丸めで尺は数十ミリ秒
++            # ずれるので、予想値のままだとトランジションの位置が少しずつ狂う。
++            if args.dry_run:
++                rendered = timeline.predicted_scene_infos(script, infos, work_dir)
++            else:
++                rendered = [
++                    probe(timeline.scene_path(work_dir, index))
++                    for index in range(len(script.scenes))
++                ]
++            step = timeline.concat_step(script, rendered)
++            print(f"[{total}/{total}] {step.description}")
++            _execute(step.command, dry_run=args.dry_run, verbose=args.verbose)
++
++    _report(script.output, dry_run=args.dry_run)
++    return 0
++
++
++def _write_text(path: str, body: str, *, dry_run: bool) -> None:
++    """テロップの本文をファイルに書く。ffmpeg には textfile= で渡す。"""
++    if dry_run:
++        print(f"# {path} に書き出す本文: {body!r}")
++        return
++    with open(path, "w", encoding="utf-8", newline="\n") as handle:
++        handle.write(body)
++
++
++@contextmanager
++def _work_dir(explicit: str | None, *, near: str | None = None, dry_run: bool = False):
++    """中間ファイルの置き場。指定があればそこを使い、残す。無ければ後片付けする。
++
++    ``--dry-run`` では何も作らない。コマンドを見るだけのつもりでフォルダが
++    増えるのは筋が悪いため、置き場の名前だけ決めて返す。
++    """
++    parent = os.path.dirname(os.path.abspath(near)) if near else None
++    if dry_run:
++        yield explicit or os.path.join(parent or os.getcwd(), ".videoedit-work")
++        return
++    if explicit:
++        os.makedirs(explicit, exist_ok=True)
++        yield explicit
++        return
++    if parent:
++        os.makedirs(parent, exist_ok=True)
++    # 出力先の隣に作る。別ドライブの一時領域だと、中間ファイルの移動で遅くなるため。
++    with tempfile.TemporaryDirectory(prefix=".videoedit-", dir=parent) as path:
++        yield path
++
++
+ def cmd_export(args: argparse.Namespace) -> int:
+     command = clip.transcode_command(
+         args.source,
+@@ -257,6 +386,35 @@ def build_parser() -> argparse.ArgumentParser:
+     _add_common(export_parser)
+     export_parser.set_defaults(func=cmd_export)
+ 
++    text_parser = subparsers.add_parser("text", help="テロップを1枚焼き込む")
++    text_parser.add_argument("source")
++    text_parser.add_argument("-o", "--output", required=True)
++    text_parser.add_argument("--value", required=True, help="本文")
++    text_parser.add_argument("--at", help="出し始める位置（既定は先頭から）")
++    text_parser.add_argument("--for", dest="duration", help="出しておく長さ")
++    text_parser.add_argument("--until", help="消す位置（--for の代わり）")
++    text_parser.add_argument(
++        "--pos", default=overlay_module.DEFAULT_POSITION, choices=sorted(overlay_module.POSITIONS)
++    )
++    text_parser.add_argument("--size", type=int, help="文字サイズ（既定は高さの5%%）")
++    text_parser.add_argument("--color", default=overlay_module.DEFAULT_COLOR)
++    text_parser.add_argument("--no-box", action="store_true", help="背景の帯を消す")
++    text_parser.add_argument("--font", help="フォントファイル（既定は自動で探す）")
++    text_parser.add_argument("--preset", default="source", choices=presets.available())
++    text_parser.add_argument("--work-dir", help="中間ファイルの置き場（既定は一時領域）")
++    _add_common(text_parser)
++    text_parser.set_defaults(func=cmd_text)
++
++    build_parser = subparsers.add_parser("build", help="台本(YAML/JSON)から組み立てる")
++    build_parser.add_argument("script", help="台本ファイル（.yaml / .yml / .json）")
++    build_parser.add_argument("-o", "--output", help="台本の output を上書きする")
++    build_parser.add_argument("--font", help="フォントファイル（既定は自動で探す）")
++    build_parser.add_argument(
++        "--work-dir", help="中間ファイルの置き場。指定すると作り終えても残す"
++    )
++    _add_common(build_parser)
++    build_parser.set_defaults(func=cmd_build)
++
+     thumb_parser = subparsers.add_parser("thumb", help="サムネイル用に1フレーム切り出す")
+     thumb_parser.add_argument("source")
+     thumb_parser.add_argument("-o", "--output", help="既定は <素材名>_thumb.jpg")
+diff --git a/src/videoedit/clip.py b/src/videoedit/clip.py
+index 52e240c..64454f2 100644
+--- a/src/videoedit/clip.py
++++ b/src/videoedit/clip.py
+@@ -7,7 +7,9 @@ ffmpeg が入っていない環境でも組み立て結果をテストできる
+ 
+ from __future__ import annotations
+ 
++import os
+ from collections.abc import Sequence
++from dataclasses import dataclass
+ 
+ from . import presets as presets_module
+ from .core import VideoEditError
+@@ -59,6 +61,7 @@ def cut_command(
+     end: float | None = None,
+     duration: float | None = None,
+     preset: Preset,
++    filters: Sequence[str] = (),
+     overwrite: bool = True,
+ ) -> list[str]:
+     """1本の素材から区間を切り出すコマンドを組み立てる。
+@@ -84,12 +87,15 @@ def cut_command(
+         args += ["-t", f"{duration:.6f}"]
+ 
+     if preset.is_copy:
++        if filters:
++            raise VideoEditError("copy プリセットではフィルタを使えません")
+         # キーフレームでない位置から切ると先頭のタイムスタンプが負になることがある
+         args += ["-avoid_negative_ts", "make_zero"]
+     else:
+-        video_filter = preset.video_filter()
+-        if video_filter:
+-            args += ["-vf", video_filter]
++        # 解像度を揃えてからテロップを重ねる。逆にすると文字まで拡大縮小される。
++        chain = [step for step in (preset.video_filter(), *filters) if step]
++        if chain:
++            args += ["-vf", ",".join(chain)]
+     args += preset.output_args()
+     args.append(output)
+     return args
+@@ -152,12 +158,28 @@ def resolve_target(
+     return size, fps
+ 
+ 
++@dataclass(frozen=True)
++class Join:
++    """継ぎ目ひとつ。``transition`` が None なら、効果を挟まないただの切り替え。"""
++
++    transition: str | None = None
++    duration: float = DEFAULT_TRANSITION_DURATION
++
++
++def uniform_joins(
++    count: int, transition: str | None, duration: float = DEFAULT_TRANSITION_DURATION
++) -> list[Join]:
++    """素材 ``count`` 本を同じ繋ぎ方で並べるときの継ぎ目。"""
++    return [Join(transition, duration) for _ in range(max(0, count - 1))]
++
++
+ def concat_filter(
+     clips: Sequence[MediaInfo],
+     *,
+     preset: Preset,
+     transition: str | None = None,
+     transition_duration: float = DEFAULT_TRANSITION_DURATION,
++    joins: Sequence[Join] | None = None,
+ ) -> str:
+     """連結の filter_complex を組み立てる。出力は ``[outv]`` と ``[outa]``。
+ 
+@@ -166,6 +188,12 @@ def concat_filter(
+     """
+     if len(clips) < 2:
+         raise VideoEditError("連結には素材が2本以上必要です")
++    if joins is None:
++        joins = uniform_joins(len(clips), transition, transition_duration)
++    if len(joins) != len(clips) - 1:
++        raise VideoEditError(
++            f"継ぎ目の数が合いません: 素材 {len(clips)} 本に対して {len(joins)} 個"
++        )
+ 
+     size, fps = resolve_target(clips, preset)
+     normalize = presets_module.normalize_filter(size, fps) or "setsar=1,format=yuv420p"
+@@ -181,50 +209,63 @@ def concat_filter(
+                 f"{_AFORMAT}[a{index}]"
+             )
+ 
+-    if transition is None:
++    if all(join.transition is None for join in joins):
++        # 効果を挟まないなら、まとめて1回の concat で済ませる
+         inputs = "".join(f"[v{i}][a{i}]" for i in range(len(clips)))
+         steps.append(f"{inputs}concat=n={len(clips)}:v=1:a=1[outv][outa]")
+         return ";".join(steps)
+ 
+-    steps.extend(_xfade_steps(clips, transition, transition_duration))
++    steps.extend(_join_steps(clips, joins))
+     return ";".join(steps)
+ 
+ 
+-def _xfade_steps(clips: Sequence[MediaInfo], transition: str, duration: float) -> list[str]:
+-    """xfade / acrossfade を数珠つなぎにする。
++def _join_steps(clips: Sequence[MediaInfo], joins: Sequence[Join]) -> list[str]:
++    """継ぎ目を1つずつ数珠つなぎにする。
+ 
+     xfade の ``offset`` は「それまでに出来上がった映像の中で、重なりを始める
+-    位置」。1回繋ぐごとに全体の尺が ``duration`` だけ縮むので、累計から
+-    その分を引いていく。
++    位置」。効果を挟んだ継ぎ目では全体の尺が ``duration`` だけ縮むので、
++    累計からその分を引いていく。効果なしの継ぎ目は縮まない。
+     """
+-    if duration <= 0:
+-        raise VideoEditError(f"トランジションの長さが 0 以下です: {duration}")
+-    shortest = min(clip.duration for clip in clips)
+-    if duration >= shortest:
+-        raise VideoEditError(
+-            f"トランジション {duration}s が最短の素材 {shortest:.2f}s 以上です。"
+-            "--duration を短くするか、短い素材を除いてください"
+-        )
+-
+-    name = transition_name(transition)
+     steps: list[str] = []
+     accumulated = clips[0].duration
+     previous_video, previous_audio = "v0", "a0"
+-    for index in range(1, len(clips)):
+-        offset = accumulated - duration
+-        video_label = f"vx{index}" if index < len(clips) - 1 else "outv"
+-        audio_label = f"ax{index}" if index < len(clips) - 1 else "outa"
+-        steps.append(
+-            f"[{previous_video}][v{index}]"
+-            f"xfade=transition={name}:duration={duration:g}:offset={offset:.6f}"
+-            f"[{video_label}]"
+-        )
+-        steps.append(f"[{previous_audio}][a{index}]acrossfade=d={duration:g}[{audio_label}]")
+-        accumulated += clips[index].duration - duration
++    for index, join in enumerate(joins, start=1):
++        last = index == len(clips) - 1
++        video_label = "outv" if last else f"vx{index}"
++        audio_label = "outa" if last else f"ax{index}"
++        if join.transition is None:
++            steps.append(f"[{previous_video}][v{index}]concat=n=2:v=1:a=0[{video_label}]")
++            steps.append(f"[{previous_audio}][a{index}]concat=n=2:v=0:a=1[{audio_label}]")
++            accumulated += clips[index].duration
++        else:
++            duration = _checked_duration(join.duration, clips[index - 1], clips[index])
++            name = transition_name(join.transition)
++            offset = accumulated - duration
++            steps.append(
++                f"[{previous_video}][v{index}]"
++                f"xfade=transition={name}:duration={duration:g}:offset={offset:.6f}"
++                f"[{video_label}]"
++            )
++            steps.append(f"[{previous_audio}][a{index}]acrossfade=d={duration:g}[{audio_label}]")
++            accumulated += clips[index].duration - duration
+         previous_video, previous_audio = video_label, audio_label
+     return steps
+ 
+ 
++def _checked_duration(duration: float, before: MediaInfo, after: MediaInfo) -> float:
++    """トランジションの長さが、繋ぐ2本のどちらよりも短いことを確かめる。"""
++    if duration <= 0:
++        raise VideoEditError(f"トランジションの長さが 0 以下です: {duration}")
++    shortest = min(before.duration, after.duration)
++    if duration >= shortest:
++        raise VideoEditError(
++            f"トランジション {duration}s が、繋ぐ素材の短いほう {shortest:.2f}s 以上です"
++            f"（{os.path.basename(before.path)} と {os.path.basename(after.path)}）。"
++            "長さを短くするか、短い素材を除いてください"
++        )
++    return duration
++
++
+ def concat_command(
+     clips: Sequence[MediaInfo],
+     output: str,
+@@ -232,6 +273,7 @@ def concat_command(
+     preset: Preset,
+     transition: str | None = None,
+     transition_duration: float = DEFAULT_TRANSITION_DURATION,
++    joins: Sequence[Join] | None = None,
+     overwrite: bool = True,
+ ) -> list[str]:
+     """素材を連結するコマンドを組み立てる（再エンコードあり）。"""
+@@ -250,6 +292,7 @@ def concat_command(
+             preset=preset,
+             transition=transition,
+             transition_duration=transition_duration,
++            joins=joins,
+         ),
+         "-map", "[outv]",
+         "-map", "[outa]",
+diff --git a/src/videoedit/overlay.py b/src/videoedit/overlay.py
+new file mode 100644
+index 0000000..dfbb7a8
+--- /dev/null
++++ b/src/videoedit/overlay.py
+@@ -0,0 +1,165 @@
++r"""テロップ（drawtext）。
++
++**本文は必ずファイル経由（`textfile=`）で渡す。** `text=` に直接埋めると
++`:` `'` `\` `%` と改行のエスケープで必ず事故る。本文をファイルに逃がせば、
++エスケープが要るのは「ファイルのパス」だけになる。
++
++パスのエスケープは実機で確かめた次の規則に従う（ffmpeg 6.1 / 7.x）。
++
++- filter の引数値を `'...'` で包む。
++- その中で `:` を `\:` と書く。包むだけでは AVOption の区切りとして解釈されてしまう。
++- `\` は `/` に寄せる。Windows のパスをそのまま入れると二重に解釈されて壊れる
++  （`C:/Windows/Fonts/meiryo.ttc` の形なら Windows でもそのまま開ける）。
++
++包まずに `\\:` と書いても通るが、`'...'` で包む形に統一している。
++`,` や `;` を含む式（`enable='between(t,1,5)'`）も同じ包み方で守れるため。
++"""
++
++from __future__ import annotations
++
++import os
++from dataclasses import dataclass
++
++from .core import VideoEditError
++
++# 画面の端から本文までの余白（出力解像度に対する比率）。
++MARGIN_RATIO = 0.06
++
++POSITIONS = {
++    "bottom": "x=(w-text_w)/2:y=h-text_h-{margin}",
++    "top": "x=(w-text_w)/2:y={margin}",
++    "center": "x=(w-text_w)/2:y=(h-text_h)/2",
++    "bottom-left": "x={margin}:y=h-text_h-{margin}",
++    "bottom-right": "x=w-text_w-{margin}:y=h-text_h-{margin}",
++    "top-left": "x={margin}:y={margin}",
++    "top-right": "x=w-text_w-{margin}:y={margin}",
++}
++
++DEFAULT_POSITION = "bottom"
++DEFAULT_COLOR = "white"
++# 背景の帯。無地の映像に白文字だけを置くと読めないことがあるので既定で敷く。
++DEFAULT_BOX_COLOR = "black@0.5"
++
++# 日本語が出せるフォントを優先して探す。見つからなければ利用者に指定してもらう。
++FONT_CANDIDATES = (
++    "C:/Windows/Fonts/meiryo.ttc",
++    "C:/Windows/Fonts/YuGothM.ttc",
++    "C:/Windows/Fonts/msgothic.ttc",
++    "/System/Library/Fonts/ヒラギノ角ゴシック W4.ttc",
++    "/System/Library/Fonts/Hiragino Sans GB.ttc",
++    "/usr/share/fonts/truetype/fonts-japanese-gothic.ttf",
++    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
++    "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
++    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
++)
++
++FONT_ENV = "VIDEOEDIT_FONT"
++
++NO_FONT_HINT = (
++    "テロップに使うフォントが見つかりません。--font でフォントファイルを指定するか、"
++    f"環境変数 {FONT_ENV} に設定してください。\n"
++    "  Windows 例: --font C:/Windows/Fonts/meiryo.ttc\n"
++    "日本語を含むテロップでは、日本語が入ったフォントを指定してください"
++    "（英字だけのフォントだと豆腐になります）。"
++)
++
++
++def quote(value: object) -> str:
++    """filter の引数値を、ffmpeg が1つの値として読む形に包む。"""
++    text = str(value).replace("\\", "/")
++    text = text.replace("'", r"'\''")
++    text = text.replace(":", r"\:")
++    return f"'{text}'"
++
++
++def find_font(explicit: str | None = None) -> str:
++    """使うフォントを決める。--font > 環境変数 > 心当たりのパス、の順。"""
++    if explicit:
++        if not os.path.isfile(explicit):
++            raise VideoEditError(f"フォントが見つかりません: {explicit}")
++        return explicit
++    from_env = os.environ.get(FONT_ENV)
++    if from_env:
++        if not os.path.isfile(from_env):
++            raise VideoEditError(f"{FONT_ENV} のフォントが見つかりません: {from_env}")
++        return from_env
++    for candidate in FONT_CANDIDATES:
++        if os.path.isfile(candidate):
++            return candidate
++    raise VideoEditError(NO_FONT_HINT)
++
++
++@dataclass(frozen=True)
++class Overlay:
++    """1つのテロップ。時刻はシーンの先頭からの秒数。"""
++
++    text: str
++    start: float = 0.0
++    end: float | None = None
++    position: str = DEFAULT_POSITION
++    size: int | None = None
++    color: str = DEFAULT_COLOR
++    box_color: str | None = DEFAULT_BOX_COLOR
++
++    def __post_init__(self) -> None:
++        if not self.text.strip():
++            raise VideoEditError("テロップの本文が空です")
++        if self.position not in POSITIONS:
++            raise VideoEditError(
++                f"unknown position: {self.position} (available: {', '.join(POSITIONS)})"
++            )
++        if self.start < 0:
++            raise VideoEditError(f"テロップの開始が負です: {self.start}")
++        if self.end is not None and self.end <= self.start:
++            raise VideoEditError(
++                f"テロップの終了 {self.end} が開始 {self.start} より後になっていません"
++            )
++
++
++def font_size_for(height: int | None, explicit: int | None = None) -> int:
++    """出力の高さから文字サイズを決める。1080p でおよそ 54px。"""
++    if explicit is not None:
++        if explicit <= 0:
++            raise VideoEditError(f"文字サイズが 0 以下です: {explicit}")
++        return explicit
++    return max(16, round((height or 1080) * 0.05))
++
++
++def drawtext_filter(
++    overlay: Overlay,
++    *,
++    text_path: str,
++    font_path: str,
++    height: int | None = None,
++) -> str:
++    """テロップ1つぶんの drawtext フィルタを組み立てる（純粋関数）。
++
++    本文は ``text_path`` に書き出してある前提。書き出すのは呼び出し側の仕事。
++    """
++    size = font_size_for(height, overlay.size)
++    margin = max(8, round((height or 1080) * MARGIN_RATIO))
++    parts = [
++        f"fontfile={quote(font_path)}",
++        f"textfile={quote(text_path)}",
++        f"fontsize={size}",
++        f"fontcolor={quote(overlay.color)}",
++        POSITIONS[overlay.position].format(margin=margin),
++    ]
++    if overlay.box_color:
++        parts.append("box=1")
++        parts.append(f"boxcolor={quote(overlay.box_color)}")
++        parts.append(f"boxborderw={max(4, size // 4)}")
++    parts.append(f"enable={quote(enable_expression(overlay))}")
++    return "drawtext=" + ":".join(parts)
++
++
++def enable_expression(overlay: Overlay) -> str:
++    """テロップを出す区間の式。終わりを決めなければ最後まで出したままにする。"""
++    if overlay.end is None:
++        return f"gte(t,{overlay.start:g})"
++    return f"between(t,{overlay.start:g},{overlay.end:g})"
++
++
++def text_filename(index: int) -> str:
++    """本文を書き出すファイル名。連番にして、どのテロップか追えるようにする。"""
++    return f"text_{index:03d}.txt"
+diff --git a/src/videoedit/timeline.py b/src/videoedit/timeline.py
+new file mode 100644
+index 0000000..0dfa167
+--- /dev/null
++++ b/src/videoedit/timeline.py
+@@ -0,0 +1,393 @@
++"""台本（YAML / JSON）を読み、ビルドの手順に変換する。
++
++**段階ビルド。** 1本の巨大な filter_complex を組むのではなく、シーンごとに
++中間ファイルへ書き出してから連結する。理由は3つ。
++
++- フィルタが壊れたとき、どのシーンが原因か分かる。
++- シーンごとに解像度を揃えてからテロップを重ねられる。
++- 後から差分ビルド（変わったシーンだけ作り直す）を足せる。
++
++ここも「手順を組み立てて返すだけ」で、ファイルを書いたりプロセスを起動したり
++はしない。実行は cli が担当する。
++"""
++
++from __future__ import annotations
++
++import json
++import os
++from collections.abc import Sequence
++from dataclasses import dataclass, field
++
++from . import clip, presets
++from .core import VideoEditError, parse_time
++from .overlay import Overlay, drawtext_filter, text_filename
++from .presets import Preset
++from .probe import MediaInfo
++
++SCRIPT_KEYS = {"output", "preset", "font", "scenes"}
++SCENE_KEYS = {"source", "trim", "text", "transition"}
++TEXT_KEYS = {"value", "at", "for", "until", "pos", "size", "color", "box"}
++TRANSITION_KEYS = {"type", "duration"}
++
++# Phase 3 以降で扱う予定のキー。黙って無視すると「BGM が乗らない」ことに
++# 気づけないので、はっきり断る。
++NOT_YET = {
++    "audio": "BGM とダッキングは未対応です",
++    "bgm": "BGM とダッキングは未対応です",
++    "subtitle": "字幕の焼き込みは未対応です",
++    "narration": "ナレーションの差し込みは未対応です",
++}
++
++
++@dataclass(frozen=True)
++class Scene:
++    """台本の1シーン。"""
++
++    source: str
++    start: float | None = None
++    end: float | None = None
++    overlays: tuple[Overlay, ...] = ()
++    join: clip.Join | None = None  # 直前のシーンとの継ぎ目
++
++
++@dataclass(frozen=True)
++class Script:
++    """台本ぜんぶ。"""
++
++    output: str
++    preset: Preset
++    scenes: tuple[Scene, ...]
++    font: str | None = None
++
++
++@dataclass(frozen=True)
++class Step:
++    """ビルドの1手順。``text_files`` は実行前に書き出す本文（パス -> 中身）。"""
++
++    description: str
++    command: list[str]
++    text_files: dict[str, str] = field(default_factory=dict)
++
++
++# --- 読み込み -----------------------------------------------------------
++
++
++def load_script(path: str) -> Script:
++    """台本ファイルを読む。``.json`` は標準ライブラリだけで、``.yaml`` は PyYAML で。"""
++    with open(path, encoding="utf-8") as handle:
++        raw = handle.read()
++    extension = os.path.splitext(path)[1].lower()
++    if extension in (".yaml", ".yml"):
++        data = _load_yaml(raw, path)
++    elif extension == ".json":
++        data = _load_json(raw, path)
++    else:
++        raise VideoEditError(f"台本は .yaml / .yml / .json のいずれかにしてください: {path}")
++    return parse_script(data, base_dir=os.path.dirname(os.path.abspath(path)))
++
++
++def _load_yaml(raw: str, path: str) -> dict:
++    try:
++        import yaml
++    except ImportError:
++        raise VideoEditError(
++            "YAML の台本を読むには PyYAML が要ります。"
++            '`pip install PyYAML`（または pip install -e ".[image]"）を実行するか、'
++            "台本を .json で書いてください"
++        ) from None
++    try:
++        return yaml.safe_load(raw) or {}
++    except yaml.YAMLError as exc:
++        raise VideoEditError(f"台本を YAML として読めませんでした: {path}\n{exc}") from None
++
++
++def _load_json(raw: str, path: str) -> dict:
++    try:
++        return json.loads(raw)
++    except json.JSONDecodeError as exc:
++        raise VideoEditError(f"台本を JSON として読めませんでした: {path}\n{exc}") from None
++
++
++def parse_script(data: object, *, base_dir: str = "") -> Script:
++    """読み込んだ辞書を ``Script`` に変換する。おかしい所はその場で指摘する。"""
++    if not isinstance(data, dict):
++        raise VideoEditError("台本の一番外側は辞書（キーと値）にしてください")
++    _reject_unknown(data, SCRIPT_KEYS, "台本")
++
++    output = data.get("output")
++    if not output:
++        raise VideoEditError("台本に output（書き出し先）がありません")
++
++    raw_scenes = data.get("scenes")
++    if not isinstance(raw_scenes, list) or not raw_scenes:
++        raise VideoEditError("台本に scenes（シーンの並び）が1つ以上必要です")
++
++    try:
++        preset = presets.get(str(data.get("preset", presets.DEFAULT_PRESET)))
++    except KeyError as exc:
++        raise VideoEditError(str(exc)) from None
++    if preset.is_copy:
++        raise VideoEditError("台本では copy プリセットを使えません（テロップも連結もできません）")
++
++    scenes = tuple(
++        _parse_scene(scene, index, base_dir=base_dir, is_first=index == 0)
++        for index, scene in enumerate(raw_scenes)
++    )
++    return Script(
++        output=_resolve(str(output), base_dir),
++        preset=preset,
++        scenes=scenes,
++        font=str(data["font"]) if data.get("font") else None,
++    )
++
++
++def _parse_scene(data: object, index: int, *, base_dir: str, is_first: bool) -> Scene:
++    where = f"scenes[{index}]"
++    if not isinstance(data, dict):
++        raise VideoEditError(f"{where} は辞書にしてください")
++    _reject_unknown(data, SCENE_KEYS, where)
++
++    source = data.get("source")
++    if not source:
++        raise VideoEditError(f"{where} に source（素材のパス）がありません")
++
++    start = end = None
++    if "trim" in data:
++        start, end = _parse_trim(data["trim"], where)
++
++    overlays = tuple(
++        _parse_overlay(item, f"{where}.text[{position}]")
++        for position, item in enumerate(_as_list(data.get("text"), f"{where}.text"))
++    )
++
++    join = None
++    if "transition" in data:
++        if is_first:
++            raise VideoEditError(f"{where} は先頭なので transition を付けられません")
++        join = _parse_transition(data["transition"], where)
++
++    return Scene(
++        source=_resolve(str(source), base_dir),
++        start=start,
++        end=end,
++        overlays=overlays,
++        join=join,
++    )
++
++
++def _parse_trim(value: object, where: str) -> tuple[float | None, float | None]:
++    """``trim: [0, 12.5]`` を秒の組に直す。片側は null で省略できる。"""
++    if not isinstance(value, (list, tuple)) or len(value) != 2:
++        raise VideoEditError(f"{where}.trim は [開始, 終了] の2つで書いてください")
++    start, end = (None if item is None else parse_time(item) for item in value)
++    if start is not None and end is not None and end <= start:
++        raise VideoEditError(f"{where}.trim の終了 {end} が開始 {start} より後になっていません")
++    return start, end
++
++
++def _parse_overlay(data: object, where: str) -> Overlay:
++    if isinstance(data, str):  # `text: "ひとこと"` の略記
++        return Overlay(text=data)
++    if not isinstance(data, dict):
++        raise VideoEditError(f"{where} は文字列か辞書にしてください")
++    _reject_unknown(data, TEXT_KEYS, where)
++
++    value = data.get("value")
++    if not value:
++        raise VideoEditError(f"{where} に value（本文）がありません")
++
++    start = parse_time(data["at"]) if "at" in data else 0.0
++    end = None
++    if "until" in data and "for" in data:
++        raise VideoEditError(f"{where} は for と until を同時に書けません")
++    if "until" in data:
++        end = parse_time(data["until"])
++    elif "for" in data:
++        end = start + parse_time(data["for"])
++
++    return Overlay(
++        text=str(value),
++        start=start,
++        end=end,
++        position=str(data.get("pos", "bottom")),
++        size=int(data["size"]) if data.get("size") is not None else None,
++        color=str(data.get("color", "white")),
++        box_color=_parse_box(data.get("box", True)),
++    )
++
++
++def _parse_box(value: object) -> str | None:
++    """``box: false`` で背景の帯を消す。色を書けばその色にする。"""
++    if value is False:
++        return None
++    if value is True or value is None:
++        return "black@0.5"
++    return str(value)
++
++
++def _parse_transition(data: object, where: str) -> clip.Join:
++    if isinstance(data, str):  # `transition: crossfade` の略記
++        clip.transition_name(data)  # 名前の検査
++        return clip.Join(data)
++    if not isinstance(data, dict):
++        raise VideoEditError(f"{where}.transition は文字列か辞書にしてください")
++    _reject_unknown(data, TRANSITION_KEYS, f"{where}.transition")
++    name = data.get("type")
++    if not name:
++        raise VideoEditError(f"{where}.transition に type がありません")
++    clip.transition_name(str(name))  # 名前の検査をここで済ませる
++    duration = float(data.get("duration", clip.DEFAULT_TRANSITION_DURATION))
++    return clip.Join(str(name), duration)
++
++
++def _as_list(value: object, where: str) -> list:
++    if value is None:
++        return []
++    if isinstance(value, list):
++        return value
++    if isinstance(value, (str, dict)):
++        return [value]
++    raise VideoEditError(f"{where} は文字列・辞書・その並びのいずれかにしてください")
++
++
++def _reject_unknown(data: dict, allowed: set[str], where: str) -> None:
++    """知らないキーは黙って無視せず、その場で指摘する。"""
++    for key in data:
++        if key in allowed:
++            continue
++        if key in NOT_YET:
++            raise VideoEditError(f"{where} の {key}: {NOT_YET[key]}（Phase 3 以降で対応予定）")
++        raise VideoEditError(f"{where} に知らないキーがあります: {key}（使えるのは {', '.join(sorted(allowed))}）")
++
++
++def _resolve(path: str, base_dir: str) -> str:
++    """台本に書かれた相対パスは、台本ファイルの場所を基準に解決する。"""
++    if not base_dir or os.path.isabs(path):
++        return path
++    return os.path.normpath(os.path.join(base_dir, path))
++
++
++# --- 手順の組み立て -----------------------------------------------------
++
++
++def scene_path(work_dir: str, index: int) -> str:
++    return os.path.join(work_dir, f"scene_{index:03d}.mp4")
++
++
++def scene_steps(
++    script: Script,
++    *,
++    infos: Sequence[MediaInfo],
++    work_dir: str,
++    font: str,
++) -> list[Step]:
++    """シーンを1本ずつ中間ファイルへ書き出す手順（純粋関数）。
++
++    ``infos`` はシーンの素材を ffprobe した結果。テロップの文字サイズを
++    出来上がりの高さから決めるのに使う。
++    """
++    _check_lengths(script, infos)
++    height = _output_height(script.preset, infos)
++    single = len(script.scenes) == 1
++    steps: list[Step] = []
++    text_index = 0
++
++    for index, (scene, info) in enumerate(zip(script.scenes, infos, strict=True)):
++        _check_overlays(scene, info, where=f"scenes[{index}]")
++        filters: list[str] = []
++        text_files: dict[str, str] = {}
++        for overlay in scene.overlays:
++            text_index += 1
++            path = os.path.join(work_dir, text_filename(text_index))
++            text_files[path] = overlay.text
++            filters.append(
++                drawtext_filter(overlay, text_path=path, font_path=font, height=height)
++            )
++
++        destination = script.output if single else scene_path(work_dir, index)
++        steps.append(
++            Step(
++                description=(
++                    f"シーン {index + 1}/{len(script.scenes)}: "
++                    f"{os.path.basename(scene.source)}"
++                ),
++                command=clip.cut_command(
++                    scene.source,
++                    destination,
++                    start=scene.start,
++                    end=scene.end,
++                    preset=script.preset,
++                    filters=filters,
++                ),
++                text_files=text_files,
++            )
++        )
++    return steps
++
++
++def predicted_scene_infos(
++    script: Script, infos: Sequence[MediaInfo], work_dir: str
++) -> list[MediaInfo]:
++    """まだ書き出していない中間ファイルの姿を、素材から予想する。
++
++    ``--dry-run`` で連結のコマンドまで見せるために使う。実行するときは
++    予想ではなく、実際に書き出した中間ファイルを ffprobe すること
++    （エンコーダの丸めで尺が数十ミリ秒ずれ、トランジションの位置が狂うため）。
++    """
++    _check_lengths(script, infos)
++    return [
++        MediaInfo(
++            path=scene_path(work_dir, index),
++            duration=_scene_duration(scene, info),
++            width=script.preset.width or info.width,
++            height=script.preset.height or info.height,
++            fps=info.fps,
++            video_codec="h264",
++            # 素材に音声が無ければ、書き出した中間ファイルにも音声トラックはできない
++            audio_codec="aac" if info.has_audio else None,
++        )
++        for index, (scene, info) in enumerate(zip(script.scenes, infos, strict=True))
++    ]
++
++
++def concat_step(script: Script, rendered: Sequence[MediaInfo]) -> Step:
++    """中間ファイルを1本に繋ぐ手順（純粋関数）。"""
++    joins = [scene.join or clip.Join() for scene in script.scenes[1:]]
++    return Step(
++        description=f"連結: {len(script.scenes)} シーン -> {os.path.basename(script.output)}",
++        command=clip.concat_command(
++            rendered, script.output, preset=script.preset, joins=joins
++        ),
++    )
++
++
++def _check_lengths(script: Script, infos: Sequence[MediaInfo]) -> None:
++    if len(infos) != len(script.scenes):
++        raise VideoEditError(
++            f"素材の情報が足りません: シーン {len(script.scenes)} 個に対して {len(infos)} 件"
++        )
++
++
++def _output_height(preset: Preset, infos: Sequence[MediaInfo]) -> int | None:
++    """テロップの文字サイズを決めるための、出来上がりの高さ。"""
++    if preset.height:
++        return preset.height
++    return next((info.height for info in infos if info.height), None)
++
++
++def _scene_duration(scene: Scene, info: MediaInfo) -> float:
++    """trim を反映したシーンの尺。連結時のオフセット計算に使う。"""
++    start = scene.start or 0.0
++    end = scene.end if scene.end is not None else info.duration
++    return max(0.0, min(end, info.duration) - start)
++
++
++def _check_overlays(scene: Scene, info: MediaInfo, *, where: str) -> None:
++    """シーンの尺からはみ出したテロップを知らせる。出ないまま気づかないのを防ぐ。"""
++    duration = _scene_duration(scene, info)
++    for position, overlay in enumerate(scene.overlays):
++        if overlay.start >= duration:
++            raise VideoEditError(
++                f"{where}.text[{position}] の開始 {overlay.start:g}s が"
++                f"シーンの尺 {duration:.2f}s を超えています。このテロップは表示されません"
++            )
+diff --git a/tests/videoedit/test_cli.py b/tests/videoedit/test_cli.py
+index 2f5fde8..f6faec6 100644
+--- a/tests/videoedit/test_cli.py
++++ b/tests/videoedit/test_cli.py
+@@ -2,6 +2,8 @@
+ 
+ from __future__ import annotations
+ 
++import json
++
+ import pytest
+ 
+ from videoedit import cli
+@@ -36,8 +38,6 @@ def test_probe_prints_a_summary(monkeypatch, capsys, fake_probe):
+ 
+ 
+ def test_probe_json_is_machine_readable(monkeypatch, capsys, fake_probe):
+-    import json
+-
+     assert cli.main(["probe", "in.mp4", "--json"]) == 0
+     assert json.loads(capsys.readouterr().out)["duration"] == 10.0
+ 
+@@ -113,3 +113,71 @@ def _raise_not_found(*args, **kwargs):
+     from videoedit.core import INSTALL_HINT
+ 
+     raise FFmpegNotFound(INSTALL_HINT)
++
++
++# --- テロップと台本 -----------------------------------------------------
++
++
++@pytest.fixture
++def font(tmp_path, monkeypatch):
++    path = tmp_path / "font.ttf"
++    path.write_bytes(b"")
++    monkeypatch.setenv("VIDEOEDIT_FONT", str(path))
++    return str(path)
++
++
++def test_text_dry_run_writes_no_file(capsys, fake_probe, font, tmp_path):
++    work = tmp_path / "work"
++    argv = [
++        "text", "in.mp4", "-o", "o.mp4", "--value", "ここがポイント",
++        "--at", "3", "--for", "4", "--work-dir", str(work), "--dry-run",
++    ]
++    assert cli.main(argv) == 0
++    out = capsys.readouterr().out
++    assert "between(t,3,7)" in out
++    assert "text_001.txt に書き出す本文" in out
++    assert list(work.glob("*.txt")) == []
++
++
++def test_text_rejects_both_for_and_until(capsys, fake_probe, font):
++    argv = ["text", "in.mp4", "-o", "o.mp4", "--value", "x", "--for", "1", "--until", "2"]
++    assert cli.main(argv) == 1
++    assert "同時に指定できません" in capsys.readouterr().err
++
++
++def test_build_runs_each_scene_then_the_concat(capsys, fake_probe, font, tmp_path):
++    script = tmp_path / "s.json"
++    script.write_text(
++        json.dumps(
++            {
++                "output": str(tmp_path / "out.mp4"),
++                "preset": "youtube-720p",
++                "scenes": [
++                    {"source": "a.mp4", "text": [{"value": "はじめ", "for": 2}]},
++                    {"source": "b.mp4", "transition": "crossfade"},
++                ],
++            }
++        ),
++        encoding="utf-8",
++    )
++    assert cli.main(["build", str(script), "--dry-run"]) == 0
++    out = capsys.readouterr().out
++    assert "[1/3] シーン 1/2" in out
++    assert "[3/3] 連結" in out
++    assert "xfade=transition=fade" in out
++
++
++def test_build_can_override_the_output(capsys, fake_probe, font, tmp_path):
++    script = tmp_path / "s.json"
++    script.write_text(
++        json.dumps({"output": "ignored.mp4", "scenes": [{"source": "a.mp4"}]}), encoding="utf-8"
++    )
++    assert cli.main(["build", str(script), "-o", "chosen.mp4", "--dry-run"]) == 0
++    assert "chosen.mp4" in capsys.readouterr().out
++
++
++def test_build_reports_a_broken_script(capsys, fake_probe, font, tmp_path):
++    script = tmp_path / "s.json"
++    script.write_text(json.dumps({"scenes": [{"source": "a.mp4"}]}), encoding="utf-8")
++    assert cli.main(["build", str(script), "--dry-run"]) == 1
++    assert "output" in capsys.readouterr().err
+diff --git a/tests/videoedit/test_clip.py b/tests/videoedit/test_clip.py
+index 0d28217..0612dae 100644
+--- a/tests/videoedit/test_clip.py
++++ b/tests/videoedit/test_clip.py
+@@ -65,6 +65,20 @@ def test_cut_rejects_a_zero_length_range():
+         clip.cut_command("in.mp4", "out.mp4", duration=0, preset=SOURCE)
+ 
+ 
++def test_cut_applies_extra_filters_after_the_preset_normalisation():
++    command = clip.cut_command(
++        "in.mp4", "out.mp4", preset=presets.get("shorts"), filters=["drawtext=text=hi"]
++    )
++    chain = value_after(command, "-vf")
++    # 先に解像度を揃えないと、テロップまで拡大縮小されてしまう
++    assert chain.index("scale=1080:1920") < chain.index("drawtext")
++
++
++def test_cut_with_copy_rejects_extra_filters():
++    with pytest.raises(VideoEditError, match="フィルタを使えません"):
++        clip.cut_command("in.mp4", "out.mp4", preset=COPY, filters=["drawtext=text=hi"])
++
++
+ def test_cut_with_copy_guards_against_negative_timestamps():
+     command = clip.cut_command("in.mp4", "out.mp4", start=1, end=3, preset=COPY)
+     assert "-avoid_negative_ts" in command
+@@ -162,12 +176,35 @@ def test_crossfade_maps_to_the_ffmpeg_fade_transition():
+     assert "xfade=transition=fade:" in graph
+ 
+ 
+-def test_transition_must_be_shorter_than_the_shortest_clip():
++def test_transition_must_be_shorter_than_both_clips_it_joins():
+     clips = [media("a.mp4", 10.0), media("b.mp4", 2.0)]
+-    with pytest.raises(VideoEditError, match="最短の素材"):
++    with pytest.raises(VideoEditError, match="短いほう"):
+         clip.concat_filter(clips, preset=SOURCE, transition="fade", transition_duration=2.0)
+ 
+ 
++def test_a_short_clip_only_constrains_its_own_joins():
++    """長さの判定は継ぎ目ごと。無関係な位置の短い素材に引きずられない。"""
++    clips = [media("a.mp4", 10.0), media("b.mp4", 10.0), media("c.mp4", 1.0)]
++    joins = [clip.Join("fade", 2.0), clip.Join(None)]
++    graph = clip.concat_filter(clips, preset=SOURCE, joins=joins)
++    assert "xfade=transition=fade:duration=2" in graph
++    assert "concat=n=2:v=1:a=0" in graph
++
++
++def test_a_join_without_a_transition_does_not_shorten_the_result():
++    clips = [media("a.mp4", 10.0), media("b.mp4", 5.0), media("c.mp4", 4.0)]
++    joins = [clip.Join(None), clip.Join("fade", 1.0)]
++    graph = clip.concat_filter(clips, preset=SOURCE, joins=joins)
++    # 効果なしで繋いだ時点の尺は 15s。次の重なりはその 1s 前から。
++    assert "offset=14.000000" in graph
++
++
++def test_joins_must_match_the_number_of_clips():
++    clips = [media("a.mp4"), media("b.mp4"), media("c.mp4")]
++    with pytest.raises(VideoEditError, match="継ぎ目の数が合いません"):
++        clip.concat_filter(clips, preset=SOURCE, joins=[clip.Join("fade")])
++
++
+ def test_transition_length_must_be_positive():
+     with pytest.raises(VideoEditError, match="0 以下"):
+         clip.concat_filter(
+diff --git a/tests/videoedit/test_integration.py b/tests/videoedit/test_integration.py
+index 146ed4a..38e7dff 100644
+--- a/tests/videoedit/test_integration.py
++++ b/tests/videoedit/test_integration.py
+@@ -6,6 +6,9 @@ ffmpeg が入っていない環境では丸ごと skip する。組み立てた
+ 
+ from __future__ import annotations
+ 
++import json
++import os
++
+ import pytest
+ 
+ from videoedit import cli, core
+@@ -106,3 +109,133 @@ def test_a_missing_source_fails_with_ffmpeg_stderr(tmp_path, capsys):
+     out = tmp_path / "out.mp4"
+     assert cli.main(["export", str(tmp_path / "nope.mp4"), "-o", str(out)]) == 1
+     assert "No such file" in capsys.readouterr().err
++
++
++# --- テロップと台本（実際に書き出して確かめる） -------------------------
++
++FONT_CANDIDATES = (
++    "/usr/share/fonts/truetype/fonts-japanese-gothic.ttf",
++    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
++    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
++)
++
++
++@pytest.fixture
++def font():
++    import os
++
++    path = next((candidate for candidate in FONT_CANDIDATES if os.path.isfile(candidate)), None)
++    if path is None:
++        pytest.skip("テロップに使えるフォントが無い")
++    return path
++
++
++def test_text_burns_a_telop_into_the_video(tmp_path, clips, font):
++    out = tmp_path / "telop.mp4"
++    argv = [
++        "text", clips["a"], "-o", str(out), "--value", "ここがポイント",
++        "--at", "1", "--for", "2", "--font", font,
++    ]
++    assert cli.main(argv) == 0
++    assert probe(str(out)).duration == pytest.approx(4.0, abs=0.2)
++
++
++def test_a_telop_actually_changes_the_picture(tmp_path, clips, font):
++    """コマンドが通るだけでなく、絵が変わっていることまで確かめる。"""
++    import hashlib
++
++    def frame_at(source, at):
++        image = tmp_path / f"f{at}_{os.path.basename(source)}.png"
++        core.run([
++            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
++            "-ss", str(at), "-i", source, "-frames:v", "1", str(image),
++        ])
++        return hashlib.md5(image.read_bytes()).hexdigest()
++
++    out = tmp_path / "telop.mp4"
++    argv = [
++        "text", clips["a"], "-o", str(out), "--value", "テロップ",
++        "--at", "1", "--until", "2", "--font", font,
++    ]
++    assert cli.main(argv) == 0
++    # テロップが出ている 1.5s では絵が変わり、消えた 3s では元の絵に近い
++    assert frame_at(str(out), 1.5) != frame_at(clips["a"], 1.5)
++
++
++def test_build_assembles_scenes_with_telops_and_transitions(tmp_path, clips, font):
++    script = tmp_path / "script.json"
++    output = tmp_path / "ep.mp4"
++    script.write_text(
++        json.dumps(
++            {
++                "output": str(output),
++                "preset": "youtube-720p",
++                "scenes": [
++                    {
++                        "source": clips["a"],
++                        "trim": [0, 3],
++                        "text": [{"value": "オープニング", "at": 0.5, "for": 2}],
++                    },
++                    # 音声を持たない素材。中間ファイルにも音声トラックはできない。
++                    {"source": clips["b"], "transition": {"type": "crossfade", "duration": 0.5}},
++                    {"source": clips["c"], "trim": [1, 4], "transition": "wipeleft"},
++                ],
++            }
++        ),
++        encoding="utf-8",
++    )
++    assert cli.main(["build", str(script), "--font", font]) == 0
++    info = probe(str(output))
++    # 3 + 3 + 3 から、重なり 0.5s x 2回ぶん縮む
++    assert info.duration == pytest.approx(8.0, abs=0.25)
++    assert info.size == (1280, 720)
++    assert info.has_audio
++
++
++def test_build_of_a_single_scene_writes_straight_to_the_output(tmp_path, clips, font):
++    script = tmp_path / "script.json"
++    output = tmp_path / "one.mp4"
++    script.write_text(
++        json.dumps(
++            {
++                "output": str(output),
++                "scenes": [{"source": clips["a"], "trim": [1, 3], "text": "ひとこと"}],
++            }
++        ),
++        encoding="utf-8",
++    )
++    assert cli.main(["build", str(script), "--font", font]) == 0
++    assert probe(str(output)).duration == pytest.approx(2.0, abs=0.2)
++
++
++def test_build_keeps_intermediate_files_when_a_work_dir_is_given(tmp_path, clips, font):
++    script = tmp_path / "script.json"
++    work = tmp_path / "work"
++    script.write_text(
++        json.dumps(
++            {
++                "output": str(tmp_path / "ep.mp4"),
++                "scenes": [{"source": clips["a"]}, {"source": clips["c"]}],
++            }
++        ),
++        encoding="utf-8",
++    )
++    assert cli.main(["build", str(script), "--font", font, "--work-dir", str(work)]) == 0
++    assert sorted(path.name for path in work.glob("scene_*.mp4")) == [
++        "scene_000.mp4",
++        "scene_001.mp4",
++    ]
++
++
++def test_a_path_with_a_colon_still_finds_the_font(tmp_path, clips, font):
++    """フィルタの引数の : は、包んだうえで \\: と書かないと区切りに化ける。"""
++    import shutil
++
++    tricky = tmp_path / "a:b"
++    tricky.mkdir()
++    copied = tricky / "font.ttf"
++    shutil.copy(font, copied)
++    out = tmp_path / "colon.mp4"
++    argv = ["text", clips["a"], "-o", str(out), "--value", "あ", "--font", str(copied)]
++    assert cli.main(argv) == 0
++    assert probe(str(out)).duration > 0
+diff --git a/tests/videoedit/test_overlay.py b/tests/videoedit/test_overlay.py
+new file mode 100644
+index 0000000..484a771
+--- /dev/null
++++ b/tests/videoedit/test_overlay.py
+@@ -0,0 +1,110 @@
++"""テロップのテスト。ffmpeg は起動しない。"""
++
++from __future__ import annotations
++
++import pytest
++
++from videoedit import overlay
++from videoedit.core import VideoEditError
++
++
++def test_quote_escapes_the_option_separator():
++    # 包むだけでは足りない。: は AVOption の区切りとして解釈されてしまう。
++    assert overlay.quote("/tmp/a:b/font.ttf") == r"'/tmp/a\:b/font.ttf'"
++
++
++def test_quote_normalises_windows_separators():
++    # C:\Windows\Fonts をそのまま入れると二重に解釈されて壊れる
++    assert overlay.quote("C:\\Windows\\Fonts\\meiryo.ttc") == r"'C\:/Windows/Fonts/meiryo.ttc'"
++
++
++def test_quote_escapes_single_quotes():
++    assert overlay.quote("it's") == "'it'\\''s'"
++
++
++def test_drawtext_passes_the_body_through_a_file():
++    item = overlay.Overlay(text="ここがポイント", start=3, end=7)
++    result = overlay.drawtext_filter(
++        item, text_path="/w/text_001.txt", font_path="/f/font.ttf", height=1080
++    )
++    # 本文を text= に直接埋めない。エスケープが要るのはパスだけになる。
++    assert "textfile='/w/text_001.txt'" in result
++    assert "ここがポイント" not in result
++
++
++def test_drawtext_limits_the_visible_range():
++    item = overlay.Overlay(text="hi", start=3, end=7)
++    assert "between(t,3,7)" in overlay.drawtext_filter(
++        item, text_path="t.txt", font_path="f.ttf"
++    )
++
++
++def test_a_telop_without_an_end_stays_until_the_scene_ends():
++    item = overlay.Overlay(text="hi", start=2)
++    assert "gte(t,2)" in overlay.drawtext_filter(item, text_path="t.txt", font_path="f.ttf")
++
++
++def test_the_background_band_can_be_turned_off():
++    plain = overlay.Overlay(text="hi", box_color=None)
++    assert "box=1" not in overlay.drawtext_filter(plain, text_path="t.txt", font_path="f.ttf")
++
++
++@pytest.mark.parametrize("position", sorted(overlay.POSITIONS))
++def test_every_position_produces_coordinates(position):
++    item = overlay.Overlay(text="hi", position=position)
++    result = overlay.drawtext_filter(item, text_path="t.txt", font_path="f.ttf", height=1080)
++    assert ":x=" in result and ":y=" in result
++
++
++def test_an_unknown_position_lists_the_available_ones():
++    with pytest.raises(VideoEditError, match="bottom"):
++        overlay.Overlay(text="hi", position="middle-ish")
++
++
++def test_an_empty_body_is_rejected():
++    with pytest.raises(VideoEditError, match="本文が空"):
++        overlay.Overlay(text="   ")
++
++
++def test_an_end_before_the_start_is_rejected():
++    with pytest.raises(VideoEditError, match="より後になっていません"):
++        overlay.Overlay(text="hi", start=5, end=2)
++
++
++@pytest.mark.parametrize(("height", "expected"), [(1080, 54), (720, 36), (1920, 96), (None, 54)])
++def test_font_size_follows_the_output_height(height, expected):
++    assert overlay.font_size_for(height) == expected
++
++
++def test_an_explicit_font_size_wins():
++    assert overlay.font_size_for(1080, 20) == 20
++
++
++def test_a_zero_font_size_is_rejected():
++    with pytest.raises(VideoEditError, match="0 以下"):
++        overlay.font_size_for(1080, 0)
++
++
++def test_find_font_prefers_the_explicit_path(tmp_path):
++    font = tmp_path / "f.ttf"
++    font.write_bytes(b"")
++    assert overlay.find_font(str(font)) == str(font)
++
++
++def test_find_font_rejects_a_missing_explicit_path():
++    with pytest.raises(VideoEditError, match="見つかりません"):
++        overlay.find_font("/nope/none.ttf")
++
++
++def test_find_font_uses_the_environment_variable(tmp_path, monkeypatch):
++    font = tmp_path / "f.ttf"
++    font.write_bytes(b"")
++    monkeypatch.setenv(overlay.FONT_ENV, str(font))
++    assert overlay.find_font() == str(font)
++
++
++def test_no_font_anywhere_explains_how_to_set_one(monkeypatch):
++    monkeypatch.delenv(overlay.FONT_ENV, raising=False)
++    monkeypatch.setattr(overlay, "FONT_CANDIDATES", ())
++    with pytest.raises(VideoEditError, match="--font"):
++        overlay.find_font()
+diff --git a/tests/videoedit/test_timeline.py b/tests/videoedit/test_timeline.py
+new file mode 100644
+index 0000000..df4e1d3
+--- /dev/null
++++ b/tests/videoedit/test_timeline.py
+@@ -0,0 +1,274 @@
++"""台本の読み込みと、ビルド手順の組み立てのテスト。ffmpeg は起動しない。"""
++
++from __future__ import annotations
++
++import json
++
++import pytest
++
++from videoedit import clip, timeline
++from videoedit.core import VideoEditError
++from videoedit.probe import MediaInfo
++
++FONT = "/f/font.ttf"
++
++
++def media(path="a.mp4", duration=10.0, *, audio=True, size=(1920, 1080)):
++    return MediaInfo(
++        path=path,
++        duration=duration,
++        width=size[0],
++        height=size[1],
++        fps=30.0,
++        video_codec="h264",
++        audio_codec="aac" if audio else None,
++    )
++
++
++def script_data(**overrides):
++    data = {
++        "output": "out.mp4",
++        "preset": "youtube-1080p",
++        "scenes": [{"source": "a.mp4"}, {"source": "b.mp4"}],
++    }
++    data.update(overrides)
++    return data
++
++
++# --- 読み込み -----------------------------------------------------------
++
++
++def test_parse_reads_scenes_in_order():
++    script = timeline.parse_script(script_data())
++    assert [scene.source for scene in script.scenes] == ["a.mp4", "b.mp4"]
++    assert script.preset.name == "youtube-1080p"
++
++
++def test_relative_paths_resolve_against_the_script_file():
++    script = timeline.parse_script(script_data(), base_dir="/proj/ep01")
++    assert script.scenes[0].source == "/proj/ep01/a.mp4"
++    assert script.output == "/proj/ep01/out.mp4"
++
++
++def test_trim_accepts_clock_notation():
++    data = script_data(scenes=[{"source": "a.mp4", "trim": ["00:00:30", "1:10"]}])
++    scene = timeline.parse_script(data).scenes[0]
++    assert (scene.start, scene.end) == (30.0, 70.0)
++
++
++def test_trim_can_leave_one_side_open():
++    data = script_data(scenes=[{"source": "a.mp4", "trim": [5, None]}])
++    scene = timeline.parse_script(data).scenes[0]
++    assert (scene.start, scene.end) == (5.0, None)
++
++
++def test_a_bare_string_is_shorthand_for_a_telop():
++    data = script_data(scenes=[{"source": "a.mp4", "text": "ひとこと"}])
++    overlay = timeline.parse_script(data).scenes[0].overlays[0]
++    assert (overlay.text, overlay.start, overlay.end) == ("ひとこと", 0.0, None)
++
++
++def test_for_is_measured_from_the_telop_start():
++    data = script_data(scenes=[{"source": "a.mp4", "text": [{"value": "x", "at": 3, "for": 4}]}])
++    overlay = timeline.parse_script(data).scenes[0].overlays[0]
++    assert (overlay.start, overlay.end) == (3.0, 7.0)
++
++
++def test_until_is_an_absolute_position():
++    data = script_data(scenes=[{"source": "a.mp4", "text": [{"value": "x", "at": 3, "until": 4}]}])
++    overlay = timeline.parse_script(data).scenes[0].overlays[0]
++    assert overlay.end == 4.0
++
++
++def test_for_and_until_cannot_both_be_given():
++    data = script_data(
++        scenes=[{"source": "a.mp4", "text": [{"value": "x", "for": 1, "until": 4}]}]
++    )
++    with pytest.raises(VideoEditError, match="同時に書けません"):
++        timeline.parse_script(data)
++
++
++def test_box_false_removes_the_background_band():
++    data = script_data(scenes=[{"source": "a.mp4", "text": [{"value": "x", "box": False}]}])
++    assert timeline.parse_script(data).scenes[0].overlays[0].box_color is None
++
++
++def test_a_bare_string_is_shorthand_for_a_transition():
++    data = script_data(scenes=[{"source": "a.mp4"}, {"source": "b.mp4", "transition": "wipeleft"}])
++    assert timeline.parse_script(data).scenes[1].join == clip.Join("wipeleft", 0.5)
++
++
++def test_the_first_scene_cannot_have_a_transition():
++    data = script_data(scenes=[{"source": "a.mp4", "transition": "fade"}, {"source": "b.mp4"}])
++    with pytest.raises(VideoEditError, match="先頭なので"):
++        timeline.parse_script(data)
++
++
++def test_an_unknown_transition_is_caught_while_reading():
++    data = script_data(scenes=[{"source": "a.mp4"}, {"source": "b.mp4", "transition": "swirl"}])
++    with pytest.raises(VideoEditError, match="unknown transition"):
++        timeline.parse_script(data)
++
++
++@pytest.mark.parametrize(
++    ("data", "message"),
++    [
++        ({"scenes": [{"source": "a.mp4"}]}, "output"),
++        ({"output": "o.mp4"}, "scenes"),
++        ({"output": "o.mp4", "scenes": []}, "scenes"),
++    ],
++)
++def test_a_script_missing_something_says_what(data, message):
++    with pytest.raises(VideoEditError, match=message):
++        timeline.parse_script(data)
++
++
++def test_an_unknown_key_names_the_offending_scene():
++    data = script_data(scenes=[{"source": "a.mp4"}, {"source": "b.mp4", "trimm": [0, 1]}])
++    with pytest.raises(VideoEditError, match=r"scenes\[1\] に知らないキー"):
++        timeline.parse_script(data)
++
++
++@pytest.mark.parametrize("key", ["audio", "bgm", "subtitle", "narration"])
++def test_features_that_do_not_exist_yet_are_refused_not_ignored(key):
++    """黙って無視すると「BGM が乗らない」ことに気づけない。"""
++    data = script_data(scenes=[{"source": "a.mp4", key: "x"}, {"source": "b.mp4"}])
++    with pytest.raises(VideoEditError, match="未対応"):
++        timeline.parse_script(data)
++
++
++def test_the_copy_preset_is_refused_in_a_script():
++    with pytest.raises(VideoEditError, match="copy プリセット"):
++        timeline.parse_script(script_data(preset="copy"))
++
++
++def test_load_script_reads_json(tmp_path):
++    path = tmp_path / "s.json"
++    path.write_text(json.dumps(script_data()), encoding="utf-8")
++    assert len(timeline.load_script(str(path)).scenes) == 2
++
++
++def test_load_script_rejects_an_unknown_extension(tmp_path):
++    path = tmp_path / "s.txt"
++    path.write_text("{}", encoding="utf-8")
++    with pytest.raises(VideoEditError, match=r"\.yaml"):
++        timeline.load_script(str(path))
++
++
++def test_broken_json_says_so(tmp_path):
++    path = tmp_path / "s.json"
++    path.write_text("{oops", encoding="utf-8")
++    with pytest.raises(VideoEditError, match="JSON として読めません"):
++        timeline.load_script(str(path))
++
++
++# --- 手順の組み立て -----------------------------------------------------
++
++
++def test_a_single_scene_is_written_straight_to_the_output():
++    script = timeline.parse_script(script_data(scenes=[{"source": "a.mp4"}]))
++    steps = timeline.scene_steps(script, infos=[media()], work_dir="/w", font=FONT)
++    assert len(steps) == 1
++    assert steps[0].command[-1] == "out.mp4"
++
++
++def test_scenes_are_written_to_numbered_intermediate_files():
++    script = timeline.parse_script(script_data())
++    steps = timeline.scene_steps(script, infos=[media(), media()], work_dir="/w", font=FONT)
++    assert [step.command[-1] for step in steps] == [
++        timeline.scene_path("/w", 0),
++        timeline.scene_path("/w", 1),
++    ]
++
++
++def test_telop_bodies_are_collected_as_files_to_write():
++    data = script_data(
++        scenes=[{"source": "a.mp4", "text": ["ひとつめ", "ふたつめ"]}, {"source": "b.mp4"}]
++    )
++    script = timeline.parse_script(data)
++    steps = timeline.scene_steps(script, infos=[media(), media()], work_dir="/w", font=FONT)
++    assert list(steps[0].text_files.values()) == ["ひとつめ", "ふたつめ"]
++    # 連番なので、どのテロップのファイルか追える
++    assert [path.replace("\\", "/") for path in steps[0].text_files] == [
++        "/w/text_001.txt",
++        "/w/text_002.txt",
++    ]
++
++
++def test_a_telop_past_the_end_of_its_scene_is_refused():
++    data = script_data(
++        scenes=[
++            {"source": "a.mp4", "trim": [0, 5], "text": [{"value": "x", "at": 9}]},
++            {"source": "b.mp4"},
++        ]
++    )
++    script = timeline.parse_script(data)
++    with pytest.raises(VideoEditError, match="表示されません"):
++        timeline.scene_steps(script, infos=[media(), media()], work_dir="/w", font=FONT)
++
++
++def test_predicted_scenes_keep_track_of_missing_audio():
++    """素材に音声が無ければ中間ファイルにも音声トラックはできない。"""
++    script = timeline.parse_script(script_data())
++    predicted = timeline.predicted_scene_infos(script, [media(), media(audio=False)], "/w")
++    assert predicted[0].has_audio
++    assert not predicted[1].has_audio
++
++
++def test_predicted_durations_follow_the_trim():
++    data = script_data(scenes=[{"source": "a.mp4", "trim": [2, 6]}, {"source": "b.mp4"}])
++    script = timeline.parse_script(data)
++    predicted = timeline.predicted_scene_infos(script, [media(), media(duration=3.0)], "/w")
++    assert [info.duration for info in predicted] == [4.0, 3.0]
++
++
++def test_concat_step_uses_each_scenes_own_transition():
++    data = script_data(
++        scenes=[
++            {"source": "a.mp4"},
++            {"source": "b.mp4", "transition": {"type": "crossfade", "duration": 1}},
++        ]
++    )
++    script = timeline.parse_script(data)
++    step = timeline.concat_step(script, [media("s0.mp4"), media("s1.mp4")])
++    assert "xfade=transition=fade:duration=1" in " ".join(step.command)
++
++
++def test_scenes_without_a_transition_are_cut_straight_together():
++    script = timeline.parse_script(script_data())
++    step = timeline.concat_step(script, [media("s0.mp4"), media("s1.mp4")])
++    assert "concat=n=2:v=1:a=1" in " ".join(step.command)
++
++
++def test_a_mismatched_number_of_probes_is_caught():
++    script = timeline.parse_script(script_data())
++    with pytest.raises(VideoEditError, match="素材の情報が足りません"):
++        timeline.scene_steps(script, infos=[media()], work_dir="/w", font=FONT)
++
++
++def test_load_script_reads_yaml(tmp_path):
++    pytest.importorskip("yaml")
++    path = tmp_path / "s.yaml"
++    path.write_text(
++        "output: out.mp4\nscenes:\n  - source: a.mp4\n    text: ひとこと\n", encoding="utf-8"
++    )
++    script = timeline.load_script(str(path))
++    assert script.scenes[0].overlays[0].text == "ひとこと"
++
++
++def test_yaml_without_pyyaml_says_how_to_proceed(tmp_path, monkeypatch):
++    """PyYAML は既定で入らない依存。無いときに何をすればよいか伝える。"""
++    import builtins
++
++    real_import = builtins.__import__
++
++    def blocked(name, *args, **kwargs):
++        if name == "yaml":
++            raise ImportError("no yaml")
++        return real_import(name, *args, **kwargs)
++
++    monkeypatch.setattr(builtins, "__import__", blocked)
++    path = tmp_path / "s.yaml"
++    path.write_text("output: o.mp4\n", encoding="utf-8")
++    with pytest.raises(VideoEditError, match="PyYAML"):
++        timeline.load_script(str(path))
+-- 
+2.43.0
+
