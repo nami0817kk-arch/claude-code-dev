@@ -1,0 +1,2333 @@
+From 808e357d157b3417b681f9ec514db09d1219c649 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 2 Sep 2026 04:30:59 +0000
+Subject: [PATCH] =?UTF-8?q?feat(videoedit):=20ffmpeg=20=E3=81=A7=E5=8B=95?=
+ =?UTF-8?q?=E7=94=BB=E3=82=92=E5=88=87=E3=82=8A=E3=83=BB=E7=B9=8B=E3=81=8E?=
+ =?UTF-8?q?=E3=83=BB=E6=9B=B8=E3=81=8D=E5=87=BA=E3=81=99=E3=83=84=E3=83=BC?=
+ =?UTF-8?q?=E3=83=AB=E3=82=AD=E3=83=83=E3=83=88=E3=82=92=E8=BF=BD=E5=8A=A0?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+動画編集スキルの Phase 0 / 1。pip の依存は増やさず、処理は外部バイナリの
+ffmpeg に任せる（audiogen の「依存ゼロ・再現可能」と同じ判断軸）。
+
+できること:
+- probe   尺・解像度・fps・音声トラックの確認
+- cut     区間の切り出し（--from/--to、--from/--for、時刻は 00:01:30 でも 90 でも可）
+- concat  連結。解像度・fps がバラバラでも自動で揃える。xfade のトランジション付き
+- export  書き出しプリセット（source / youtube-1080p / youtube-720p / shorts / preview / copy）
+- thumb   サムネイル用の1フレーム切り出し
+
+設計:
+- プロセスを起動するのは core.run だけ。他は ffmpeg の引数リストを返す純粋関数に
+  したので、ffmpeg が無い環境でも組み立てを検証でき、--dry-run が全サブコマンドで
+  成立する
+- 音声を持たない素材には anullsrc で無音を補う（1本でも欠けると concat が失敗するため）
+- xfade のオフセットは、繋ぐたびに縮む累計尺から重なりぶんを引いて算出する
+- 解像度を持たないプリセットは先頭の素材に合わせる（1080p を3本繋いだら 1080p のまま）
+- 書き出したファイルは ffprobe で読み直して報告し、意図との差にその場で気づけるようにした
+
+テストは subprocess を conftest で塞ぎ、実際に ffmpeg を動かす確認は
+test_integration.py に隔離（integration マーカー + ffmpeg が無ければ skip）。
+
+テロップ・BGM・字幕・台本駆動のビルドは Phase 2 以降。
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GyMwXZyroa9cAT5LMB51cT
+---
+ .claude/skills/video-edit/SKILL.md  |  73 +++++++
+ .github/workflows/tests.yml         |   4 +-
+ CLAUDE.md                           |  24 ++-
+ README.md                           |  84 ++++++++
+ docs/videoedit.md                   | 108 +++++++++++
+ pyproject.toml                      |   9 +-
+ src/videoedit/__init__.py           |  38 ++++
+ src/videoedit/__main__.py           |  10 +
+ src/videoedit/cli.py                | 284 ++++++++++++++++++++++++++++
+ src/videoedit/clip.py               | 259 +++++++++++++++++++++++++
+ src/videoedit/core.py               | 156 +++++++++++++++
+ src/videoedit/presets.py            | 138 ++++++++++++++
+ src/videoedit/probe.py              | 132 +++++++++++++
+ src/videoedit/thumbnail.py          |  33 ++++
+ tests/videoedit/__init__.py         |   0
+ tests/videoedit/conftest.py         |  23 +++
+ tests/videoedit/test_cli.py         | 115 +++++++++++
+ tests/videoedit/test_clip.py        | 195 +++++++++++++++++++
+ tests/videoedit/test_core.py        |  98 ++++++++++
+ tests/videoedit/test_integration.py | 108 +++++++++++
+ tests/videoedit/test_presets.py     |  46 +++++
+ tests/videoedit/test_probe.py       |  81 ++++++++
+ tests/videoedit/test_thumbnail.py   |  35 ++++
+ 23 files changed, 2047 insertions(+), 6 deletions(-)
+ create mode 100644 .claude/skills/video-edit/SKILL.md
+ create mode 100644 docs/videoedit.md
+ create mode 100644 src/videoedit/__init__.py
+ create mode 100644 src/videoedit/__main__.py
+ create mode 100644 src/videoedit/cli.py
+ create mode 100644 src/videoedit/clip.py
+ create mode 100644 src/videoedit/core.py
+ create mode 100644 src/videoedit/presets.py
+ create mode 100644 src/videoedit/probe.py
+ create mode 100644 src/videoedit/thumbnail.py
+ create mode 100644 tests/videoedit/__init__.py
+ create mode 100644 tests/videoedit/conftest.py
+ create mode 100644 tests/videoedit/test_cli.py
+ create mode 100644 tests/videoedit/test_clip.py
+ create mode 100644 tests/videoedit/test_core.py
+ create mode 100644 tests/videoedit/test_integration.py
+ create mode 100644 tests/videoedit/test_presets.py
+ create mode 100644 tests/videoedit/test_probe.py
+ create mode 100644 tests/videoedit/test_thumbnail.py
+
+diff --git a/.claude/skills/video-edit/SKILL.md b/.claude/skills/video-edit/SKILL.md
+new file mode 100644
+index 0000000..dc28428
+--- /dev/null
++++ b/.claude/skills/video-edit/SKILL.md
+@@ -0,0 +1,73 @@
++---
++name: video-edit
++description: このリポジトリで動画を編集する。ユーザーが「動画を切って」「つないで」「YouTube 用に書き出して」「Shorts の縦型にして」「サムネを作って」「動画の長さを調べて」と言ったときに使う。ffmpeg を呼ぶ videoedit コマンドで、カット・連結・トランジション・書き出しプリセット・サムネ切り出しを行う。
++---
++
++# 動画編集
++
++`videoedit` コマンドを使う。実装は `src/videoedit/`。動画処理は外部バイナリの
++ffmpeg に任せていて、Python の依存パッケージは増えない。
++
++## 手順
++
++1. **まず素材を調べる。** 尺・解像度・fps が分からないまま編集しない。
++
++   ```bash
++   python -m videoedit probe raw/opening.mp4   # PYTHONPATH=src が必要。pip install -e . 済みなら videoedit probe
++   ```
++
++2. **`--dry-run` で組み立てたコマンドを見せ、確認を取ってから実行する。**
++   長い動画の書き出しはやり直しが高くつく。
++
++   ```bash
++   python -m videoedit concat a.mp4 b.mp4 -o out.mp4 --transition crossfade --dry-run
++   ```
++
++3. 実行する。書き出したファイルは自動で読み直され、`wrote out.mp4 (12.03s / 1920x1080 / ...)`
++   のように実際の尺と解像度が出る。**この行を見て、意図どおりか確認すること。**
++
++4. 出来上がったパスをユーザーに伝える。長い動画を渡す前に、
++   `--preset preview` で低解像度版を作って確認してもらうと早い。
++
++## コマンド
++
++```bash
++# 区間を切り出す（--from/--to、または --from/--for）
++python -m videoedit cut in.mp4 --from 00:01:30 --to 00:02:10 -o out.mp4
++
++# 連結。素材の解像度・fps がバラバラでも自動で揃える
++python -m videoedit concat a.mp4 b.mp4 c.mp4 -o out.mp4
++python -m videoedit concat a.mp4 b.mp4 -o out.mp4 --transition crossfade --duration 0.5
++
++# プリセットで書き出し直す
++python -m videoedit export in.mp4 --preset youtube-1080p -o out.mp4
++python -m videoedit presets            # 一覧
++
++# サムネイル（省略時は <素材名>_thumb.jpg）
++python -m videoedit thumb in.mp4 --at 00:00:12 --width 1280
++```
++
++時刻は `00:01:30` でも `90`（秒）でもよい。
++
++## 使い分け
++
++- **プリセットは用途で選ぶ。** `youtube-1080p`（既定の書き出し）/ `shorts`（縦型 1080x1920）/
++  `preview`（確認用・最速）/ `source`（解像度そのまま、切り貼りの既定）/ `copy`（再エンコードなし）。
++- **`--copy` は速いが正確ではない。** ストリームをそのまま扱うので、
++  切れ目が直前のキーフレームまでずれ、**指定より長い動画が出ることがある**。
++  下書きや、キーフレームが密な素材だけに使う。仕上げでは使わない。
++- **連結で `--copy` が使えるのは、素材の形式が完全に同じときだけ**（同じコーデック・解像度・fps）。
++  少しでも違えば既定（再エンコード）を使う。自動で解像度と fps を揃えてくれる。
++- **トランジションは最短の素材より短くする。** 長いとエラーになる。
++- 縦横比が違う素材は引き伸ばさず、黒帯で埋めて指定サイズに収める。
++
++## 注意
++
++- **ffmpeg が要る。** 無ければ導入手順を出して止まる（Windows は `winget install Gyan.FFmpeg`）。
++- **元の素材を上書きしない。** 出力先は必ず別のパスにする。
++  既定で上書きするので、消えて困るものが出力先にあるときは `--no-overwrite` を付ける。
++- 書き出しは重い。同じ素材に何度も手を入れるときは、
++  中間ファイルを残して段階的に進める（毎回1本目からやり直さない）。
++- **テロップ・BGM・字幕・台本駆動のビルドはまだ無い。** 計画は `docs/videoedit.md` の
++  「これから作るもの」を参照。頼まれたら、今できるところまでやって、
++  残りは手作業が要ることを伝える。
+diff --git a/.github/workflows/tests.yml b/.github/workflows/tests.yml
+index 0d8e3b1..a3ce74c 100644
+--- a/.github/workflows/tests.yml
++++ b/.github/workflows/tests.yml
+@@ -32,8 +32,8 @@ jobs:
+         run: pip install -e ".[dev]"
+ 
+       - name: Lint
+-        # ruff を入れて運用しているのは ailab だけなので、範囲を合わせている
+-        run: python -m ruff check src/ailab tests/ailab
++        # ruff を通しているパッケージだけを対象にしている
++        run: python -m ruff check src/ailab tests/ailab src/videoedit tests/videoedit
+ 
+       - name: Run tests
+         # ailab の網羅率が下がったら気づけるようにしておく
+diff --git a/CLAUDE.md b/CLAUDE.md
+index f485f47..5998b3a 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -13,6 +13,7 @@
+ | `src/adsite/` | 広告収益型ツールサイトのジェネレータ（収支台帳を内蔵） |
+ | `src/growth/` | 全プロジェクトを定期点検し、次にやることを提示する成長ループ |
+ | `src/audiogen/` | BGM / 効果音を手続き的に合成して WAV に書き出すツールキット |
++| `src/videoedit/` | ffmpeg で動画を切り・繋ぎ・書き出す（YouTube / Shorts のプリセット付き） |
+ | `src/browser/` | Chrome の自動操作（ヘッドレス Chromium / ローカル Chrome を CDP 経由で） |
+ 
+ （他の試作を足すときは、この表と節を増やす）
+@@ -22,11 +23,12 @@
+ ```bash
+ pip install -e ".[dev]"
+ pytest
+-python -m ruff check src/ailab tests/ailab
++python -m ruff check src/ailab tests/ailab src/videoedit tests/videoedit
+ ```
+ 
+ - Python 3.11 以上。**実行時の依存は既定でゼロ**。
+-  moneyloop / growth / audiogen は標準ライブラリだけで動く。
++  moneyloop / growth / audiogen / videoedit は標準ライブラリだけで動く
++  （videoedit は外部バイナリの ffmpeg を呼ぶが、pip の依存は増やさない）。
+   依存が要るものは extras に切り出してある（`[image]` = ailab、`[llm]` = Claude 呼び出し）。
+   定期実行されるものが多く、依存が増えるほど勝手に壊れる確率が上がるため。
+ - src レイアウト。テストは `pytest`（`pyproject.toml` で `pythonpath` を通してある）。
+@@ -138,3 +140,21 @@ ailab doctor         # 実際に接続して確認
+ - 設定の検査は `bgm.compose()` の入口でやり、範囲外の値はその場で
+   `ValueError`（どの項目にいくつ渡したかをメッセージに出す）。
+ - 設計の詳細は `docs/audiogen.md`。
++
++## videoedit
++
++- **pip の依存を足さない。** 動画処理は外部バイナリの ffmpeg に任せる。
++  Python 側で編集ライブラリを入れると、この前提が崩れる。
++- **プロセスを起動するのは `core.run` だけ。** `clip.py` / `thumbnail.py` /
++  `presets.py` は「ffmpeg の引数リストを返す純粋関数」に保つ。
++  ffmpeg が無い環境でもコマンドの組み立てを検証できることと、
++  `--dry-run` が全サブコマンドで成立することが、この分離に依存している。
++- **新しいサブコマンドには必ず `--dry-run` を付ける。** 長い動画の書き出しは
++  やり直しが高くつくので、実行前に人が確認できる状態を保つ。
++- **書き出したファイルは読み直して報告する。** 尺や解像度が意図と違うことに
++  その場で気づけるようにするため。
++- エンコード設定は `presets.py` が単一の情報源。コマンド組み立て側に埋めない。
++- テストは `subprocess.run` を conftest で塞いである。実際に ffmpeg を動かす
++  確認は `tests/videoedit/test_integration.py` に隔離し、`integration` マーカーと
++  ffmpeg の有無による skip を付ける。
++- 設計の詳細は `docs/videoedit.md`。
+diff --git a/README.md b/README.md
+index 07a47d3..723191e 100644
+--- a/README.md
++++ b/README.md
+@@ -19,6 +19,7 @@
+ | [`adsite`](#adsite--広告収益型の実用ツールサイト) | 実用ツールを置いた静的サイトを生成し、広告収益を同じ台帳に取り込む |
+ | [`growth`](#growth--成長ループ) | 全プロジェクトを定期点検し、次にやることを提示する |
+ | [`audiogen`](#audiogen--bgm--効果音ジェネレータ) | BGM と効果音を手続き的に合成して WAV に書き出す |
++| [`videoedit`](#videoedit--動画編集) | ffmpeg で動画を切り・繋ぎ・書き出す（YouTube / Shorts のプリセット付き） |
+ | [`browser`](#chrome-の自動操作) | Chrome を自動操作する（ヘッドレス Chromium / ローカル Chrome を CDP 経由で） |
+ 
+ ## セットアップ
+@@ -539,6 +540,88 @@ sfx.generate("coin", pitch=0)
+ 
+ 設計の詳細と検証結果は [`docs/audiogen.md`](docs/audiogen.md) を参照。
+ 
++## videoedit — 動画編集
++
++`src/videoedit/` は、動画のカット・連結・書き出しを行うツールキット。
++処理そのものは外部バイナリの **ffmpeg** に任せているので、
++**pip の依存は増えない**（`requirements.txt` に何も足していない）。
++
++### 準備
++
++ffmpeg が要る。無ければ導入手順を出して止まる。
++
++```powershell
++winget install Gyan.FFmpeg     # macOS: brew install ffmpeg / Ubuntu: sudo apt install ffmpeg
++ffmpeg -version                # PATH が通っているか確認
++```
++
++### 使う
++
++```bash
++# 素材を調べる（編集の前に必ず）
++python -m videoedit probe raw/opening.mp4
++
++# 区間を切り出す。時刻は 00:01:30 でも 90（秒）でもよい
++python -m videoedit cut raw/main.mp4 --from 00:01:30 --to 00:02:10 -o cut.mp4
++
++# 連結。解像度や fps がバラバラでも自動で揃える
++python -m videoedit concat a.mp4 b.mp4 c.mp4 -o joined.mp4
++python -m videoedit concat a.mp4 b.mp4 -o joined.mp4 --transition crossfade --duration 0.5
++
++# 書き出し
++python -m videoedit export joined.mp4 --preset youtube-1080p -o ep01.mp4
++python -m videoedit export joined.mp4 --preset shorts -o ep01_vertical.mp4
++
++# サムネイル（省略時は <素材名>_thumb.jpg）
++python -m videoedit thumb ep01.mp4 --at 00:00:12 --width 1280
++```
++
++冒頭のセットアップを済ませてあれば `videoedit ...` でも同じことができる。
++
++### プリセット
++
++```bash
++python -m videoedit presets
++```
++
++| 名前 | 解像度 | 用途 |
++|---|---|---|
++| `source` | 素材のまま | 切り貼りの既定。解像度を変えずに H.264 で書き直す |
++| `youtube-1080p` | 1920x1080 | 書き出しの既定 |
++| `youtube-720p` | 1280x720 | 軽量版 |
++| `shorts` | 1080x1920 | Shorts / リール向けの縦型 |
++| `preview` | 640x360 | 内容確認用。最速で書き出す |
++| `copy` | 素材のまま | 再エンコードなし。最速だが正確ではない |
++
++縦横比が合わない素材は、引き伸ばさず黒帯で埋めて収める。
++
++### 実行前に確認する
++
++すべてのサブコマンドに `--dry-run` がある。長い動画の書き出しはやり直しが高くつくので、
++先に組み立てた ffmpeg コマンドを見るとよい。
++
++```bash
++python -m videoedit concat a.mp4 b.mp4 -o out.mp4 --transition crossfade --dry-run
++# ffmpeg -hide_banner -y -i a.mp4 -i b.mp4 -filter_complex '...' -map '[outv]' ... out.mp4
++```
++
++書き出したファイルは自動で読み直され、実際の尺と解像度が出る。
++
++```
++wrote out.mp4 (11.03s / 1280x720 / 25fps / h264 / aac 48000Hz)
++```
++
++### 注意
++
++- **`--copy` は速いが正確ではない。** 切れ目が直前のキーフレームまでずれ、
++  指定より長い動画が出ることがある。下書き用と割り切る。
++- **連結で `--copy` が使えるのは、素材の形式が完全に同じときだけ。**
++  違うなら既定（再エンコード）を使う。
++- テロップ・BGM・字幕・台本駆動のビルドは**まだ無い**。
++  計画は [`docs/videoedit.md`](docs/videoedit.md) の「これから作るもの」。
++
++設計の詳細は [`docs/videoedit.md`](docs/videoedit.md) を参照。
++
+ ## テスト
+ 
+ ```bash
+@@ -557,6 +640,7 @@ pytest tests/ailab          # ツール単位で回す
+ | `src/adsite/` | 広告収益型ツールサイトのジェネレータ |
+ | `src/growth/` | 成長ループ（観測・診断・横展開・台帳） |
+ | `src/audiogen/` | BGM / 効果音の合成ツールキット（標準ライブラリのみ） |
++| `src/videoedit/` | 動画編集（ffmpeg を呼ぶ。pip の依存は増やさない） |
+ | `src/browser/` | Chrome の自動操作（ヘッドレス Chromium / ローカル Chrome を CDP 経由で） |
+ | `site/` | adsite のコンテンツとアセット |
+ | `config/` | 設定ファイル（ニッチ・情報源・プラン・サイト設定） |
+diff --git a/docs/videoedit.md b/docs/videoedit.md
+new file mode 100644
+index 0000000..6493812
+--- /dev/null
++++ b/docs/videoedit.md
+@@ -0,0 +1,108 @@
++# videoedit 設計メモ
++
++ffmpeg を使った動画編集ツールキット (`src/videoedit/`) の設計記録。
++
++## 方針
++
++**ffmpeg を直接叩く。Python の編集ライブラリは使わない。**
++
++動画を編集する手段は大きく3つある。
++
++| 方式 | 長所 | 短所 |
++|---|---|---|
++| ffmpeg を直接叩く（採用） | 依存が増えない・速い・完全に再現可能・CI で回せる | 凝ったモーション演出は苦手、フィルタ文字列の作法を覚える必要がある |
++| Python の編集ライブラリ (MoviePy 等) | 図形やテキストの合成をコードで細かく書ける | 遅い・依存が重い・内部は結局 ffmpeg |
++| タイムラインを出力して既存エディタで仕上げる (EDL / OTIO / Premiere XML) | 仕上がりの品質が高く手直しが効く | 完全自動にならない |
++
++`audiogen` が「生成 AI ではなく手続き的合成」を選んだのと同じ判断軸
++（依存ゼロ・すぐ動く・同じ入力なら同じ出力）を、動画側にも当てはめた。
++ffmpeg は外部バイナリなので、**pip の依存は 1つも増えない**。
++
++将来、テロップに凝ったモーションが要るようになったら、その工程だけ
++別の方式を足せばよい。`clip.py` が返すのは「ffmpeg の引数リスト」なので、
++差し替えの単位が小さい。
++
++## レイヤ構成
++
++上のレイヤは下のレイヤだけに依存する。
++
++```
++core        ffmpeg / ffprobe の実行、時刻の変換、エラー
++  ├ probe       ffprobe の JSON を MediaInfo に変換
++  ├ presets     書き出しプリセットと正規化フィルタ
++  │    ├ clip        カット・連結・トランジション・書き出しのコマンド組み立て
++  │    └ thumbnail   1フレーム切り出しのコマンド組み立て
++  └ cli       コマンドライン
++```
++
++### プロセスを起動するのは core だけ
++
++`clip.py` / `thumbnail.py` / `presets.py` は **引数リストを返す純粋関数**にしてある。
++実行するのは `core.run` の1箇所。こうしておくと、
++
++- ffmpeg が入っていない環境でも、組み立てたコマンドをテストできる。
++- `--dry-run` が全サブコマンドで自然に成立する（実行の直前で分岐するだけ）。
++- 失敗時のエラー整形（stderr の末尾を出す）が1箇所で済む。
++
++テストは `tests/videoedit/conftest.py` が `subprocess.run` を塞いでいるので、
++うっかり実行するコードを書くと即座に落ちる。実際に ffmpeg を動かす確認は
++`test_integration.py` に隔離し、`integration` マーカーを付けてある
++（ffmpeg が無い環境では skip）。
++
++## 決めごと
++
++### 素材はまず probe する
++
++尺・解像度・fps を知らないと、連結時の正規化もトランジションのオフセット計算も
++できない。`concat` は必ず全素材を ffprobe してから組み立てる。
++
++### 解像度は「引き伸ばさず黒帯で埋める」
++
++`scale=W:H:force_original_aspect_ratio=decrease` + `pad` の組み合わせ。
++縦の素材を横型に入れても歪まない。`setsar=1` を必ず付ける
++（ピクセル比が揃っていないと ffmpeg が連結を拒否する）。
++
++### 音声の無い素材には無音を作って補う
++
++concat フィルタは全入力の本数が揃っていないと失敗する。1本でも音声が無いと
++繋げないので、`anullsrc` で素材の尺ぶんの無音を生成して埋める。
++`-i` を増やさずフィルタグラフの中で作れるので、入力番号がずれない。
++
++### トランジションのオフセットは累計から引いていく
++
++`xfade` の `offset` は「それまでに出来上がった映像の中で重なりを始める位置」。
++1回繋ぐごとに全体の尺が `duration` だけ縮むので、累計尺から重なりぶんを
++引きながら進める。素材3本を 0.5s で繋ぐと、全体は 1.0s 短くなる。
++
++### `--copy` は速いが正確ではない
++
++ストリームコピーは再エンコードしないので一瞬で終わるが、切れ目が直前の
++キーフレームまでずれる。キーフレーム間隔が広い素材では、**指定より長い動画が出る**。
++下書き用と割り切り、既定は再エンコード（`source` プリセット）にしてある。
++
++### 解像度を指定しないプリセットは先頭の素材に合わせる
++
++`source` プリセットで 1080p を3本繋いだら 1080p のまま出したい。
++プリセットが解像度を持たない場合は、先頭の素材の解像度と fps を目標にする。
++
++### 書き出したファイルは読み直して報告する
++
++`wrote out.mp4 (12.03s / 1920x1080 / 30fps / h264 / aac 48000Hz)` のように、
++実際に ffprobe した結果を出す。意図と違う結果（尺が伸びた、解像度が変わった）に
++その場で気づけるようにするため。
++
++## これから作るもの
++
++| フェーズ | 内容 |
++|---|---|
++| 2 | 台本(YAML)駆動の `build`。テロップ（`drawtext`） |
++| 3 | BGM ミックス・ダッキング・音量正規化(loudnorm)、字幕(SRT)の焼き込み |
++| 4 | ailab の画像生成 / audiogen をサムネ・BGM に接続。`youtube-video-creation` から呼ぶ |
++
++想定しているつまずきと対処は、claude-code-dev の
++`docs/video-editing-skill-plan.md` にまとめた計画のとおり。特に効くのは次の2つ。
++
++- **`drawtext` のテキストは直接埋め込まず `textfile=` でファイル経由にする。**
++  `:` `'` `\` と日本語のエスケープで必ず事故る。
++- **`filter_complex` を巨大化させない。** シーン単位で中間ファイルに書き出し、
++  ハッシュでキャッシュして変更のあったシーンだけ作り直す。
+diff --git a/pyproject.toml b/pyproject.toml
+index 0f91dcb..bccb5d7 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -5,9 +5,10 @@ build-backend = "setuptools.build_meta"
+ [project]
+ name = "ai-lab"
+ version = "0.5.0"
+-description = "PJT で使う機能・仕組みの開発基盤 - 画像生成(ailab)・広告収益サイト(adsite)・成長ループ(growth)・音素材生成(audiogen)・ブラウザ操作(browser)"
++description = "PJT で使う機能・仕組みの開発基盤 - 画像生成(ailab)・広告収益サイト(adsite)・成長ループ(growth)・音素材生成(audiogen)・動画編集(videoedit)・ブラウザ操作(browser)"
+ requires-python = ">=3.11"
+-# 既定の実行時依存はゼロ。adsite / growth / audiogen は標準ライブラリだけで動く。
++# 既定の実行時依存はゼロ。adsite / growth / audiogen / videoedit は標準ライブラリだけで動く。
++# （videoedit は外部バイナリの ffmpeg を呼ぶが、pip の依存は増やさない）
+ # 定期実行されるものが多いので、依存が増えるほど勝手に壊れる確率が上がるため、
+ # 依存が要るものは extras に切り出してある。
+ dependencies = []
+@@ -26,6 +27,7 @@ ailab = "ailab.cli:main"
+ adsite = "adsite.cli:main"
+ growth = "growth.cli:main"
+ audiogen = "audiogen.cli:main"
++videoedit = "videoedit.cli:main"
+ 
+ [tool.setuptools]
+ package-dir = { "" = "src" }
+@@ -47,3 +49,6 @@ testpaths = ["tests"]
+ # ツール別サブディレクトリのテストから import できるようにするため。
+ pythonpath = ["src", "tests"]
+ addopts = "-q"
++markers = [
++    "integration: 実際に ffmpeg を起動するテスト（ffmpeg が無ければ skip）",
++]
+diff --git a/src/videoedit/__init__.py b/src/videoedit/__init__.py
+new file mode 100644
+index 0000000..3eed7ac
+--- /dev/null
++++ b/src/videoedit/__init__.py
+@@ -0,0 +1,38 @@
++"""ffmpeg を使った動画編集ツールキット。
++
++Python の依存パッケージは増やさない。動画処理は外部バイナリの ffmpeg に任せ、
++このパッケージは「引数を組み立てて呼ぶ」ことに徹する。
++
++    python -m videoedit probe in.mp4
++    python -m videoedit cut in.mp4 --from 00:01:30 --to 00:02:10 -o out.mp4
++    python -m videoedit concat a.mp4 b.mp4 -o out.mp4 --transition crossfade
++    python -m videoedit export in.mp4 --preset youtube-1080p -o out.mp4
++    python -m videoedit thumb in.mp4 --at 12 -o thumb.jpg
++
++設計の詳細は docs/videoedit.md。
++
++``probe()`` などの関数はサブモジュールから直接 import する
++（``from videoedit.probe import probe``）。パッケージ直下に同名で再輸出すると
++サブモジュール ``videoedit.probe`` を隠してしまうため。
++"""
++
++from .core import (
++    FFmpegFailed,
++    FFmpegNotFound,
++    VideoEditError,
++    format_time,
++    parse_time,
++)
++from .presets import PRESETS, Preset
++from .probe import MediaInfo
++
++__all__ = [
++    "FFmpegFailed",
++    "FFmpegNotFound",
++    "MediaInfo",
++    "PRESETS",
++    "Preset",
++    "VideoEditError",
++    "format_time",
++    "parse_time",
++]
+diff --git a/src/videoedit/__main__.py b/src/videoedit/__main__.py
+new file mode 100644
+index 0000000..52d9598
+--- /dev/null
++++ b/src/videoedit/__main__.py
+@@ -0,0 +1,10 @@
++"""``python -m videoedit`` の入口。"""
++
++from __future__ import annotations
++
++import sys
++
++from .cli import main
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/src/videoedit/cli.py b/src/videoedit/cli.py
+new file mode 100644
+index 0000000..e7715fc
+--- /dev/null
++++ b/src/videoedit/cli.py
+@@ -0,0 +1,284 @@
++"""コマンドラインインターフェース。
++
++    python -m videoedit probe in.mp4
++    python -m videoedit cut in.mp4 --from 00:01:30 --to 00:02:10 -o out.mp4
++    python -m videoedit concat a.mp4 b.mp4 -o out.mp4 --transition crossfade
++    python -m videoedit export in.mp4 --preset shorts -o out.mp4
++    python -m videoedit thumb in.mp4 --at 12
++    python -m videoedit presets
++
++すべてのサブコマンドに ``--dry-run`` がある。動画を書き出す前に、組み立てた
++ffmpeg コマンドを人が確認できるようにするため。
++"""
++
++from __future__ import annotations
++
++import argparse
++import json
++import os
++import sys
++import tempfile
++import unicodedata
++from collections.abc import Sequence
++
++from . import clip, presets
++from .core import VideoEditError, format_command, format_time, parse_time, run
++from .probe import MediaInfo, probe
++from .thumbnail import thumbnail_command
++
++
++def _report(path: str, *, dry_run: bool) -> None:
++    """書き出したファイルを1行で報告する。実際に読み直して確かめる。"""
++    if dry_run:
++        return
++    try:
++        info = probe(path)
++    except VideoEditError:
++        print(f"wrote {path}")
++        return
++    print(f"wrote {path} ({info.describe()})")
++
++
++def _execute(args: list[str], *, dry_run: bool, verbose: bool) -> int:
++    if dry_run or verbose:
++        print(format_command(args))
++    run(args, dry_run=dry_run)
++    return 0
++
++
++def _preset_for(name: str) -> presets.Preset:
++    try:
++        return presets.get(name)
++    except KeyError as exc:
++        raise VideoEditError(str(exc)) from None
++
++
++def cmd_probe(args: argparse.Namespace) -> int:
++    info = probe(args.source)
++    if args.json:
++        print(json.dumps(_as_dict(info), ensure_ascii=False, indent=2))
++    else:
++        print(f"{info.path}: {info.describe()}")
++        print(f"  尺 {format_time(info.duration)}")
++    return 0
++
++
++def _as_dict(info: MediaInfo) -> dict:
++    return {
++        "path": info.path,
++        "duration": info.duration,
++        "width": info.width,
++        "height": info.height,
++        "fps": info.fps,
++        "video_codec": info.video_codec,
++        "audio_codec": info.audio_codec,
++        "sample_rate": info.sample_rate,
++    }
++
++
++def cmd_cut(args: argparse.Namespace) -> int:
++    command = clip.cut_command(
++        args.source,
++        args.output,
++        start=parse_time(args.start) if args.start else None,
++        end=parse_time(args.end) if args.end else None,
++        duration=parse_time(args.duration) if args.duration else None,
++        preset=_preset_for("copy" if args.copy else args.preset),
++        overwrite=not args.no_overwrite,
++    )
++    _execute(command, dry_run=args.dry_run, verbose=args.verbose)
++    _report(args.output, dry_run=args.dry_run)
++    return 0
++
++
++def cmd_concat(args: argparse.Namespace) -> int:
++    if len(args.sources) < 2:
++        raise VideoEditError("連結には素材が2本以上必要です")
++
++    if args.copy:
++        if args.transition:
++            raise VideoEditError(
++                "--copy はストリームをそのまま繋ぐので、トランジションは付けられません"
++            )
++        return _concat_copy(args)
++
++    clips = [probe(source) for source in args.sources]
++    command = clip.concat_command(
++        clips,
++        args.output,
++        preset=_preset_for(args.preset),
++        transition=args.transition,
++        transition_duration=args.duration,
++        overwrite=not args.no_overwrite,
++    )
++    _execute(command, dry_run=args.dry_run, verbose=args.verbose)
++    _report(args.output, dry_run=args.dry_run)
++    return 0
++
++
++def _concat_copy(args: argparse.Namespace) -> int:
++    """concat デマルチプレクサで繋ぐ。リストファイルを一時ファイルに書いて渡す。"""
++    listing = clip.concat_list_file([os.path.abspath(source) for source in args.sources])
++    if args.dry_run:
++        print("# 一時ファイルに書き出すリスト:")
++        for line in listing.splitlines():
++            print(f"#   {line}")
++        print(format_command(clip.concat_copy_command("<listfile>", args.output)))
++        return 0
++
++    handle = tempfile.NamedTemporaryFile(
++        "w", suffix=".txt", encoding="utf-8", delete=False, newline="\n"
++    )
++    try:
++        # Windows では開いたままのファイルを消せないので、確実に閉じてから使う
++        with handle:
++            handle.write(listing)
++        command = clip.concat_copy_command(
++            handle.name, args.output, overwrite=not args.no_overwrite
++        )
++        _execute(command, dry_run=False, verbose=args.verbose)
++    finally:
++        os.unlink(handle.name)
++    _report(args.output, dry_run=False)
++    return 0
++
++
++def cmd_export(args: argparse.Namespace) -> int:
++    command = clip.transcode_command(
++        args.source,
++        args.output,
++        preset=_preset_for(args.preset),
++        overwrite=not args.no_overwrite,
++    )
++    _execute(command, dry_run=args.dry_run, verbose=args.verbose)
++    _report(args.output, dry_run=args.dry_run)
++    return 0
++
++
++def cmd_thumb(args: argparse.Namespace) -> int:
++    output = args.output or f"{os.path.splitext(args.source)[0]}_thumb.jpg"
++    command = thumbnail_command(
++        args.source,
++        output,
++        at=parse_time(args.at) if args.at else 0.0,
++        width=args.width,
++        overwrite=not args.no_overwrite,
++    )
++    _execute(command, dry_run=args.dry_run, verbose=args.verbose)
++    if not args.dry_run:
++        print(f"wrote {output}")
++    return 0
++
++
++def _display_width(text: str) -> int:
++    """全角を2桁と数えた表示幅。日本語を含む列を桁揃えするため。"""
++    return sum(2 if unicodedata.east_asian_width(char) in "WF" else 1 for char in text)
++
++
++def _pad(text: str, width: int) -> str:
++    return text + " " * max(0, width - _display_width(text))
++
++
++def cmd_presets(args: argparse.Namespace) -> int:
++    rows = []
++    for name in presets.available():
++        preset = presets.get(name)
++        rows.append((name, f"{preset.width}x{preset.height}" if preset.size else "素材のまま", preset.description))
++    name_width = max(_display_width(row[0]) for row in rows)
++    size_width = max(_display_width(row[1]) for row in rows)
++    for name, size, description in rows:
++        print(f"{_pad(name, name_width)}  {_pad(size, size_width)}  {description}")
++    return 0
++
++
++def _add_common(parser: argparse.ArgumentParser) -> None:
++    parser.add_argument(
++        "--dry-run", action="store_true", help="実行せず、組み立てた ffmpeg コマンドだけ表示する"
++    )
++    parser.add_argument("-v", "--verbose", action="store_true", help="実行するコマンドも表示する")
++    parser.add_argument(
++        "--no-overwrite", action="store_true", help="出力先が既にあるとき上書きせず失敗させる"
++    )
++
++
++def build_parser() -> argparse.ArgumentParser:
++    parser = argparse.ArgumentParser(prog="videoedit", description="ffmpeg を使った動画編集")
++    subparsers = parser.add_subparsers(dest="command", required=True)
++
++    probe_parser = subparsers.add_parser("probe", help="素材の尺・解像度・fps を表示する")
++    probe_parser.add_argument("source")
++    probe_parser.add_argument("--json", action="store_true", help="JSON で出す")
++    probe_parser.set_defaults(func=cmd_probe)
++
++    cut_parser = subparsers.add_parser("cut", help="区間を切り出す")
++    cut_parser.add_argument("source")
++    cut_parser.add_argument("-o", "--output", required=True)
++    cut_parser.add_argument("--from", dest="start", help="開始位置（00:01:30 または 90）")
++    cut_parser.add_argument("--to", dest="end", help="終了位置")
++    cut_parser.add_argument("--for", dest="duration", help="長さ（--to の代わり）")
++    cut_parser.add_argument(
++        "--preset", default="source", choices=presets.available(), help="書き出しプリセット"
++    )
++    cut_parser.add_argument(
++        "--copy",
++        action="store_true",
++        help="再エンコードせず高速に切る（切れ目が直前のキーフレームにずれ、尺も変わる）",
++    )
++    _add_common(cut_parser)
++    cut_parser.set_defaults(func=cmd_cut)
++
++    concat_parser = subparsers.add_parser("concat", help="複数の素材を繋ぐ")
++    concat_parser.add_argument("sources", nargs="+")
++    concat_parser.add_argument("-o", "--output", required=True)
++    concat_parser.add_argument("--preset", default="source", choices=presets.available())
++    concat_parser.add_argument(
++        "--transition", choices=sorted(clip.TRANSITIONS), help="繋ぎ目に入れる効果"
++    )
++    concat_parser.add_argument(
++        "--duration",
++        type=float,
++        default=clip.DEFAULT_TRANSITION_DURATION,
++        help="トランジションの長さ（秒）",
++    )
++    concat_parser.add_argument(
++        "--copy",
++        action="store_true",
++        help="再エンコードせず繋ぐ（素材の形式が完全に同じ場合のみ）",
++    )
++    _add_common(concat_parser)
++    concat_parser.set_defaults(func=cmd_concat)
++
++    export_parser = subparsers.add_parser("export", help="プリセットで書き出し直す")
++    export_parser.add_argument("source")
++    export_parser.add_argument("-o", "--output", required=True)
++    export_parser.add_argument(
++        "--preset", default=presets.DEFAULT_PRESET, choices=presets.available()
++    )
++    _add_common(export_parser)
++    export_parser.set_defaults(func=cmd_export)
++
++    thumb_parser = subparsers.add_parser("thumb", help="サムネイル用に1フレーム切り出す")
++    thumb_parser.add_argument("source")
++    thumb_parser.add_argument("-o", "--output", help="既定は <素材名>_thumb.jpg")
++    thumb_parser.add_argument("--at", help="切り出す位置（00:00:12 または 12）")
++    thumb_parser.add_argument("--width", type=int, help="幅（縦は比率を保って自動）")
++    _add_common(thumb_parser)
++    thumb_parser.set_defaults(func=cmd_thumb)
++
++    presets_parser = subparsers.add_parser("presets", help="書き出しプリセットの一覧")
++    presets_parser.set_defaults(func=cmd_presets)
++
++    return parser
++
++
++def main(argv: Sequence[str] | None = None) -> int:
++    parser = build_parser()
++    args = parser.parse_args(argv)
++    try:
++        return args.func(args)
++    except VideoEditError as exc:
++        print(str(exc), file=sys.stderr)
++        return 1
++    except ValueError as exc:
++        print(str(exc), file=sys.stderr)
++        return 2
+diff --git a/src/videoedit/clip.py b/src/videoedit/clip.py
+new file mode 100644
+index 0000000..52e240c
+--- /dev/null
++++ b/src/videoedit/clip.py
+@@ -0,0 +1,259 @@
++"""カット・連結・書き出し。ffmpeg の引数を組み立てる純粋関数。
++
++**この層はプロセスを起動しない。** 引数リストを返すだけにしてあるので、
++ffmpeg が入っていない環境でも組み立て結果をテストできる。実行は
++``core.run`` が担当する。
++"""
++
++from __future__ import annotations
++
++from collections.abc import Sequence
++
++from . import presets as presets_module
++from .core import VideoEditError
++from .presets import Preset
++from .probe import MediaInfo
++
++# xfade のトランジション名。左が videoedit での呼び名、右が ffmpeg の名前。
++TRANSITIONS = {
++    "crossfade": "fade",
++    "fade": "fade",
++    "fadeblack": "fadeblack",
++    "fadewhite": "fadewhite",
++    "dissolve": "dissolve",
++    "wipeleft": "wipeleft",
++    "wiperight": "wiperight",
++    "slideleft": "slideleft",
++    "slideright": "slideright",
++    "circleopen": "circleopen",
++    "circleclose": "circleclose",
++}
++
++DEFAULT_TRANSITION_DURATION = 0.5
++
++# 連結時に音声を揃える形式。バラバラのままだと concat / acrossfade が失敗する。
++AUDIO_RATE = 48000
++_AFORMAT = f"aformat=sample_fmts=fltp:sample_rates={AUDIO_RATE}:channel_layouts=stereo"
++
++
++def _head(overwrite: bool) -> list[str]:
++    """ffmpeg の共通の前置き。既定は上書き許可、`-y` を外すと ffmpeg が対話待ちになる。"""
++    return ["ffmpeg", "-hide_banner", "-y" if overwrite else "-n"]
++
++
++def transition_name(name: str) -> str:
++    """videoedit での呼び名を ffmpeg の xfade 名に直す。"""
++    try:
++        return TRANSITIONS[name]
++    except KeyError:
++        raise VideoEditError(
++            f"unknown transition: {name} (available: {', '.join(TRANSITIONS)})"
++        ) from None
++
++
++def cut_command(
++    source: str,
++    output: str,
++    *,
++    start: float | None = None,
++    end: float | None = None,
++    duration: float | None = None,
++    preset: Preset,
++    overwrite: bool = True,
++) -> list[str]:
++    """1本の素材から区間を切り出すコマンドを組み立てる。
++
++    ``-ss`` を ``-i`` より前に置いている（高速シーク）。再エンコードする場合は
++    ffmpeg が直前のキーフレームから復号して捨てるのでフレーム単位で正確だが、
++    ``copy`` プリセットではキーフレーム位置に丸められる。
++    """
++    if end is not None and duration is not None:
++        raise VideoEditError("--to と --for は同時に指定できません")
++    if end is not None:
++        if start is not None and end <= start:
++            raise VideoEditError(f"--to ({end}) は --from ({start}) より後にしてください")
++        duration = end - (start or 0.0)
++    if duration is not None and duration <= 0:
++        raise VideoEditError(f"切り出す長さが 0 以下です: {duration}")
++
++    args = _head(overwrite)
++    if start:
++        args += ["-ss", f"{start:.6f}"]
++    args += ["-i", source]
++    if duration is not None:
++        args += ["-t", f"{duration:.6f}"]
++
++    if preset.is_copy:
++        # キーフレームでない位置から切ると先頭のタイムスタンプが負になることがある
++        args += ["-avoid_negative_ts", "make_zero"]
++    else:
++        video_filter = preset.video_filter()
++        if video_filter:
++            args += ["-vf", video_filter]
++    args += preset.output_args()
++    args.append(output)
++    return args
++
++
++def transcode_command(
++    source: str, output: str, *, preset: Preset, overwrite: bool = True
++) -> list[str]:
++    """1本の素材をプリセットの設定で書き出し直すコマンドを組み立てる。"""
++    args = [*_head(overwrite), "-i", source]
++    if not preset.is_copy:
++        video_filter = preset.video_filter()
++        if video_filter:
++            args += ["-vf", video_filter]
++    args += preset.output_args()
++    args.append(output)
++    return args
++
++
++def concat_list_file(sources: Sequence[str]) -> str:
++    """concat デマルチプレクサに渡すリストファイルの中身を作る。
++
++    パスの ``'`` はエスケープが要る。ffmpeg のリスト形式は
++    ``file 'path'`` の中で ``'`` を ``'\\''`` と書く決まりになっている。
++    """
++    lines = []
++    for source in sources:
++        escaped = str(source).replace("'", r"'\''")
++        lines.append(f"file '{escaped}'")
++    return "\n".join(lines) + "\n"
++
++
++def concat_copy_command(list_path: str, output: str, *, overwrite: bool = True) -> list[str]:
++    """再エンコードせずに連結するコマンド（素材の形式が完全に揃っている場合のみ）。"""
++    return [
++        *_head(overwrite),
++        "-f", "concat",
++        "-safe", "0",
++        "-i", list_path,
++        "-c", "copy",
++        output,
++    ]
++
++
++def resolve_target(
++    clips: Sequence[MediaInfo], preset: Preset
++) -> tuple[tuple[int, int] | None, float | None]:
++    """連結後の解像度と fps を決める。
++
++    プリセットが解像度を持つならそれに従う。持たない（``source``）場合は
++    **先頭の素材に合わせる**。3本の 1080p を繋いだら 1080p のまま出したい、
++    という当たり前の期待に合わせるため。
++    """
++    size = preset.size
++    fps = preset.fps
++    if size is None:
++        size = next((clip.size for clip in clips if clip.size), None)
++    if fps is None:
++        fps = next((clip.fps for clip in clips if clip.fps), None)
++    return size, fps
++
++
++def concat_filter(
++    clips: Sequence[MediaInfo],
++    *,
++    preset: Preset,
++    transition: str | None = None,
++    transition_duration: float = DEFAULT_TRANSITION_DURATION,
++) -> str:
++    """連結の filter_complex を組み立てる。出力は ``[outv]`` と ``[outa]``。
++
++    音声を持たない素材には ``anullsrc`` で無音を作って補う。1本でも音声が
++    欠けていると concat フィルタが本数の食い違いで失敗するため。
++    """
++    if len(clips) < 2:
++        raise VideoEditError("連結には素材が2本以上必要です")
++
++    size, fps = resolve_target(clips, preset)
++    normalize = presets_module.normalize_filter(size, fps) or "setsar=1,format=yuv420p"
++
++    steps: list[str] = []
++    for index, clip in enumerate(clips):
++        steps.append(f"[{index}:v]{normalize}[v{index}]")
++        if clip.has_audio:
++            steps.append(f"[{index}:a]{_AFORMAT}[a{index}]")
++        else:
++            steps.append(
++                f"anullsrc=r={AUDIO_RATE}:cl=stereo,atrim=duration={clip.duration:.6f},"
++                f"{_AFORMAT}[a{index}]"
++            )
++
++    if transition is None:
++        inputs = "".join(f"[v{i}][a{i}]" for i in range(len(clips)))
++        steps.append(f"{inputs}concat=n={len(clips)}:v=1:a=1[outv][outa]")
++        return ";".join(steps)
++
++    steps.extend(_xfade_steps(clips, transition, transition_duration))
++    return ";".join(steps)
++
++
++def _xfade_steps(clips: Sequence[MediaInfo], transition: str, duration: float) -> list[str]:
++    """xfade / acrossfade を数珠つなぎにする。
++
++    xfade の ``offset`` は「それまでに出来上がった映像の中で、重なりを始める
++    位置」。1回繋ぐごとに全体の尺が ``duration`` だけ縮むので、累計から
++    その分を引いていく。
++    """
++    if duration <= 0:
++        raise VideoEditError(f"トランジションの長さが 0 以下です: {duration}")
++    shortest = min(clip.duration for clip in clips)
++    if duration >= shortest:
++        raise VideoEditError(
++            f"トランジション {duration}s が最短の素材 {shortest:.2f}s 以上です。"
++            "--duration を短くするか、短い素材を除いてください"
++        )
++
++    name = transition_name(transition)
++    steps: list[str] = []
++    accumulated = clips[0].duration
++    previous_video, previous_audio = "v0", "a0"
++    for index in range(1, len(clips)):
++        offset = accumulated - duration
++        video_label = f"vx{index}" if index < len(clips) - 1 else "outv"
++        audio_label = f"ax{index}" if index < len(clips) - 1 else "outa"
++        steps.append(
++            f"[{previous_video}][v{index}]"
++            f"xfade=transition={name}:duration={duration:g}:offset={offset:.6f}"
++            f"[{video_label}]"
++        )
++        steps.append(f"[{previous_audio}][a{index}]acrossfade=d={duration:g}[{audio_label}]")
++        accumulated += clips[index].duration - duration
++        previous_video, previous_audio = video_label, audio_label
++    return steps
++
++
++def concat_command(
++    clips: Sequence[MediaInfo],
++    output: str,
++    *,
++    preset: Preset,
++    transition: str | None = None,
++    transition_duration: float = DEFAULT_TRANSITION_DURATION,
++    overwrite: bool = True,
++) -> list[str]:
++    """素材を連結するコマンドを組み立てる（再エンコードあり）。"""
++    if preset.is_copy:
++        raise VideoEditError(
++            "copy プリセットではフィルタを使えません。"
++            "素材の形式が完全に同じなら --copy を、違うなら別のプリセットを指定してください"
++        )
++    args = _head(overwrite)
++    for clip in clips:
++        args += ["-i", clip.path]
++    args += [
++        "-filter_complex",
++        concat_filter(
++            clips,
++            preset=preset,
++            transition=transition,
++            transition_duration=transition_duration,
++        ),
++        "-map", "[outv]",
++        "-map", "[outa]",
++    ]
++    args += preset.output_args()
++    args.append(output)
++    return args
+diff --git a/src/videoedit/core.py b/src/videoedit/core.py
+new file mode 100644
+index 0000000..2f28ac5
+--- /dev/null
++++ b/src/videoedit/core.py
+@@ -0,0 +1,156 @@
++"""ffmpeg / ffprobe の実行層と、時刻表記の変換。
++
++**外部プロセスを起動するのはこのモジュールだけ。** 他のモジュールは
++「引数リストを組み立てて返す純粋関数」に徹する。ffmpeg が入っていない環境
++（CI）でも、組み立てたコマンドを検証できるようにするため。
++
++videoedit は Python の依存パッケージを増やさない。動画処理は外部バイナリの
++ffmpeg に任せ、こちらは引数を組み立てて呼ぶだけにしている。
++"""
++
++from __future__ import annotations
++
++import json
++import shlex
++import shutil
++import subprocess
++from dataclasses import dataclass
++
++FFMPEG = "ffmpeg"
++FFPROBE = "ffprobe"
++
++INSTALL_HINT = """ffmpeg が見つかりません。導入してから再実行してください。
++
++  Windows : winget install Gyan.FFmpeg    (または scoop install ffmpeg)
++  macOS   : brew install ffmpeg
++  Ubuntu  : sudo apt install ffmpeg
++
++導入後 `ffmpeg -version` が通る（PATH が通っている）ことを確認してください。"""
++
++
++class VideoEditError(RuntimeError):
++    """videoedit が返すエラーの基底。CLI はこれを捕まえて終了コードにする。"""
++
++
++class FFmpegNotFound(VideoEditError):
++    """ffmpeg / ffprobe が PATH に無い。"""
++
++
++class FFmpegFailed(VideoEditError):
++    """ffmpeg / ffprobe が非ゼロで終了した。"""
++
++    def __init__(self, command: list[str], returncode: int, stderr: str) -> None:
++        self.command = command
++        self.returncode = returncode
++        self.stderr = stderr
++        super().__init__(
++            f"{command[0]} が終了コード {returncode} で失敗しました。\n"
++            f"  {format_command(command)}\n"
++            f"{_tail(stderr)}"
++        )
++
++
++def _tail(text: str, lines: int = 12) -> str:
++    """ffmpeg の stderr は長いので、原因が出ている末尾だけを見せる。"""
++    kept = [line for line in text.strip().splitlines() if line.strip()]
++    return "\n".join(kept[-lines:])
++
++
++def format_command(args: list[str]) -> str:
++    """コマンドを人が読める1行に整形する（--dry-run の表示用）。"""
++    return " ".join(shlex.quote(arg) for arg in args)
++
++
++def find(name: str) -> str | None:
++    """実行ファイルを PATH から探す。無ければ None。"""
++    return shutil.which(name)
++
++
++def require(name: str = FFMPEG) -> str:
++    """実行ファイルのパスを返す。無ければ導入手順を添えて落とす。"""
++    path = find(name)
++    if path is None:
++        raise FFmpegNotFound(INSTALL_HINT)
++    return path
++
++
++@dataclass(frozen=True)
++class Result:
++    """外部プロセスの実行結果。``skipped`` は --dry-run で実行しなかった場合。"""
++
++    command: list[str]
++    returncode: int
++    stdout: str
++    stderr: str
++    skipped: bool = False
++
++
++def run(args: list[str], *, dry_run: bool = False, check: bool = True) -> Result:
++    """コマンドを実行する。``dry_run`` なら組み立てた内容を返すだけで起動しない。"""
++    if dry_run:
++        return Result(command=list(args), returncode=0, stdout="", stderr="", skipped=True)
++
++    require(args[0])
++    completed = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace")
++    result = Result(
++        command=list(args),
++        returncode=completed.returncode,
++        stdout=completed.stdout or "",
++        stderr=completed.stderr or "",
++    )
++    if check and result.returncode != 0:
++        raise FFmpegFailed(result.command, result.returncode, result.stderr)
++    return result
++
++
++def run_json(args: list[str]) -> dict:
++    """ffprobe を実行して JSON を読む。``--dry-run`` の対象ではない（読むだけなので）。"""
++    result = run(args)
++    try:
++        return json.loads(result.stdout)
++    except json.JSONDecodeError as exc:  # pragma: no cover - ffprobe が壊れた出力を返した場合
++        raise VideoEditError(f"ffprobe の出力を JSON として読めませんでした: {exc}") from exc
++
++
++def parse_time(value: str | float | int) -> float:
++    """``00:01:30.5`` / ``1:30`` / ``90.5`` のいずれも秒(float)に変換する。
++
++    ffmpeg 自身も両方の書式を受け付けるが、尺の計算（トランジションの
++    オフセットなど）を Python 側でやるので、数値に正規化しておく必要がある。
++    """
++    if isinstance(value, (int, float)):
++        seconds = float(value)
++    else:
++        text = str(value).strip()
++        if not text:
++            raise ValueError("時刻が空です")
++        sign = 1.0
++        if text.startswith("-"):
++            sign, text = -1.0, text[1:]
++        parts = text.split(":")
++        if len(parts) > 3:
++            raise ValueError(f"時刻として読めません: {value!r}")
++        try:
++            numbers = [float(part) for part in parts]
++        except ValueError as exc:
++            raise ValueError(f"時刻として読めません: {value!r}") from exc
++        seconds = 0.0
++        for number in numbers:
++            seconds = seconds * 60.0 + number
++        seconds *= sign
++    if seconds < 0:
++        raise ValueError(f"時刻が負です: {value!r}")
++    return seconds
++
++
++def format_time(seconds: float) -> str:
++    """秒を ``HH:MM:SS.mmm`` に整形する（ログとファイル名の表示用）。"""
++    if seconds < 0:
++        raise ValueError(f"時刻が負です: {seconds!r}")
++    whole = int(seconds)
++    milliseconds = round((seconds - whole) * 1000)
++    if milliseconds == 1000:  # 四捨五入で繰り上がった場合
++        whole, milliseconds = whole + 1, 0
++    hours, remainder = divmod(whole, 3600)
++    minutes, secs = divmod(remainder, 60)
++    return f"{hours:02d}:{minutes:02d}:{secs:02d}.{milliseconds:03d}"
+diff --git a/src/videoedit/presets.py b/src/videoedit/presets.py
+new file mode 100644
+index 0000000..522b2a3
+--- /dev/null
++++ b/src/videoedit/presets.py
+@@ -0,0 +1,138 @@
++"""書き出しプリセット。
++
++エンコード設定を毎回コマンドラインで指定させると、回ごとに画質と互換性が
++ぶれる。用途の名前（youtube-1080p / shorts / preview）で選べるようにして、
++設定そのものはここ1箇所に置く。
++"""
++
++from __future__ import annotations
++
++from dataclasses import dataclass
++
++# 縦横比が合わない素材を letterbox する際の色。黒帯。
++PAD_COLOR = "black"
++
++
++@dataclass(frozen=True)
++class Preset:
++    """書き出しの設定ひとまとめ。"""
++
++    name: str
++    description: str
++    width: int | None = None
++    height: int | None = None
++    fps: float | None = None
++    video: tuple[str, ...] = ()
++    audio: tuple[str, ...] = ()
++    container: tuple[str, ...] = ()
++
++    @property
++    def is_copy(self) -> bool:
++        """再エンコードせずストリームコピーするプリセットか。"""
++        return "copy" in self.video
++
++    @property
++    def size(self) -> tuple[int, int] | None:
++        if self.width is None or self.height is None:
++            return None
++        return (self.width, self.height)
++
++    def output_args(self) -> list[str]:
++        """出力側に渡す引数。"""
++        return [*self.video, *self.audio, *self.container]
++
++    def video_filter(self) -> str | None:
++        """このプリセット自身のサイズ・fps に揃えるフィルタ。"""
++        return normalize_filter(self.size, self.fps)
++
++
++def normalize_filter(size: tuple[int, int] | None, fps: float | None) -> str | None:
++    """解像度と fps を揃えるフィルタ文字列を組み立てる。揃える必要が無ければ None。
++
++    `force_original_aspect_ratio=decrease` + `pad` で、縦横比を保ったまま
++    指定サイズに収める（引き伸ばさず黒帯で埋める）。`setsar=1` が無いと
++    ピクセル比の違う素材を連結したときに ffmpeg が拒否する。
++    """
++    steps: list[str] = []
++    if size:
++        width, height = size
++        steps.append(f"scale={width}:{height}:force_original_aspect_ratio=decrease")
++        steps.append(f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color={PAD_COLOR}")
++        steps.append("setsar=1")
++    if fps:
++        steps.append(f"fps={fps:g}")
++    if not steps:
++        return None
++    # 連結やトランジションのために画素形式も揃えておく
++    steps.append("format=yuv420p")
++    return ",".join(steps)
++
++
++_H264 = ("-c:v", "libx264", "-pix_fmt", "yuv420p")
++_AAC = ("-c:a", "aac", "-b:a", "192k")
++_FASTSTART = ("-movflags", "+faststart")
++
++PRESETS: dict[str, Preset] = {
++    "source": Preset(
++        name="source",
++        description="素材の解像度・fps のまま H.264 で書き直す（切り貼りの既定）",
++        video=(*_H264, "-crf", "18", "-preset", "medium"),
++        audio=_AAC,
++        container=_FASTSTART,
++    ),
++    "youtube-1080p": Preset(
++        name="youtube-1080p",
++        description="YouTube 標準。1920x1080 / H.264 高画質",
++        width=1920,
++        height=1080,
++        video=(*_H264, "-crf", "18", "-preset", "medium"),
++        audio=_AAC,
++        container=_FASTSTART,
++    ),
++    "youtube-720p": Preset(
++        name="youtube-720p",
++        description="YouTube 軽量。1280x720 / H.264",
++        width=1280,
++        height=720,
++        video=(*_H264, "-crf", "20", "-preset", "medium"),
++        audio=_AAC,
++        container=_FASTSTART,
++    ),
++    "shorts": Preset(
++        name="shorts",
++        description="Shorts / リール向けの縦型。1080x1920",
++        width=1080,
++        height=1920,
++        video=(*_H264, "-crf", "20", "-preset", "medium"),
++        audio=_AAC,
++        container=_FASTSTART,
++    ),
++    "preview": Preset(
++        name="preview",
++        description="内容確認用。640x360 と低画質で最速に書き出す",
++        width=640,
++        height=360,
++        video=(*_H264, "-crf", "32", "-preset", "ultrafast"),
++        audio=("-c:a", "aac", "-b:a", "96k"),
++        container=_FASTSTART,
++    ),
++    "copy": Preset(
++        name="copy",
++        description="再エンコードしない（ストリームコピー）。最速だが素材の形式のまま",
++        video=("-c", "copy"),
++    ),
++}
++
++DEFAULT_PRESET = "youtube-1080p"
++
++
++def get(name: str) -> Preset:
++    """名前でプリセットを引く。無ければ候補を添えて落とす。"""
++    try:
++        return PRESETS[name]
++    except KeyError:
++        raise KeyError(f"unknown preset: {name} (available: {', '.join(available())})") from None
++
++
++def available() -> list[str]:
++    return list(PRESETS)
+diff --git a/src/videoedit/probe.py b/src/videoedit/probe.py
+new file mode 100644
+index 0000000..e42f2ec
+--- /dev/null
++++ b/src/videoedit/probe.py
+@@ -0,0 +1,132 @@
++"""ffprobe で素材のメタ情報を読む。
++
++尺・解像度・fps が分からないと、連結時の正規化もトランジションの
++オフセット計算もできない。編集の前段として必ずここを通る。
++"""
++
++from __future__ import annotations
++
++from dataclasses import dataclass
++from fractions import Fraction
++
++from .core import VideoEditError, run_json
++
++FFPROBE_ARGS = [
++    "-v", "error",
++    "-print_format", "json",
++    "-show_format",
++    "-show_streams",
++]
++
++
++@dataclass(frozen=True)
++class MediaInfo:
++    """素材1つ分のメタ情報。"""
++
++    path: str
++    duration: float
++    width: int | None = None
++    height: int | None = None
++    fps: float | None = None
++    video_codec: str | None = None
++    audio_codec: str | None = None
++    sample_rate: int | None = None
++
++    @property
++    def has_video(self) -> bool:
++        return self.video_codec is not None
++
++    @property
++    def has_audio(self) -> bool:
++        return self.audio_codec is not None
++
++    @property
++    def size(self) -> tuple[int, int] | None:
++        if self.width is None or self.height is None:
++            return None
++        return (self.width, self.height)
++
++    def describe(self) -> str:
++        """`videoedit probe` が出す1行サマリ。"""
++        parts = [f"{self.duration:.2f}s"]
++        if self.size:
++            parts.append(f"{self.width}x{self.height}")
++        if self.fps:
++            parts.append(f"{self.fps:g}fps")
++        parts.append(self.video_codec or "video なし")
++        parts.append(f"{self.audio_codec} {self.sample_rate}Hz" if self.has_audio else "audio なし")
++        return " / ".join(parts)
++
++
++def probe_command(path: str) -> list[str]:
++    """ffprobe に渡す引数を組み立てる（純粋関数）。"""
++    return ["ffprobe", *FFPROBE_ARGS, path]
++
++
++def parse_fps(value: str | None) -> float | None:
++    """``30000/1001`` のような分数表記を float に直す。"""
++    if not value:
++        return None
++    try:
++        fraction = Fraction(value)
++    except (ValueError, ZeroDivisionError):
++        return None
++    if fraction <= 0:
++        return None
++    return float(fraction)
++
++
++def parse_probe(payload: dict, path: str) -> MediaInfo:
++    """ffprobe の JSON を ``MediaInfo`` に変換する（純粋関数）。"""
++    streams = payload.get("streams") or []
++    video = next((s for s in streams if s.get("codec_type") == "video"), None)
++    audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
++
++    duration = _first_duration(payload.get("format") or {}, video, audio)
++    if duration is None:
++        raise VideoEditError(f"尺を取得できませんでした: {path}")
++
++    width = height = fps = None
++    if video is not None:
++        width = _as_int(video.get("width"))
++        height = _as_int(video.get("height"))
++        # avg_frame_rate は可変フレームレートだと 0/0 になることがあるので r_frame_rate を先に見る
++        fps = parse_fps(video.get("r_frame_rate")) or parse_fps(video.get("avg_frame_rate"))
++
++    return MediaInfo(
++        path=path,
++        duration=duration,
++        width=width,
++        height=height,
++        fps=fps,
++        video_codec=(video or {}).get("codec_name"),
++        audio_codec=(audio or {}).get("codec_name"),
++        sample_rate=_as_int((audio or {}).get("sample_rate")),
++    )
++
++
++def _first_duration(*sources: dict | None) -> float | None:
++    """format → video → audio の順に duration を探す。静止画は尺を持たない。"""
++    for source in sources:
++        if not source:
++            continue
++        value = source.get("duration")
++        if value in (None, "", "N/A"):
++            continue
++        try:
++            return float(value)
++        except (TypeError, ValueError):
++            continue
++    return None
++
++
++def _as_int(value: object) -> int | None:
++    try:
++        return int(value)  # type: ignore[arg-type]
++    except (TypeError, ValueError):
++        return None
++
++
++def probe(path: str) -> MediaInfo:
++    """素材を ffprobe で調べる。"""
++    return parse_probe(run_json(probe_command(path)), path)
+diff --git a/src/videoedit/thumbnail.py b/src/videoedit/thumbnail.py
+new file mode 100644
+index 0000000..5444ee0
+--- /dev/null
++++ b/src/videoedit/thumbnail.py
+@@ -0,0 +1,33 @@
++"""サムネイル用に1フレームを切り出す。"""
++
++from __future__ import annotations
++
++from .core import VideoEditError
++
++# 高画質側の JPEG 品質。ffmpeg の -q:v は 2 が実質最高画質。
++JPEG_QUALITY = "2"
++
++
++def thumbnail_command(
++    source: str,
++    output: str,
++    *,
++    at: float = 0.0,
++    width: int | None = None,
++    overwrite: bool = True,
++) -> list[str]:
++    """``at`` 秒の1フレームを画像として書き出すコマンドを組み立てる。"""
++    if at < 0:
++        raise VideoEditError(f"切り出し位置が負です: {at}")
++
++    args = ["ffmpeg", "-hide_banner", "-y" if overwrite else "-n"]
++    if at:
++        args += ["-ss", f"{at:.6f}"]
++    args += ["-i", source]
++    if width is not None:
++        if width <= 0:
++            raise VideoEditError(f"幅が 0 以下です: {width}")
++        # -2 は「縦は横に合わせて偶数に丸める」。奇数だとエンコーダが受け付けない。
++        args += ["-vf", f"scale={width}:-2"]
++    args += ["-frames:v", "1", "-q:v", JPEG_QUALITY, output]
++    return args
+diff --git a/tests/videoedit/__init__.py b/tests/videoedit/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/tests/videoedit/conftest.py b/tests/videoedit/conftest.py
+new file mode 100644
+index 0000000..5e8ac17
+--- /dev/null
++++ b/tests/videoedit/conftest.py
+@@ -0,0 +1,23 @@
++"""videoedit のテスト共通の下ごしらえ。
++
++**テストからは ffmpeg / ffprobe を起動しない。** 実際に動かす確認は
++`test_integration.py` に隔離し、そちらだけ `run_ffmpeg` フィクスチャで
++明示的にプロセスを使う。ここでは起動しようとしたら即座に落とす。
++"""
++
++from __future__ import annotations
++
++import pytest
++
++from videoedit import core
++
++
++@pytest.fixture(autouse=True)
++def no_subprocess(request, monkeypatch):
++    if "integration" in request.keywords:
++        return
++
++    def explode(*args, **kwargs):
++        raise AssertionError("テストから外部プロセスを起動しようとしました")
++
++    monkeypatch.setattr(core.subprocess, "run", explode)
+diff --git a/tests/videoedit/test_cli.py b/tests/videoedit/test_cli.py
+new file mode 100644
+index 0000000..2f5fde8
+--- /dev/null
++++ b/tests/videoedit/test_cli.py
+@@ -0,0 +1,115 @@
++"""CLI のテスト。--dry-run を使うので ffmpeg は起動しない。"""
++
++from __future__ import annotations
++
++import pytest
++
++from videoedit import cli
++from videoedit.core import FFmpegNotFound
++from videoedit.probe import MediaInfo
++
++
++@pytest.fixture
++def fake_probe(monkeypatch):
++    """`concat` が尺を知るために呼ぶ probe を差し替える。"""
++    def probe(path):
++        return MediaInfo(
++            path=path,
++            duration=10.0,
++            width=1920,
++            height=1080,
++            fps=30.0,
++            video_codec="h264",
++            audio_codec="aac",
++            sample_rate=48000,
++        )
++
++    monkeypatch.setattr(cli, "probe", probe)
++    return probe
++
++
++def test_probe_prints_a_summary(monkeypatch, capsys, fake_probe):
++    assert cli.main(["probe", "in.mp4"]) == 0
++    out = capsys.readouterr().out
++    assert "1920x1080" in out
++    assert "00:00:10.000" in out
++
++
++def test_probe_json_is_machine_readable(monkeypatch, capsys, fake_probe):
++    import json
++
++    assert cli.main(["probe", "in.mp4", "--json"]) == 0
++    assert json.loads(capsys.readouterr().out)["duration"] == 10.0
++
++
++def test_cut_dry_run_prints_the_command_without_running_it(capsys):
++    assert cli.main(["cut", "in.mp4", "--from", "1:30", "--to", "1:40", "-o", "o.mp4", "--dry-run"]) == 0
++    out = capsys.readouterr().out
++    assert out.startswith("ffmpeg ")
++    assert "-ss 90.000000" in out
++    # 実行していないので書き出し報告は出ない
++    assert "wrote" not in out
++
++
++def test_cut_copy_uses_stream_copy(capsys):
++    assert cli.main(["cut", "in.mp4", "--from", "1", "-o", "o.mp4", "--copy", "--dry-run"]) == 0
++    assert "-c copy" in capsys.readouterr().out
++
++
++def test_concat_dry_run_builds_a_filter_graph(capsys, fake_probe):
++    argv = ["concat", "a.mp4", "b.mp4", "-o", "o.mp4", "--transition", "crossfade", "--dry-run"]
++    assert cli.main(argv) == 0
++    out = capsys.readouterr().out
++    assert "xfade=transition=fade" in out
++    assert "offset=9.500000" in out
++
++
++def test_concat_copy_dry_run_shows_the_list_file(capsys):
++    assert cli.main(["concat", "a.mp4", "b.mp4", "-o", "o.mp4", "--copy", "--dry-run"]) == 0
++    out = capsys.readouterr().out
++    assert "#   file '" in out
++    assert "-f concat" in out
++
++
++def test_concat_copy_cannot_have_a_transition(capsys):
++    argv = ["concat", "a.mp4", "b.mp4", "-o", "o.mp4", "--copy", "--transition", "fade"]
++    assert cli.main(argv) == 1
++    assert "トランジションは付けられません" in capsys.readouterr().err
++
++
++def test_concat_needs_two_sources(capsys):
++    assert cli.main(["concat", "a.mp4", "-o", "o.mp4", "--dry-run"]) == 1
++    assert "2本以上" in capsys.readouterr().err
++
++
++def test_export_applies_the_preset(capsys):
++    assert cli.main(["export", "in.mp4", "-o", "o.mp4", "--preset", "shorts", "--dry-run"]) == 0
++    assert "scale=1080:1920" in capsys.readouterr().out
++
++
++def test_thumb_derives_a_default_output_name(capsys):
++    assert cli.main(["thumb", "clips/in.mp4", "--at", "12", "--dry-run"]) == 0
++    assert "clips/in_thumb.jpg" in capsys.readouterr().out
++
++
++def test_presets_lists_every_preset(capsys):
++    assert cli.main(["presets"]) == 0
++    out = capsys.readouterr().out
++    assert "youtube-1080p" in out and "shorts" in out
++
++
++def test_a_bad_time_gives_exit_code_two(capsys):
++    assert cli.main(["cut", "in.mp4", "--from", "abc", "-o", "o.mp4", "--dry-run"]) == 2
++    assert "時刻として読めません" in capsys.readouterr().err
++
++
++def test_missing_ffmpeg_explains_how_to_install_it(monkeypatch, capsys):
++    monkeypatch.setattr(cli, "run", _raise_not_found)
++    assert cli.main(["export", "in.mp4", "-o", "o.mp4"]) == 1
++    assert "winget install" in capsys.readouterr().err
++
++
++def _raise_not_found(*args, **kwargs):
++    from videoedit.core import INSTALL_HINT
++
++    raise FFmpegNotFound(INSTALL_HINT)
+diff --git a/tests/videoedit/test_clip.py b/tests/videoedit/test_clip.py
+new file mode 100644
+index 0000000..0d28217
+--- /dev/null
++++ b/tests/videoedit/test_clip.py
+@@ -0,0 +1,195 @@
++"""コマンド組み立てのテスト。ffmpeg は起動しない。"""
++
++from __future__ import annotations
++
++import pytest
++
++from videoedit import clip, presets
++from videoedit.core import VideoEditError
++from videoedit.probe import MediaInfo
++
++
++def media(path="a.mp4", duration=10.0, *, audio=True, size=(1920, 1080), fps=30.0):
++    return MediaInfo(
++        path=path,
++        duration=duration,
++        width=size[0] if size else None,
++        height=size[1] if size else None,
++        fps=fps,
++        video_codec="h264",
++        audio_codec="aac" if audio else None,
++        sample_rate=48000 if audio else None,
++    )
++
++
++SOURCE = presets.get("source")
++COPY = presets.get("copy")
++
++
++def value_after(command, flag):
++    return command[command.index(flag) + 1]
++
++
++# --- cut ---------------------------------------------------------------
++
++
++def test_cut_seeks_before_the_input_so_ffmpeg_does_not_decode_the_whole_file():
++    command = clip.cut_command("in.mp4", "out.mp4", start=90, end=100, preset=SOURCE)
++    assert command.index("-ss") < command.index("-i")
++    assert value_after(command, "-t") == "10.000000"
++    assert command[-1] == "out.mp4"
++
++
++def test_cut_accepts_a_duration_instead_of_an_end():
++    command = clip.cut_command("in.mp4", "out.mp4", start=5, duration=3, preset=SOURCE)
++    assert value_after(command, "-t") == "3.000000"
++
++
++def test_cut_without_an_end_runs_to_the_end_of_the_source():
++    command = clip.cut_command("in.mp4", "out.mp4", start=5, preset=SOURCE)
++    assert "-t" not in command
++
++
++def test_cut_rejects_giving_both_an_end_and_a_duration():
++    with pytest.raises(VideoEditError, match="同時に指定できません"):
++        clip.cut_command("in.mp4", "out.mp4", start=1, end=5, duration=2, preset=SOURCE)
++
++
++def test_cut_rejects_an_end_before_the_start():
++    with pytest.raises(VideoEditError, match="より後にしてください"):
++        clip.cut_command("in.mp4", "out.mp4", start=10, end=5, preset=SOURCE)
++
++
++def test_cut_rejects_a_zero_length_range():
++    with pytest.raises(VideoEditError, match="0 以下"):
++        clip.cut_command("in.mp4", "out.mp4", duration=0, preset=SOURCE)
++
++
++def test_cut_with_copy_guards_against_negative_timestamps():
++    command = clip.cut_command("in.mp4", "out.mp4", start=1, end=3, preset=COPY)
++    assert "-avoid_negative_ts" in command
++    # ストリームコピーなのでフィルタは付けない
++    assert "-vf" not in command
++
++
++def test_no_overwrite_makes_ffmpeg_refuse_an_existing_file():
++    command = clip.cut_command("in.mp4", "out.mp4", preset=SOURCE, overwrite=False)
++    assert "-n" in command and "-y" not in command
++
++
++# --- export ------------------------------------------------------------
++
++
++def test_transcode_applies_the_preset_filter():
++    command = clip.transcode_command("in.mp4", "out.mp4", preset=presets.get("youtube-1080p"))
++    assert "scale=1920:1080" in value_after(command, "-vf")
++
++
++def test_transcode_with_copy_has_no_filter():
++    assert "-vf" not in clip.transcode_command("in.mp4", "out.mp4", preset=COPY)
++
++
++# --- concat (ストリームコピー) -----------------------------------------
++
++
++def test_concat_list_file_escapes_single_quotes():
++    listing = clip.concat_list_file(["/tmp/it's here.mp4", "/tmp/b.mp4"])
++    # ffmpeg のリスト形式は、単一引用符の中で ' を書けない。
++    # いったん閉じて \' を置き、また開く（シェルと同じ書き方）。
++    assert listing.splitlines()[0] == r"file '/tmp/it'\''s here.mp4'"
++    assert listing.endswith("\n")
++
++
++def test_concat_copy_command_uses_the_demuxer():
++    command = clip.concat_copy_command("list.txt", "out.mp4")
++    assert value_after(command, "-f") == "concat"
++    # 相対パスを含むリストを受け付けるために必要
++    assert value_after(command, "-safe") == "0"
++
++
++# --- concat (フィルタ) --------------------------------------------------
++
++
++def test_concat_filter_joins_video_and_audio_of_every_clip():
++    graph = clip.concat_filter([media("a.mp4"), media("b.mp4")], preset=SOURCE)
++    assert "[v0][a0][v1][a1]concat=n=2:v=1:a=1[outv][outa]" in graph
++
++
++def test_concat_fills_in_silence_for_a_clip_without_audio():
++    graph = clip.concat_filter(
++        [media("a.mp4"), media("b.mp4", duration=3.0, audio=False)], preset=SOURCE
++    )
++    # 1本でも音声が欠けると concat が本数の食い違いで失敗するため無音を作る
++    assert "anullsrc=r=48000:cl=stereo,atrim=duration=3.000000" in graph
++    assert "[1:a]" not in graph
++
++
++def test_concat_without_a_sized_preset_follows_the_first_clip():
++    clips = [media("a.mp4", size=(1280, 720), fps=25), media("b.mp4", size=(640, 480), fps=30)]
++    graph = clip.concat_filter(clips, preset=SOURCE)
++    assert graph.count("scale=1280:720") == 2
++    assert graph.count("fps=25") == 2
++
++
++def test_concat_with_a_sized_preset_follows_the_preset():
++    clips = [media("a.mp4", size=(1280, 720)), media("b.mp4", size=(640, 480))]
++    graph = clip.concat_filter(clips, preset=presets.get("shorts"))
++    assert graph.count("scale=1080:1920") == 2
++
++
++def test_concat_needs_at_least_two_clips():
++    with pytest.raises(VideoEditError, match="2本以上"):
++        clip.concat_filter([media()], preset=SOURCE)
++
++
++# --- トランジション -----------------------------------------------------
++
++
++def test_xfade_offsets_shrink_by_the_transition_length_each_time():
++    clips = [media("a.mp4", 10.0), media("b.mp4", 6.0), media("c.mp4", 4.0)]
++    graph = clip.concat_filter(clips, preset=SOURCE, transition="crossfade", transition_duration=1)
++    # 1本目は 10s なので 9s から重ね始める。
++    assert "offset=9.000000" in graph
++    # 2本目を繋いだ時点の尺は 10+6-1=15s なので、次は 14s から。
++    assert "offset=14.000000" in graph
++    assert graph.endswith("acrossfade=d=1[outa]")
++
++
++def test_crossfade_maps_to_the_ffmpeg_fade_transition():
++    graph = clip.concat_filter(
++        [media("a.mp4"), media("b.mp4")], preset=SOURCE, transition="crossfade"
++    )
++    assert "xfade=transition=fade:" in graph
++
++
++def test_transition_must_be_shorter_than_the_shortest_clip():
++    clips = [media("a.mp4", 10.0), media("b.mp4", 2.0)]
++    with pytest.raises(VideoEditError, match="最短の素材"):
++        clip.concat_filter(clips, preset=SOURCE, transition="fade", transition_duration=2.0)
++
++
++def test_transition_length_must_be_positive():
++    with pytest.raises(VideoEditError, match="0 以下"):
++        clip.concat_filter(
++            [media("a.mp4"), media("b.mp4")],
++            preset=SOURCE,
++            transition="fade",
++            transition_duration=0,
++        )
++
++
++def test_unknown_transition_lists_the_available_ones():
++    with pytest.raises(VideoEditError, match="crossfade"):
++        clip.transition_name("swirl")
++
++
++def test_concat_command_maps_the_filter_outputs():
++    command = clip.concat_command([media("a.mp4"), media("b.mp4")], "out.mp4", preset=SOURCE)
++    assert command.count("-i") == 2
++    assert value_after(command, "-map") == "[outv]"
++    assert "[outa]" in command
++
++
++def test_concat_command_rejects_the_copy_preset():
++    with pytest.raises(VideoEditError, match="copy プリセット"):
++        clip.concat_command([media("a.mp4"), media("b.mp4")], "out.mp4", preset=COPY)
+diff --git a/tests/videoedit/test_core.py b/tests/videoedit/test_core.py
+new file mode 100644
+index 0000000..32d0ba3
+--- /dev/null
++++ b/tests/videoedit/test_core.py
+@@ -0,0 +1,98 @@
++"""実行層と時刻変換のテスト。ffmpeg は起動しない。"""
++
++from __future__ import annotations
++
++import pytest
++
++from videoedit import core
++
++
++@pytest.mark.parametrize(
++    ("text", "expected"),
++    [
++        ("90", 90.0),
++        ("90.5", 90.5),
++        ("1:30", 90.0),
++        ("00:01:30", 90.0),
++        ("00:01:30.250", 90.25),
++        ("1:00:00", 3600.0),
++        (12, 12.0),
++        (12.5, 12.5),
++    ],
++)
++def test_parse_time_accepts_both_notations(text, expected):
++    assert core.parse_time(text) == pytest.approx(expected)
++
++
++@pytest.mark.parametrize("text", ["", "abc", "1:2:3:4", "1:xx", "-5"])
++def test_parse_time_rejects_bad_input(text):
++    with pytest.raises(ValueError):
++        core.parse_time(text)
++
++
++@pytest.mark.parametrize(
++    ("seconds", "expected"),
++    [
++        (0, "00:00:00.000"),
++        (90.25, "00:01:30.250"),
++        (3661.5, "01:01:01.500"),
++        # 四捨五入で 1000ms になる値が 00:00:01.000 に繰り上がること
++        (0.9999, "00:00:01.000"),
++    ],
++)
++def test_format_time(seconds, expected):
++    assert core.format_time(seconds) == expected
++
++
++def test_format_time_rejects_negative():
++    with pytest.raises(ValueError):
++        core.format_time(-1)
++
++
++def test_format_command_quotes_paths_with_spaces():
++    assert core.format_command(["ffmpeg", "-i", "my clip.mp4"]) == "ffmpeg -i 'my clip.mp4'"
++
++
++def test_require_reports_how_to_install(monkeypatch):
++    monkeypatch.setattr(core.shutil, "which", lambda name: None)
++    with pytest.raises(core.FFmpegNotFound) as excinfo:
++        core.require()
++    assert "winget install" in str(excinfo.value)
++
++
++def test_run_with_dry_run_does_not_start_a_process(monkeypatch):
++    def explode(*args, **kwargs):  # pragma: no cover - 呼ばれたら失敗
++        raise AssertionError("--dry-run なのにプロセスを起動した")
++
++    monkeypatch.setattr(core.subprocess, "run", explode)
++    result = core.run(["ffmpeg", "-i", "in.mp4", "out.mp4"], dry_run=True)
++    assert result.skipped
++    assert result.command == ["ffmpeg", "-i", "in.mp4", "out.mp4"]
++
++
++def test_run_raises_with_the_tail_of_stderr(monkeypatch):
++    monkeypatch.setattr(core.shutil, "which", lambda name: f"/usr/bin/{name}")
++
++    class Completed:
++        returncode = 1
++        stdout = ""
++        stderr = "\n".join(f"line {index}" for index in range(30))
++
++    monkeypatch.setattr(core.subprocess, "run", lambda *a, **k: Completed())
++    with pytest.raises(core.FFmpegFailed) as excinfo:
++        core.run(["ffmpeg", "-i", "missing.mp4", "out.mp4"])
++    message = str(excinfo.value)
++    assert "line 29" in message
++    assert "line 0" not in message
++
++
++def test_run_can_return_a_failure_without_raising(monkeypatch):
++    monkeypatch.setattr(core.shutil, "which", lambda name: f"/usr/bin/{name}")
++
++    class Completed:
++        returncode = 3
++        stdout = ""
++        stderr = "boom"
++
++    monkeypatch.setattr(core.subprocess, "run", lambda *a, **k: Completed())
++    assert core.run(["ffmpeg"], check=False).returncode == 3
+diff --git a/tests/videoedit/test_integration.py b/tests/videoedit/test_integration.py
+new file mode 100644
+index 0000000..146ed4a
+--- /dev/null
++++ b/tests/videoedit/test_integration.py
+@@ -0,0 +1,108 @@
++"""実際に ffmpeg を動かして書き出しを確かめる。
++
++ffmpeg が入っていない環境では丸ごと skip する。組み立てたコマンドの検証は
++他のテストが担当しているので、ここが飛んでも網羅は落ちない。
++"""
++
++from __future__ import annotations
++
++import pytest
++
++from videoedit import cli, core
++from videoedit.probe import probe
++
++pytestmark = [
++    pytest.mark.integration,
++    pytest.mark.skipif(core.find("ffmpeg") is None, reason="ffmpeg が無い"),
++    pytest.mark.skipif(core.find("ffprobe") is None, reason="ffprobe が無い"),
++]
++
++
++def make_clip(path, *, seconds, size="320x240", rate=25, audio=True):
++    """lavfi のテストパターンで素材を作る。外部ファイルを持ち込まないため。"""
++    args = [
++        "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
++        "-f", "lavfi", "-i", f"testsrc=size={size}:rate={rate}:duration={seconds}",
++    ]
++    if audio:
++        args += ["-f", "lavfi", "-i", f"sine=frequency=440:duration={seconds}"]
++    args += ["-c:v", "libx264", "-pix_fmt", "yuv420p"]
++    if audio:
++        args += ["-c:a", "aac", "-shortest"]
++    args.append(str(path))
++    core.run(args)
++    return str(path)
++
++
++@pytest.fixture
++def clips(tmp_path):
++    return {
++        "a": make_clip(tmp_path / "a.mp4", seconds=4),
++        "b": make_clip(tmp_path / "b.mp4", seconds=3, size="640x480", rate=30, audio=False),
++        "c": make_clip(tmp_path / "c.mp4", seconds=5),
++    }
++
++
++def test_cut_writes_the_requested_range(tmp_path, clips):
++    out = tmp_path / "cut.mp4"
++    assert cli.main(["cut", clips["a"], "--from", "1", "--to", "3", "-o", str(out)]) == 0
++    assert probe(str(out)).duration == pytest.approx(2.0, abs=0.15)
++
++
++def test_concat_adds_up_the_durations(tmp_path, clips):
++    out = tmp_path / "joined.mp4"
++    argv = ["concat", clips["a"], clips["b"], clips["c"], "-o", str(out)]
++    assert cli.main(argv) == 0
++    info = probe(str(out))
++    assert info.duration == pytest.approx(12.0, abs=0.2)
++    # 音声を持たない素材が混ざっていても、無音で補って1本の音声トラックになる
++    assert info.has_audio
++
++
++def test_concat_with_a_transition_is_shorter_by_the_overlaps(tmp_path, clips):
++    out = tmp_path / "xfade.mp4"
++    argv = [
++        "concat", clips["a"], clips["b"], clips["c"],
++        "-o", str(out), "--transition", "crossfade", "--duration", "0.5",
++    ]
++    assert cli.main(argv) == 0
++    # 12s から、重なり 0.5s x 2回ぶん縮む
++    assert probe(str(out)).duration == pytest.approx(11.0, abs=0.2)
++
++
++def test_concat_normalizes_clips_of_different_sizes(tmp_path, clips):
++    out = tmp_path / "mixed.mp4"
++    argv = ["concat", clips["a"], clips["b"], "-o", str(out), "--preset", "youtube-720p"]
++    assert cli.main(argv) == 0
++    assert probe(str(out)).size == (1280, 720)
++
++
++def test_concat_copy_joins_without_re_encoding(tmp_path, clips):
++    out = tmp_path / "copied.mp4"
++    assert cli.main(["concat", clips["a"], clips["c"], "-o", str(out), "--copy"]) == 0
++    assert probe(str(out)).duration == pytest.approx(9.0, abs=0.2)
++
++
++def test_concat_copy_handles_a_quote_in_the_path(tmp_path, clips):
++    quoted = make_clip(tmp_path / "it's here.mp4", seconds=2)
++    out = tmp_path / "quoted.mp4"
++    assert cli.main(["concat", quoted, clips["a"], "-o", str(out), "--copy"]) == 0
++    assert probe(str(out)).duration == pytest.approx(6.0, abs=0.2)
++
++
++def test_export_to_shorts_is_vertical(tmp_path, clips):
++    out = tmp_path / "shorts.mp4"
++    assert cli.main(["export", clips["a"], "-o", str(out), "--preset", "shorts"]) == 0
++    assert probe(str(out)).size == (1080, 1920)
++
++
++def test_thumb_writes_an_image(tmp_path, clips):
++    out = tmp_path / "thumb.jpg"
++    assert cli.main(["thumb", clips["a"], "--at", "2", "--width", "320", "-o", str(out)]) == 0
++    assert out.stat().st_size > 0
++
++
++def test_a_missing_source_fails_with_ffmpeg_stderr(tmp_path, capsys):
++    out = tmp_path / "out.mp4"
++    assert cli.main(["export", str(tmp_path / "nope.mp4"), "-o", str(out)]) == 1
++    assert "No such file" in capsys.readouterr().err
+diff --git a/tests/videoedit/test_presets.py b/tests/videoedit/test_presets.py
+new file mode 100644
+index 0000000..ed1e117
+--- /dev/null
++++ b/tests/videoedit/test_presets.py
+@@ -0,0 +1,46 @@
++"""書き出しプリセットのテスト。"""
++
++from __future__ import annotations
++
++import pytest
++
++from videoedit import presets
++
++
++def test_every_preset_has_a_description():
++    for name in presets.available():
++        assert presets.get(name).description
++
++
++def test_unknown_preset_lists_the_available_ones():
++    with pytest.raises(KeyError, match="youtube-1080p"):
++        presets.get("4k-hdr")
++
++
++def test_sized_preset_scales_without_stretching():
++    video_filter = presets.get("shorts").video_filter()
++    assert "scale=1080:1920:force_original_aspect_ratio=decrease" in video_filter
++    assert "pad=1080:1920" in video_filter
++    # ピクセル比が揃っていないと連結時に ffmpeg が拒否する
++    assert "setsar=1" in video_filter
++
++
++def test_source_preset_keeps_the_original_size():
++    source = presets.get("source")
++    assert source.size is None
++    assert source.video_filter() is None
++    assert not source.is_copy
++
++
++def test_copy_preset_does_not_re_encode():
++    copy = presets.get("copy")
++    assert copy.is_copy
++    assert copy.output_args() == ["-c", "copy"]
++
++
++def test_normalize_filter_can_set_fps_only():
++    assert presets.normalize_filter(None, 30) == "fps=30,format=yuv420p"
++
++
++def test_normalize_filter_returns_none_when_there_is_nothing_to_do():
++    assert presets.normalize_filter(None, None) is None
+diff --git a/tests/videoedit/test_probe.py b/tests/videoedit/test_probe.py
+new file mode 100644
+index 0000000..c4ac0b4
+--- /dev/null
++++ b/tests/videoedit/test_probe.py
+@@ -0,0 +1,81 @@
++"""ffprobe の出力を読む部分のテスト。ffprobe は起動しない。"""
++
++from __future__ import annotations
++
++import pytest
++
++from videoedit import probe
++from videoedit.core import VideoEditError
++
++
++def payload(*, video=True, audio=True, duration="12.5"):
++    streams = []
++    if video:
++        streams.append(
++            {
++                "codec_type": "video",
++                "codec_name": "h264",
++                "width": 1920,
++                "height": 1080,
++                "r_frame_rate": "30000/1001",
++                "avg_frame_rate": "30000/1001",
++            }
++        )
++    if audio:
++        streams.append({"codec_type": "audio", "codec_name": "aac", "sample_rate": "48000"})
++    return {"streams": streams, "format": {"duration": duration}}
++
++
++def test_probe_command_is_read_only():
++    command = probe.probe_command("in.mp4")
++    assert command[0] == "ffprobe"
++    assert command[-1] == "in.mp4"
++    assert "-show_streams" in command
++
++
++def test_parse_probe_reads_every_field():
++    info = probe.parse_probe(payload(), "in.mp4")
++    assert info.duration == pytest.approx(12.5)
++    assert info.size == (1920, 1080)
++    assert info.fps == pytest.approx(29.97, abs=0.01)
++    assert info.has_video and info.has_audio
++    assert info.sample_rate == 48000
++
++
++def test_parse_probe_handles_a_clip_without_audio():
++    info = probe.parse_probe(payload(audio=False), "silent.mp4")
++    assert not info.has_audio
++    assert info.sample_rate is None
++    assert "audio なし" in info.describe()
++
++
++def test_parse_probe_falls_back_to_the_stream_duration():
++    data = payload()
++    data["format"] = {}
++    data["streams"][0]["duration"] = "7.0"
++    assert probe.parse_probe(data, "in.mp4").duration == pytest.approx(7.0)
++
++
++def test_parse_probe_rejects_media_without_a_duration():
++    data = payload(duration="N/A")
++    with pytest.raises(VideoEditError, match="尺を取得できません"):
++        probe.parse_probe(data, "still.png")
++
++
++@pytest.mark.parametrize(
++    ("value", "expected"),
++    [("30/1", 30.0), ("30000/1001", 29.97), ("25", 25.0), ("0/0", None), (None, None), ("", None)],
++)
++def test_parse_fps(value, expected):
++    result = probe.parse_fps(value)
++    if expected is None:
++        assert result is None
++    else:
++        assert result == pytest.approx(expected, abs=0.01)
++
++
++def test_variable_frame_rate_falls_back_to_avg_frame_rate():
++    data = payload()
++    data["streams"][0]["r_frame_rate"] = "0/0"
++    data["streams"][0]["avg_frame_rate"] = "24/1"
++    assert probe.parse_probe(data, "vfr.mp4").fps == pytest.approx(24.0)
+diff --git a/tests/videoedit/test_thumbnail.py b/tests/videoedit/test_thumbnail.py
+new file mode 100644
+index 0000000..dffb209
+--- /dev/null
++++ b/tests/videoedit/test_thumbnail.py
+@@ -0,0 +1,35 @@
++"""サムネイル切り出しのテスト。"""
++
++from __future__ import annotations
++
++import pytest
++
++from videoedit.core import VideoEditError
++from videoedit.thumbnail import thumbnail_command
++
++
++def test_thumbnail_takes_a_single_frame():
++    command = thumbnail_command("in.mp4", "out.jpg", at=12)
++    assert command[command.index("-frames:v") + 1] == "1"
++    assert command.index("-ss") < command.index("-i")
++    assert command[-1] == "out.jpg"
++
++
++def test_thumbnail_at_zero_does_not_seek():
++    assert "-ss" not in thumbnail_command("in.mp4", "out.jpg")
++
++
++def test_thumbnail_scales_to_an_even_height():
++    command = thumbnail_command("in.mp4", "out.jpg", width=640)
++    # -2 は「比率を保ちつつ偶数に丸める」。奇数だとエンコーダが受け付けない。
++    assert command[command.index("-vf") + 1] == "scale=640:-2"
++
++
++def test_thumbnail_rejects_a_negative_position():
++    with pytest.raises(VideoEditError, match="負です"):
++        thumbnail_command("in.mp4", "out.jpg", at=-1)
++
++
++def test_thumbnail_rejects_a_zero_width():
++    with pytest.raises(VideoEditError, match="0 以下"):
++        thumbnail_command("in.mp4", "out.jpg", width=0)
+-- 
+2.43.0
+

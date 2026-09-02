@@ -88,13 +88,13 @@ subtitle:
 
 1 フェーズ = 1 PR。各フェーズ単体で使える状態にして進める。
 
-| フェーズ | 内容 | 完了条件 |
-|---|---|---|
-| 0 | 環境整備。ffmpeg の導入手順、`core.py` の実行ラッパ、`probe` サブコマンド | `python -m videoedit probe in.mp4` が尺と解像度を返す |
-| 1 | 最小編集。`cut` / `concat` / `export` プリセット / `thumb` | 素材2本 → 1本の動画とサムネが出る |
-| 2 | 台本駆動。`timeline.py` と `build` サブコマンド、`text` のテロップ | `videoedit build script.yaml` で完成品が出る |
-| 3 | 音声。`bgm`（ミックス・ダッキング・loudnorm）と `subtitle`（SRT 焼き込み） | BGM 付き・字幕入りの動画が台本から出る |
-| 4 | 連携。ai-lab の画像生成/audiogen をサムネ・BGM に接続、`youtube-video-creation` から呼ぶ | 台本 → 公開用ファイル一式が 1 コマンドで揃う |
+| フェーズ | 内容 | 完了条件 | 状態 |
+|---|---|---|---|
+| 0 | 環境整備。ffmpeg の導入手順、`core.py` の実行ラッパ、`probe` サブコマンド | `python -m videoedit probe in.mp4` が尺と解像度を返す | **完了** |
+| 1 | 最小編集。`cut` / `concat` / `export` プリセット / `thumb` | 素材2本 → 1本の動画とサムネが出る | **完了** |
+| 2 | 台本駆動。`timeline.py` と `build` サブコマンド、`text` のテロップ | `videoedit build script.yaml` で完成品が出る | 未着手 |
+| 3 | 音声。`bgm`（ミックス・ダッキング・loudnorm）と `subtitle`（SRT 焼き込み） | BGM 付き・字幕入りの動画が台本から出る | 未着手 |
+| 4 | 連携。ai-lab の画像生成/audiogen をサムネ・BGM に接続、`youtube-video-creation` から呼ぶ | 台本 → 公開用ファイル一式が 1 コマンドで揃う | 未着手 |
 
 字幕の自動生成（Whisper）と TTS ナレーションは Phase 3 の先。
 どちらも外部依存が増えるので、pyproject の extras に切り出して既定では入れない。
@@ -127,6 +127,28 @@ ffmpeg -version                # PATH が通っているか確認
 | `filter_complex` が巨大化して読めない・壊れる | シーン単位で中間ファイルに書き出して段階ビルドする。中間物はハッシュでキャッシュし、変更のあったシーンだけ作り直す |
 | 素材の解像度・fps がバラバラで連結に失敗 | `concat` の前に共通フォーマットへ正規化する工程を挟む |
 
+## 実装できたこと（Phase 0 / 1）
+
+`src/videoedit/` として実装済み。**ただし ai-lab へは未 push**。
+作業したセッションで ai-lab が読み取り専用で attach されていて 403 になったため、
+コミット1本ぶんのパッチを
+[`../experiments/videoedit-for-ai-lab/`](../experiments/videoedit-for-ai-lab/) に退避してある。
+移し方はそちらの README を参照。
+
+- `probe` / `cut` / `concat`（トランジション付き）/ `export` / `thumb` / `presets`
+- 書き出しプリセット: `source` / `youtube-1080p` / `youtube-720p` / `shorts` / `preview` / `copy`
+- 全サブコマンドに `--dry-run`
+- テスト93件（うち9件は実際に ffmpeg を起動）、ruff クリーン
+
+計画から変えたところ:
+
+- **`overlay.py` / `audio.py` / `subtitle.py` / `timeline.py` は Phase 2 以降に送った。**
+  Phase 0/1 の完了条件に含まれないため、空のモジュールを先に置くことはしなかった。
+- **`presets` サブコマンドを足した。** プリセットの一覧が見えないと選べない。
+- **`source` プリセットを足した。** 切り貼りで解像度まで変わるのは想定外なので、
+  `cut` / `concat` の既定は「素材の解像度のまま」にした。
+
 ## 次にやること
 
-Phase 0 と Phase 1 に着手する。`ai-lab` 側にブランチを切って作業する。
+1. ai-lab に書き込み権限を付けて、退避したパッチを取り込む。
+2. Phase 2（台本 YAML 駆動の `build` とテロップ）に進む。
