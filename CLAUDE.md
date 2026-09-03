@@ -1,5 +1,19 @@
 # Claude Code 開発ワークスペース
 
+> [!IMPORTANT]
+> **このリポジトリは 2026-09-01 に `nami0817kk-arch/workspace`（private モノレポ）へ統合済み。**
+> このリポジトリを起点にセッションを始めてしまった場合、作業を進める前に
+> workspace 側へ移ること。ここは履歴の保管用で、もう更新しない。
+>
+> | ここにあったもの | 今の場所 |
+> |---|---|
+> | `projects/PJT001-stock-investment` | `workspace/projects/stock-investment` |
+> | `projects/PJT002-ai-blog` | 2026-09-01 にクローズ（git 履歴に残っている） |
+> | 同じ親フォルダに並べていた他リポジトリ | `workspace/projects/*`・`workspace/libs/*`・`workspace/platform/ai-lab` |
+>
+> 規約と手順は workspace の `CLAUDE.md` と `docs/session-faq.md`、
+> 相談先は `docs/coordinator.txt` を見る。**以下は統合前の記述**。
+
 ## このリポジトリの範囲
 
 PJT001 と PJT002 だけを持つ。他のプロジェクトは**独立したリポジトリ**として
