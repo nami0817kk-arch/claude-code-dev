@@ -1,0 +1,2110 @@
+From 190acd8203852e153a5b218308d97e9e8266ad02 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 4 Sep 2026 15:07:42 +0000
+Subject: [PATCH 3/3] =?UTF-8?q?feat(videoedit):=20BGM=E3=83=BB=E3=83=80?=
+ =?UTF-8?q?=E3=83=83=E3=82=AD=E3=83=B3=E3=82=B0=E3=83=BB=E9=9F=B3=E9=87=8F?=
+ =?UTF-8?q?=E6=AD=A3=E8=A6=8F=E5=8C=96=E3=83=BB=E5=AD=97=E5=B9=95=E3=82=92?=
+ =?UTF-8?q?=E8=BF=BD=E5=8A=A0?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+動画編集スキルの Phase 3。
+
+- bgm        BGM を載せる（動画より短ければ繰り返す）。--duck でしゃべりの間だけ下げる
+- normalize  音量を揃える（loudnorm 2パス、既定 -14 LUFS）
+- subtitle   字幕(SRT)。既定は焼き込み、--soft で字幕トラック
+- 台本に audio: と subtitle: を書けるようにし、build で一気通貫にした
+
+段の設計:
+- 音声の段は映像をコピーする（-c:v copy）。BGM を差し替えても映像は作り直さない
+- 字幕の焼き込みだけは映像の段（連結）に混ぜた。独立させると映像をもう一度
+  エンコードすることになり、長い動画では書き出し時間が倍になる
+- 音量の正規化は2パス。BGM を載せてから正規化する場合は、1パス目にも同じ
+  ミックスを通す（混ぜたあとを測らないと意味がない）。1パス目は -vn -f null -
+  なので映像を復号せず、実尺よりずっと速い
+
+実素材で見つけて直したもの:
+- loudnorm の最初の区切りは = で以降が :。loudnorm:I=-14 と書いていて
+  フィルタ名を解釈できず落ちていた
+- amix は既定で入力数で割るため、混ぜただけで音量が半分になる。normalize=0 を付けた
+
+ffmpeg 側の都合で揃えられなかった点として、字幕の書体は libass が中身から
+字形を探す仕組みのため書体名でしか指定できない（テロップはパス）。
+使い分けを README と SKILL.md に明記した。
+
+検証は実測で行った。normalize 後 -13.99 LUFS、台本フル構成のビルドで -14.06 LUFS。
+ダッキングは、しゃべり続ける素材に BGM を 0dB で重ねて、無しが +3.3dB に対し
+有りが +1.0dB に収まることを確認。字幕はフレームを抜いて日本語の表示も確認した。
+
+テストは 226 件（うち 24 件は実際に ffmpeg を起動）。
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GyMwXZyroa9cAT5LMB51cT
+---
+ .claude/skills/video-edit/SKILL.md  |  40 ++++-
+ CLAUDE.md                           |  11 +-
+ README.md                           |  54 +++++-
+ docs/videoedit.md                   |  68 ++++++-
+ src/videoedit/__init__.py           |   4 +
+ src/videoedit/audio.py              | 267 ++++++++++++++++++++++++++++
+ src/videoedit/cli.py                | 253 +++++++++++++++++++++++++-
+ src/videoedit/clip.py               |  36 ++--
+ src/videoedit/subtitle.py           | 155 ++++++++++++++++
+ src/videoedit/timeline.py           | 178 +++++++++++++++++--
+ tests/videoedit/test_audio.py       | 138 ++++++++++++++
+ tests/videoedit/test_cli.py         | 122 +++++++++++++
+ tests/videoedit/test_integration.py | 134 ++++++++++++++
+ tests/videoedit/test_subtitle.py    | 116 ++++++++++++
+ tests/videoedit/test_timeline.py    |  22 ++-
+ 15 files changed, 1541 insertions(+), 57 deletions(-)
+ create mode 100644 src/videoedit/audio.py
+ create mode 100644 src/videoedit/subtitle.py
+ create mode 100644 tests/videoedit/test_audio.py
+ create mode 100644 tests/videoedit/test_subtitle.py
+
+diff --git a/.claude/skills/video-edit/SKILL.md b/.claude/skills/video-edit/SKILL.md
+index 79e863f..22bf1f8 100644
+--- a/.claude/skills/video-edit/SKILL.md
++++ b/.claude/skills/video-edit/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: video-edit
+-description: このリポジトリで動画を編集する。ユーザーが「動画を切って」「つないで」「テロップを入れて」「字幕を焼いて」「台本から動画を作って」「YouTube 用に書き出して」「Shorts の縦型にして」「サムネを作って」「動画の長さを調べて」と言ったときに使う。ffmpeg を呼ぶ videoedit コマンドで、カット・連結・トランジション・テロップ・台本駆動のビルド・書き出しプリセット・サムネ切り出しを行う。
++description: このリポジトリで動画を編集する。ユーザーが「動画を切って」「つないで」「テロップを入れて」「BGM を付けて」「音量を揃えて」「字幕を焼いて」「台本から動画を作って」「YouTube 用に書き出して」「Shorts の縦型にして」「サムネを作って」「動画の長さを調べて」と言ったときに使う。ffmpeg を呼ぶ videoedit コマンドで、カット・連結・トランジション・テロップ・BGM とダッキング・音量正規化・字幕・台本駆動のビルド・書き出しプリセット・サムネ切り出しを行う。
+ ---
+ 
+ # 動画編集
+@@ -46,6 +46,15 @@ python -m videoedit presets            # 一覧
+ # テロップを1枚焼き込む
+ python -m videoedit text in.mp4 -o out.mp4 --value "ここがポイント" --at 3 --for 4
+ 
++# BGM を載せる（動画より短ければ繰り返す）
++python -m videoedit bgm in.mp4 bgm.wav -o out.mp4 --duck --normalize
++
++# 音量だけ揃える（loudnorm 2パス、既定は -14 LUFS）
++python -m videoedit normalize in.mp4 -o out.mp4
++
++# 字幕(SRT)。既定は焼き込み、--soft で字幕トラック
++python -m videoedit subtitle in.mp4 subs.srt -o out.mp4
++
+ # 台本からまとめて組み立てる
+ python -m videoedit build script.yaml
+ 
+@@ -63,6 +72,14 @@ python -m videoedit thumb in.mp4 --at 00:00:12 --width 1280
+ ```yaml
+ output: output/ep01.mp4
+ preset: youtube-1080p          # 省略時も youtube-1080p
++audio:
++  bgm: assets/bgm/calm.wav
++  gain: -18                    # BGM の音量(dB)。既定 -18
++  duck: true                   # しゃべりの間だけ BGM を下げる
++  normalize: true              # 仕上がりを -14 LUFS に揃える
++subtitle:
++  file: output/ep01.srt
++  burn: true                   # 既定 true。false で字幕トラックにする
+ scenes:
+   - source: raw/opening.mp4
+     trim: [0, 12.5]            # [開始, 終了]。片方は null で省略できる
+@@ -76,6 +93,7 @@ scenes:
+     transition: wipeleft       # 名前だけの略記もできる
+ ```
+ 
++- `audio` は `bgm` だけでも `normalize: true` だけでもよい。
+ - `text` の `pos` は `bottom` / `top` / `center` / `bottom-left` など。
+   `color`、`size`、`box: false`（背景の帯を消す）も指定できる。
+ - `for` は「出しておく長さ」、`until` は「消す位置」。どちらか一方。
+@@ -86,6 +104,9 @@ scenes:
+ `build` はシーンごとに中間ファイルを作ってから繋ぐ。`--work-dir` を付けると
+ 中間ファイルを残すので、どのシーンで崩れたか確かめられる。
+ 
++段は「シーン → 連結（字幕の焼き込み込み）→ 音声」の順。音声の段は映像を
++コピーするだけなので、BGM を差し替えても映像は作り直さない。
++
+ ## 使い分け
+ 
+ - **プリセットは用途で選ぶ。** `youtube-1080p`（既定の書き出し）/ `shorts`（縦型 1080x1920）/
+@@ -99,6 +120,15 @@ scenes:
+ - 縦横比が違う素材は引き伸ばさず、黒帯で埋めて指定サイズに収める。
+ - **テロップが1枚だけなら `text`、2枚以上またはシーンをまたぐなら `build`。**
+   `text` を何度も重ねると、そのたびに再エンコードされて画質が落ちる。
++- **テロップ(`text`)と字幕(`subtitle`)は別もの。** テロップは台本に書く見出し、
++  字幕は SRT のセリフ。**どちらも既定で画面の下に出るので重なる。**
++  両方使うなら、テロップを `pos: top` にする。
++- **BGM の音量は `--gain` で決める。** 既定の -18dB はしゃべりの下に敷く想定。
++  BGM だけの動画なら 0 に近づける。
++- **`--duck` は素材に音声があるときだけ効く。** 無い場合はエラーで止まる。
++- **字幕の書体は `--font-name`（書体名）で、テロップの `--font`（パス）とは別。**
++  libass が字幕の中身から字形を探す仕組みなので、パスでは指定できない。
++  フォントファイルの置き場は `--font` で併せて教えられる。
+ 
+ ## 注意
+ 
+@@ -110,6 +140,8 @@ scenes:
+ - **テロップには日本語の入ったフォントが要る。** 見つからなければ止まるので、
+   `--font C:/Windows/Fonts/meiryo.ttc` のように指定するか、環境変数
+   `VIDEOEDIT_FONT` に設定する。英字だけのフォントを渡すと日本語が豆腐になる。
+-- **BGM・ダッキング・字幕(SRT)の焼き込みはまだ無い。** 計画は `docs/videoedit.md` の
+-  「これから作るもの」を参照。頼まれたら、今できるところまでやって、
+-  残りは手作業が要ることを伝える。
++- **音量を揃えるのは2パス。** 1パス目で測るぶん時間がかかるが、映像は復号しない
++  ので実尺よりずっと速い。
++- **字幕の自動生成(Whisper)とナレーション(TTS)はまだ無い。** SRT は用意してもらう。
++  計画は `docs/videoedit.md` の「これから作るもの」を参照。頼まれたら、
++  今できるところまでやって、残りは手作業が要ることを伝える。
+diff --git a/CLAUDE.md b/CLAUDE.md
+index e4db439..c49ddbe 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -13,7 +13,7 @@
+ | `src/adsite/` | 広告収益型ツールサイトのジェネレータ（収支台帳を内蔵） |
+ | `src/growth/` | 全プロジェクトを定期点検し、次にやることを提示する成長ループ |
+ | `src/audiogen/` | BGM / 効果音を手続き的に合成して WAV に書き出すツールキット |
+-| `src/videoedit/` | ffmpeg で動画を切り・繋ぎ・書き出す（YouTube / Shorts のプリセット付き） |
++| `src/videoedit/` | ffmpeg で動画を切り・繋ぎ・テロップ/BGM/字幕を入れて書き出す |
+ | `src/browser/` | Chrome の自動操作（ヘッドレス Chromium / ローカル Chrome を CDP 経由で） |
+ 
+ （他の試作を足すときは、この表と節を増やす）
+@@ -146,7 +146,8 @@ ailab doctor         # 実際に接続して確認
+ - **pip の依存を足さない。** 動画処理は外部バイナリの ffmpeg に任せる。
+   Python 側で編集ライブラリを入れると、この前提が崩れる。
+ - **プロセスを起動するのは `core.run` だけ。** `clip.py` / `thumbnail.py` /
+-  `presets.py` / `overlay.py` / `timeline.py` は「ffmpeg の引数リストを返す純粋関数」に保つ。
++  `presets.py` / `overlay.py` / `audio.py` / `subtitle.py` / `timeline.py` は
++  「ffmpeg の引数リストを返す純粋関数」に保つ。
+   ffmpeg が無い環境でもコマンドの組み立てを検証できることと、
+   `--dry-run` が全サブコマンドで成立することが、この分離に依存している。
+ - **新しいサブコマンドには必ず `--dry-run` を付ける。** 長い動画の書き出しは
+@@ -168,4 +169,10 @@ ailab doctor         # 実際に接続して確認
+   エンコーダの丸めでトランジションの位置が少しずつ狂う。
+ - **台本の知らないキーは黙って無視せず、その場で指摘する。** `bgm:` と書いたのに
+   BGM が乗らない、という失敗の仕方が一番たちが悪い。
++- **音声の段は映像をコピーする（`-c:v copy`）。** BGM も音量の正規化も映像に
++  触らない。差し替えるたびに映像を作り直さないため。
++- **字幕の焼き込みだけは映像の段に混ぜる。** 独立させると映像をもう一度
++  エンコードすることになり、長い動画では書き出し時間が倍になる。
++- **音量の正規化は2パス。** BGM を載せてから正規化するなら、1パス目にも
++  同じミックスを通す（混ぜたあとを測らないと意味がない）。
+ - 設計の詳細は `docs/videoedit.md`。
+diff --git a/README.md b/README.md
+index 76c9541..f4ce24c 100644
+--- a/README.md
++++ b/README.md
+@@ -19,7 +19,7 @@
+ | [`adsite`](#adsite--広告収益型の実用ツールサイト) | 実用ツールを置いた静的サイトを生成し、広告収益を同じ台帳に取り込む |
+ | [`growth`](#growth--成長ループ) | 全プロジェクトを定期点検し、次にやることを提示する |
+ | [`audiogen`](#audiogen--bgm--効果音ジェネレータ) | BGM と効果音を手続き的に合成して WAV に書き出す |
+-| [`videoedit`](#videoedit--動画編集) | ffmpeg で動画を切り・繋ぎ・テロップを入れて書き出す（台本からの一括ビルドも） |
++| [`videoedit`](#videoedit--動画編集) | ffmpeg で動画を切り・繋ぎ・テロップ/BGM/字幕を入れて書き出す（台本からの一括ビルドも） |
+ | [`browser`](#chrome-の自動操作) | Chrome を自動操作する（ヘッドレス Chromium / ローカル Chrome を CDP 経由で） |
+ 
+ ## セットアップ
+@@ -575,6 +575,15 @@ python -m videoedit export joined.mp4 --preset shorts -o ep01_vertical.mp4
+ # テロップを1枚焼き込む
+ python -m videoedit text cut.mp4 -o telop.mp4 --value "ここがポイント" --at 3 --for 4
+ 
++# BGM を載せる。動画より短ければ繰り返す
++python -m videoedit bgm cut.mp4 assets/bgm/calm.wav -o withbgm.mp4 --duck --normalize
++
++# 音量だけ揃える（loudnorm 2パス、既定は -14 LUFS）
++python -m videoedit normalize ep01.mp4 -o ep01_norm.mp4
++
++# 字幕(SRT)。既定は焼き込み、--soft で切り替えられる字幕トラックにする
++python -m videoedit subtitle ep01.mp4 ep01.srt -o ep01_sub.mp4
++
+ # サムネイル（省略時は <素材名>_thumb.jpg）
+ python -m videoedit thumb ep01.mp4 --at 00:00:12 --width 1280
+ ```
+@@ -589,6 +598,14 @@ python -m videoedit thumb ep01.mp4 --at 00:00:12 --width 1280
+ # script.yaml
+ output: output/ep01.mp4
+ preset: youtube-1080p
++audio:
++  bgm: assets/bgm/calm.wav
++  gain: -18                    # BGM の音量(dB)。既定 -18
++  duck: true                   # しゃべりの間だけ BGM を下げる
++  normalize: true              # 仕上がりを -14 LUFS に揃える
++subtitle:
++  file: output/ep01.srt
++  burn: true                   # 既定 true。false で字幕トラックにする
+ scenes:
+   - source: raw/opening.mp4
+     trim: [0, 12.5]              # [開始, 終了]。片方は null で省略できる
+@@ -604,16 +621,24 @@ scenes:
+ 
+ ```bash
+ python -m videoedit build script.yaml
+-# [1/4] シーン 1/3: opening.mp4
+-# [2/4] シーン 2/3: main.mp4
+-# [3/4] シーン 3/3: ending.mp4
+-# [4/4] 連結: 3 シーン -> ep01.mp4
++# 字幕 42 個を読みました
++# [1/5] シーン 1/3: opening.mp4
++# [2/5] シーン 2/3: main.mp4
++# [3/5] シーン 3/3: ending.mp4
++# [4/5] 連結: 3 シーン -> video.mp4
++# [5/5] BGM を載せる（ダッキングあり）
++#   音量を測定中（1パス目）...
+ # wrote output/ep01.mp4 (221.53s / 1920x1080 / 30fps / h264 / aac 48000Hz)
+ ```
+ 
++段は「シーン → 連結 → 音声 → 字幕トラック」の順。
+ シーンごとに中間ファイルを作ってから繋ぐので、崩れたときにどのシーンが原因か分かる。
+ `--work-dir` を付けると中間ファイルを残す。
+ 
++**字幕の焼き込みは連結の段に混ぜてある。** 独立した段にすると映像をもう一度
++エンコードすることになり、長い動画では書き出し時間が倍になるため。
++逆に音声の段は映像をコピーするだけなので、**BGM を差し替えても映像は作り直さない**。
++
+ 台本に書けるもの:
+ 
+ | キー | 場所 | 内容 |
+@@ -625,6 +650,8 @@ python -m videoedit build script.yaml
+ | `trim` | シーン | `[開始, 終了]`。`00:01:30` でも `90` でもよい |
+ | `transition` | シーン | 直前のシーンとの繋ぎ。`crossfade` / `wipeleft` など |
+ | `text` | シーン | テロップ。`value` / `at` / `for` / `until` / `pos` / `color` / `size` / `box` |
++| `audio` | 台本 | `bgm` / `gain` / `duck` / `fade_in` / `fade_out` / `normalize` / `target` |
++| `subtitle` | 台本 | `file` / `burn` / `font_name` / `size`。文字列だけなら SRT のパス |
+ 
+ **知らないキーはエラーになる。** `bgm:` などの未対応キーも、黙って無視せず止まる
+ （書いたのに効かない、という失敗の仕方を避けるため）。
+@@ -642,6 +669,13 @@ setx VIDEOEDIT_FONT C:/Windows/Fonts/meiryo.ttc    # 環境変数でもよい
+ 
+ 指定が無ければ Meiryo / 游ゴシック / Noto など心当たりのパスを順に探す。
+ 
++**字幕(SRT)の書体だけは指定の仕方が違う。** libass は字幕の中身から必要な字形を
++探すので、パスではなく**書体名**で指定する。ffmpeg 側の都合で、こちらでは揃えられない。
++
++```bash
++python -m videoedit subtitle in.mp4 subs.srt -o out.mp4 --font-name Meiryo --size 28
++```
++
+ ### プリセット
+ 
+ ```bash
+@@ -681,10 +715,14 @@ wrote out.mp4 (11.03s / 1280x720 / 25fps / h264 / aac 48000Hz)
+   指定より長い動画が出ることがある。下書き用と割り切る。
+ - **連結で `--copy` が使えるのは、素材の形式が完全に同じときだけ。**
+   違うなら既定（再エンコード）を使う。
+-- BGM・ダッキング・字幕(SRT)の焼き込みは**まだ無い**。
+-  計画は [`docs/videoedit.md`](docs/videoedit.md) の「これから作るもの」。
++- **テロップ(`text`)と字幕(`subtitle`)は別もの。** テロップは台本に書く見出し、
++  字幕は SRT のセリフ。どちらも既定で画面の下に出るので、両方使うなら
++  テロップを `pos: top` にする。
+ - テロップを1枚ずつ `text` で重ねると、そのたびに再エンコードされて画質が落ちる。
+   2枚以上なら台本にまとめる。
++- `--duck` は素材に音声があるときだけ効く。無い場合はエラーで止まる。
++- 字幕の自動生成(Whisper)とナレーション(TTS)は**まだ無い**。SRT は用意する。
++  計画は [`docs/videoedit.md`](docs/videoedit.md) の「これから作るもの」。
+ 
+ 設計の詳細は [`docs/videoedit.md`](docs/videoedit.md) を参照。
+ 
+@@ -706,7 +744,7 @@ pytest tests/ailab          # ツール単位で回す
+ | `src/adsite/` | 広告収益型ツールサイトのジェネレータ |
+ | `src/growth/` | 成長ループ（観測・診断・横展開・台帳） |
+ | `src/audiogen/` | BGM / 効果音の合成ツールキット（標準ライブラリのみ） |
+-| `src/videoedit/` | 動画編集・テロップ・台本ビルド（ffmpeg を呼ぶ。pip の依存は増やさない） |
++| `src/videoedit/` | 動画編集・テロップ・BGM・字幕・台本ビルド（ffmpeg を呼ぶ。pip の依存は増やさない） |
+ | `src/browser/` | Chrome の自動操作（ヘッドレス Chromium / ローカル Chrome を CDP 経由で） |
+ | `site/` | adsite のコンテンツとアセット |
+ | `config/` | 設定ファイル（ニッチ・情報源・プラン・サイト設定） |
+diff --git a/docs/videoedit.md b/docs/videoedit.md
+index 019c1f9..f3d3a05 100644
+--- a/docs/videoedit.md
++++ b/docs/videoedit.md
+@@ -30,6 +30,8 @@ ffmpeg は外部バイナリなので、**pip の依存は 1つも増えない**
+ core        ffmpeg / ffprobe の実行、時刻の変換、エラー
+   ├ probe       ffprobe の JSON を MediaInfo に変換
+   ├ overlay     テロップ(drawtext)の組み立てとフォント探し
++  │    └ subtitle    字幕(SRT)の読み取り・焼き込み・ソフトサブ
++  ├ audio       BGM のミックス・ダッキング・音量の正規化
+   ├ presets     書き出しプリセットと正規化フィルタ
+   │    ├ clip        カット・連結・トランジション・書き出しのコマンド組み立て
+   │    ├ thumbnail   1フレーム切り出しのコマンド組み立て
+@@ -131,11 +133,62 @@ concat フィルタは全入力の本数が揃っていないと失敗する。1
+ ファイルを ffprobe し直してから**連結のコマンドを組む。`--dry-run` のときだけ、
+ ファイルがまだ無いので予想値を使う。
+ 
++### 音声の段は映像をコピーする
++
++BGM も音量の正規化も映像に触らないので、`-c:v copy` で回せる。連結やテロップと
++同じ段に混ぜず独立させてあるのはそのため。**BGM を差し替えても映像は作り直さない。**
++
++段の順番は「シーン → 連結 → 音声 → 字幕トラック」。
++
++### 字幕の焼き込みだけは映像の段に混ぜる
++
++焼き込みは映像を描き換えるので、独立した段にすると**映像をもう一度エンコード
++することになり、長い動画では書き出し時間が倍になる**。連結（シーンが1つなら
++その書き出し）のフィルタ列の末尾に足して、1回のエンコードで済ませている。
++
++ソフトサブ（字幕トラック）は逆に、映像も音声もコピーで済むので独立した段でよい。
++
++### 音量の正規化は2パス
++
++1パス目で測り、2パス目で当てる。1パス目は `-vn -f null -` なので映像を復号せず、
++実尺よりずっと速く終わる。1パスの loudnorm でも動くが、狙った値からずれる。
++BGM を載せてから正規化する場合は、**1パス目にも同じミックスを通す**
++（混ぜたあとの音量を測らないと意味がない）。
++
++### loudnorm の最初の区切りは = で、以降は :
++
++`loudnorm:I=-14` と書くと ffmpeg はフィルタ名を解釈できない。正しくは
++`loudnorm=I=-14:TP=-1.5`。フィルタ名と最初の引数の間だけ `=` になる。
++
++### amix は既定で入力数で割る
++
++`amix=inputs=2` のままだと、混ぜただけで音量が半分になる。`normalize=0` を
++付けて、指定した音量のまま混ざるようにしている。
++
++### ダッキングは元の音声を2つに分ける
++
++`sidechaincompress` は「下げられる側」と「引き金になる側」の2入力が要る。
++元の音声は混ぜる用と引き金用の両方で使うので、`asplit` で分けてから渡す。
++素材に音声が無ければ下げる相手がいないので、その場でエラーにする。
++
++### 字幕のフォントは書体名で、テロップはパス
++
++テロップ(drawtext)は `fontfile=` にパスを渡すが、libass の `subtitles=` は
++**書体名(`FontName`)でしか指定できない**。字幕の中身から必要な字形を探す
++仕組みのため。フォントファイルの置き場は `fontsdir` で別に教える。
++使い分けが分かれているのは ffmpeg 側の都合で、こちらで揃えようがない。
++
++### SRT は焼く前に読んで確かめる
++
++字幕が1つも出ない・時刻がずれているといった失敗は、書き出してからでは
++気づきにくい。先に読んで、壊れていれば何個目かを添えて指摘し、動画の尺を
++超えている字幕があれば注意を出す（こちらは止めない）。
++
+ ### 台本の知らないキーは黙って無視しない
+ 
+ `bgm:` と書いてあるのに BGM が乗らない、という失敗の仕方が一番たちが悪い。
+-未対応のキーは「Phase 3 以降で対応予定」と言って止まる。誤字も同様に、
+-どのシーンのどのキーかを添えて指摘する。
++場所を間違えたキー（シーンに `bgm:` を書いた等）は正しい書き方を教え、
++まだ無い機能は無いと言って止まる。誤字も同様に、どのシーンのどのキーかを添える。
+ 
+ ### 書き出したファイルは読み直して報告する
+ 
+@@ -147,13 +200,16 @@ concat フィルタは全入力の本数が揃っていないと失敗する。1
+ 
+ | フェーズ | 内容 |
+ |---|---|
+-| 3 | BGM ミックス・ダッキング・音量正規化(loudnorm)、字幕(SRT)の焼き込み |
+ | 4 | ailab の画像生成 / audiogen をサムネ・BGM に接続。`youtube-video-creation` から呼ぶ |
+ 
+-Phase 3 以降で効いてくる見込みのもの。
++その先に見えているもの。
+ 
+ - **差分ビルド。** 中間ファイルをハッシュでキャッシュし、変わったシーンだけ
+   作り直す。置き場（`--work-dir`）と段階ビルドは既にあるので、あとは
+   「シーンの定義＋素材の更新時刻」から鍵を作るだけで足せる。
+-- **音量の正規化(loudnorm)は2パス。** 1パス目で測って2パス目で当てる。
+-  段階ビルドの中に素直に収まる。
++- **字幕の自動生成(Whisper)とナレーション(TTS)。** どちらも外部依存が増えるので、
++  pyproject の extras に切り出して既定では入れない。SRT の読み書きは既にあるので、
++  Whisper 側は「音声 → SRT」を書き出すだけで繋がる。
++- **ナレーションを混ぜる段。** BGM のミックスと同じ仕組みで、シーンごとの
++  音声ファイルを差し込む。ダッキングの引き金をナレーションに切り替えられると、
++  今の「素材の音声に反応する」形より狙いどおりになる。
+diff --git a/src/videoedit/__init__.py b/src/videoedit/__init__.py
+index 3eed7ac..b43f5ed 100644
+--- a/src/videoedit/__init__.py
++++ b/src/videoedit/__init__.py
+@@ -6,6 +6,10 @@ Python の依存パッケージは増やさない。動画処理は外部バイ
+     python -m videoedit probe in.mp4
+     python -m videoedit cut in.mp4 --from 00:01:30 --to 00:02:10 -o out.mp4
+     python -m videoedit concat a.mp4 b.mp4 -o out.mp4 --transition crossfade
++    python -m videoedit text in.mp4 -o out.mp4 --value "ここがポイント" --at 3 --for 4
++    python -m videoedit bgm in.mp4 bgm.wav -o out.mp4 --duck --normalize
++    python -m videoedit subtitle in.mp4 subs.srt -o out.mp4
++    python -m videoedit build script.yaml
+     python -m videoedit export in.mp4 --preset youtube-1080p -o out.mp4
+     python -m videoedit thumb in.mp4 --at 12 -o thumb.jpg
+ 
+diff --git a/src/videoedit/audio.py b/src/videoedit/audio.py
+new file mode 100644
+index 0000000..4359bdb
+--- /dev/null
++++ b/src/videoedit/audio.py
+@@ -0,0 +1,267 @@
++"""BGM のミックス・ダッキング・音量の正規化。
++
++映像には触らないので、この工程は ``-c:v copy`` で回せる。連結やテロップと
++同じ手順に混ぜず、独立した1段にしてあるのはそのため（映像を作り直さずに
++BGM だけ差し替えられる）。
++
++音量の正規化(loudnorm)は**2パス**。1パス目で測り、2パス目で当てる。
++1パス目は ``-vn -f null -`` なので映像を触らず、実尺よりずっと速く終わる。
++"""
++
++from __future__ import annotations
++
++import json
++import re
++from dataclasses import dataclass
++
++from .core import VideoEditError
++
++# YouTube の再生時ラウドネスに合わせた既定値。
++TARGET_LUFS = -14.0
++TARGET_TRUE_PEAK = -1.5
++TARGET_LRA = 11.0
++
++DEFAULT_GAIN_DB = -18.0
++DEFAULT_FADE_IN = 1.0
++DEFAULT_FADE_OUT = 2.0
++
++# ダッキングの既定。しゃべりが入ると BGM が下がり、切れると戻る。
++DUCK_THRESHOLD = 0.05
++DUCK_RATIO = 8
++DUCK_ATTACK_MS = 20
++DUCK_RELEASE_MS = 400
++
++_MEASURED_KEYS = ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset")
++
++
++@dataclass(frozen=True)
++class BgmSettings:
++    """BGM の載せ方。"""
++
++    path: str
++    gain: float = DEFAULT_GAIN_DB
++    duck: bool = False
++    fade_in: float = DEFAULT_FADE_IN
++    fade_out: float = DEFAULT_FADE_OUT
++
++    def __post_init__(self) -> None:
++        for name in ("fade_in", "fade_out"):
++            if getattr(self, name) < 0:
++                raise VideoEditError(f"{name} が負です: {getattr(self, name)}")
++
++
++def bgm_chain(settings: BgmSettings, *, duration: float, label: str = "1:a") -> str:
++    """BGM 側の下ごしらえ。尺に合わせて切り、音量を下げ、頭と尻をなじませる。
++
++    ``-stream_loop -1`` で入力を繰り返させたうえで、ここで尺ぴったりに切る。
++    ``-shortest`` の解釈に頼らず、出来上がりの尺を確定させるため。
++    """
++    if duration <= 0:
++        raise VideoEditError(f"尺が 0 以下です: {duration}")
++    steps = [
++        f"atrim=duration={duration:.6f}",
++        "asetpts=N/SR/TB",
++        f"volume={settings.gain:g}dB",
++    ]
++    if settings.fade_in:
++        steps.append(f"afade=t=in:st=0:d={settings.fade_in:g}")
++    if settings.fade_out:
++        start = max(0.0, duration - settings.fade_out)
++        steps.append(f"afade=t=out:st={start:.6f}:d={settings.fade_out:g}")
++    return f"[{label}]" + ",".join(steps) + "[bgm]"
++
++
++def mix_filter(
++    settings: BgmSettings,
++    *,
++    duration: float,
++    has_voice: bool,
++    loudnorm: str | None = None,
++) -> str:
++    """BGM を載せる filter_complex を組み立てる。出力は ``[aout]``。
++
++    ``has_voice`` は素材が音声を持っているか。持っていなければ BGM だけになる。
++    """
++    if settings.duck and not has_voice:
++        raise VideoEditError(
++            "素材に音声が無いので、ダッキングは効きません（下げる相手がいません）。"
++            "--duck を外してください"
++        )
++
++    steps = [bgm_chain(settings, duration=duration)]
++    if not has_voice:
++        last = "bgm"
++    elif settings.duck:
++        # 元の音声を2つに分け、片方をダッキングの引き金(sidechain)に使う
++        steps.append("[0:a]asplit=2[voice][key]")
++        steps.append(
++            f"[bgm][key]sidechaincompress="
++            f"threshold={DUCK_THRESHOLD}:ratio={DUCK_RATIO}"
++            f":attack={DUCK_ATTACK_MS}:release={DUCK_RELEASE_MS}[ducked]"
++        )
++        # normalize=0 が無いと amix が入力数で割り、混ぜるだけで音量が半分になる
++        steps.append("[voice][ducked]amix=inputs=2:duration=first:normalize=0[mixed]")
++        last = "mixed"
++    else:
++        steps.append("[0:a][bgm]amix=inputs=2:duration=first:normalize=0[mixed]")
++        last = "mixed"
++
++    if loudnorm:
++        steps.append(f"[{last}]{loudnorm}[aout]")
++    else:
++        steps.append(f"[{last}]anull[aout]")
++    return ";".join(steps)
++
++
++def loudnorm_filter(
++    measured: dict[str, str] | None = None,
++    *,
++    target: float = TARGET_LUFS,
++    print_json: bool = False,
++) -> str:
++    """loudnorm フィルタ。``measured`` を渡すと2パス目（当てる側）になる。"""
++    # 最初の区切りは = で、以降は :（loudnorm=I=-14:TP=-1.5 の形）
++    parts = [
++        f"I={target:g}",
++        f"TP={TARGET_TRUE_PEAK:g}",
++        f"LRA={TARGET_LRA:g}",
++    ]
++    if measured:
++        missing = [key for key in _MEASURED_KEYS if key not in measured]
++        if missing:
++            raise VideoEditError(f"1パス目の測定値が足りません: {', '.join(missing)}")
++        parts += [
++            f"measured_I={measured['input_i']}",
++            f"measured_TP={measured['input_tp']}",
++            f"measured_LRA={measured['input_lra']}",
++            f"measured_thresh={measured['input_thresh']}",
++            f"offset={measured['target_offset']}",
++            "linear=true",
++        ]
++    if print_json:
++        parts.append("print_format=json")
++    return "loudnorm=" + ":".join(parts)
++
++
++def _measure_tail() -> list[str]:
++    """1パス目の締め。``-vn`` で映像を復号せず、どこにも書き出さない。"""
++    return ["-vn", "-f", "null", "-"]
++
++
++def parse_measured(stderr: str) -> dict[str, str]:
++    """loudnorm が stderr の末尾に出す JSON を読む。
++
++    ffmpeg は測定値を「ログの中の JSON」として吐く。他のログ行が混ざるので、
++    最後の ``{`` から末尾の ``}`` までを切り出して読む。
++    """
++    match = re.search(r"\{[^{}]*\"input_i\"[^{}]*\}", stderr, re.DOTALL)
++    if not match:
++        raise VideoEditError(
++            "loudnorm の測定値を読み取れませんでした。"
++            "ffmpeg のログに JSON が出ていません"
++        )
++    try:
++        measured = json.loads(match.group(0))
++    except json.JSONDecodeError as exc:
++        raise VideoEditError(f"loudnorm の測定値を JSON として読めませんでした: {exc}") from None
++
++    missing = [key for key in _MEASURED_KEYS if key not in measured]
++    if missing:
++        raise VideoEditError(f"loudnorm の測定値に足りない項目があります: {', '.join(missing)}")
++    return {key: str(measured[key]) for key in _MEASURED_KEYS}
++
++
++# --- コマンドの組み立て -------------------------------------------------
++
++
++def _head(overwrite: bool) -> list[str]:
++    return ["ffmpeg", "-hide_banner", "-y" if overwrite else "-n"]
++
++
++AUDIO_ARGS = ("-c:a", "aac", "-b:a", "192k")
++# 映像は触らないのでコピーする。BGM を差し替えるたびに再エンコードしない。
++VIDEO_COPY = ("-c:v", "copy")
++
++
++def _bgm_inputs(source: str, settings: BgmSettings) -> list[str]:
++    # -stream_loop -1 で入力を繰り返させる。BGM が動画より短くても最後まで鳴る。
++    return ["-i", source, "-stream_loop", "-1", "-i", settings.path]
++
++
++def bgm_command(
++    source: str,
++    output: str,
++    settings: BgmSettings,
++    *,
++    duration: float,
++    has_voice: bool,
++    loudnorm: str | None = None,
++    overwrite: bool = True,
++) -> list[str]:
++    """BGM を載せるコマンド。映像は触らないのでコピーする。"""
++    return [
++        *_head(overwrite),
++        *_bgm_inputs(source, settings),
++        "-filter_complex", mix_filter(
++            settings, duration=duration, has_voice=has_voice, loudnorm=loudnorm
++        ),
++        "-map", "0:v",
++        "-map", "[aout]",
++        *VIDEO_COPY,
++        *AUDIO_ARGS,
++        output,
++    ]
++
++
++def bgm_measure_command(
++    source: str,
++    settings: BgmSettings,
++    *,
++    duration: float,
++    has_voice: bool,
++    target: float = TARGET_LUFS,
++) -> list[str]:
++    """BGM を載せた結果の音量を測るだけのコマンド（loudnorm の1パス目）。"""
++    return [
++        "ffmpeg", "-hide_banner", "-nostats",
++        *_bgm_inputs(source, settings),
++        "-filter_complex", mix_filter(
++            settings,
++            duration=duration,
++            has_voice=has_voice,
++            loudnorm=loudnorm_filter(target=target, print_json=True),
++        ),
++        "-map", "[aout]",
++        *_measure_tail(),
++    ]
++
++
++def normalize_command(
++    source: str,
++    output: str,
++    *,
++    measured: dict[str, str] | None = None,
++    target: float = TARGET_LUFS,
++    overwrite: bool = True,
++) -> list[str]:
++    """音量だけ揃えるコマンド。映像は触らないのでコピーする。"""
++    return [
++        *_head(overwrite),
++        "-i", source,
++        "-af", loudnorm_filter(measured, target=target),
++        "-map", "0:v",
++        "-map", "0:a",
++        *VIDEO_COPY,
++        *AUDIO_ARGS,
++        output,
++    ]
++
++
++def normalize_measure_command(source: str, *, target: float = TARGET_LUFS) -> list[str]:
++    """音量を測るだけのコマンド（loudnorm の1パス目）。"""
++    return [
++        "ffmpeg", "-hide_banner", "-nostats",
++        "-i", source,
++        "-af", loudnorm_filter(target=target, print_json=True),
++        *_measure_tail(),
++    ]
+diff --git a/src/videoedit/cli.py b/src/videoedit/cli.py
+index 2d101c4..9d66e54 100644
+--- a/src/videoedit/cli.py
++++ b/src/videoedit/cli.py
+@@ -5,6 +5,9 @@
+     python -m videoedit concat a.mp4 b.mp4 -o out.mp4 --transition crossfade
+     python -m videoedit export in.mp4 --preset shorts -o out.mp4
+     python -m videoedit text in.mp4 -o out.mp4 --value "ここがポイント" --at 3 --for 4
++    python -m videoedit bgm in.mp4 bgm.wav -o out.mp4 --duck --normalize
++    python -m videoedit normalize in.mp4 -o out.mp4
++    python -m videoedit subtitle in.mp4 subs.srt -o out.mp4 --burn
+     python -m videoedit build script.yaml
+     python -m videoedit thumb in.mp4 --at 12
+     python -m videoedit presets
+@@ -16,17 +19,20 @@ ffmpeg コマンドを人が確認できるようにするため。
+ from __future__ import annotations
+ 
+ import argparse
++import itertools
+ import json
+ import os
+ import sys
+ import tempfile
+ import unicodedata
+-from collections.abc import Sequence
++from collections.abc import Callable, Sequence
+ from contextlib import contextmanager
+ from dataclasses import replace
+ 
++from . import audio as audio_module
+ from . import clip, presets, timeline
+ from . import overlay as overlay_module
++from . import subtitle as subtitle_module
+ from .core import VideoEditError, format_command, format_time, parse_time, run
+ from .probe import MediaInfo, probe
+ from .thumbnail import thumbnail_command
+@@ -210,15 +216,25 @@ def cmd_build(args: argparse.Namespace) -> int:
+     script = timeline.load_script(args.script)
+     script = replace(script, output=args.output or script.output)
+ 
++    if script.subtitle:
++        cues = _read_cues(script.subtitle.path)
++        print(f"字幕 {len(cues)} 個を読みました")
++
+     infos = [probe(scene.source) for scene in script.scenes]
+     font = overlay_module.find_font(args.font or script.font)
+     multiple = len(script.scenes) > 1
+ 
+     with _work_dir(args.work_dir, near=script.output, dry_run=args.dry_run) as work_dir:
+         steps = timeline.scene_steps(script, infos=infos, work_dir=work_dir, font=font)
+-        total = len(steps) + (1 if multiple else 0)
+-        for number, step in enumerate(steps, start=1):
+-            print(f"[{number}/{total}] {step.description}")
++        # シーン + （必要なら）連結 + 音声や字幕トラックの段
++        total = len(steps) + (1 if multiple else 0) + len(timeline.stages(script)) - 1
++        counter = itertools.count(1)
++
++        def stage_number() -> int:
++            return next(counter)
++
++        for step in steps:
++            print(f"[{stage_number()}/{total}] {step.description}")
+             for path, body in step.text_files.items():
+                 _write_text(path, body, dry_run=args.dry_run)
+             _execute(step.command, dry_run=args.dry_run, verbose=args.verbose)
+@@ -233,14 +249,88 @@ def cmd_build(args: argparse.Namespace) -> int:
+                     probe(timeline.scene_path(work_dir, index))
+                     for index in range(len(script.scenes))
+                 ]
+-            step = timeline.concat_step(script, rendered)
+-            print(f"[{total}/{total}] {step.description}")
++            step = timeline.concat_step(script, rendered, work_dir)
++            print(f"[{stage_number()}/{total}] {step.description}")
+             _execute(step.command, dry_run=args.dry_run, verbose=args.verbose)
+ 
++        _finish_stages(script, work_dir, args, stage_number, total, infos)
++
+     _report(script.output, dry_run=args.dry_run)
+     return 0
+ 
+ 
++def _finish_stages(
++    script: timeline.Script,
++    work_dir: str,
++    args: argparse.Namespace,
++    stage_number: Callable[[], int],
++    total: int,
++    infos: list[MediaInfo],
++) -> None:
++    """映像ができたあとの段（音声・字幕トラック）を順に流す。
++
++    どちらも映像を触らないので ``-c:v copy`` で済む。字幕の焼き込みだけは
++    映像の段に混ぜてあり、ここには出てこない。
++    """
++    paths = timeline.stage_paths(script, work_dir)
++    names = timeline.stages(script)
++    for position, name in enumerate(names[1:], start=1):
++        source, destination = paths[position - 1], paths[position]
++        if name == "audio":
++            _run_audio_stage(script, source, destination, args, stage_number, total, infos)
++        else:
++            print(f"[{stage_number()}/{total}] 字幕トラックを入れる")
++            command = subtitle_module.soft_command(
++                source, script.subtitle.path, destination, overwrite=not args.no_overwrite
++            )
++            _execute(command, dry_run=args.dry_run, verbose=args.verbose)
++
++
++def _run_audio_stage(
++    script: timeline.Script,
++    source: str,
++    destination: str,
++    args: argparse.Namespace,
++    stage_number: Callable[[], int],
++    total: int,
++    infos: list[MediaInfo],
++) -> None:
++    settings = script.audio
++    if settings.bgm is None:
++        print(f"[{stage_number()}/{total}] 音量を揃える")
++        measured = _measure(
++            audio_module.normalize_measure_command(source, target=settings.target),
++            dry_run=args.dry_run,
++            verbose=args.verbose,
++        )
++        command = audio_module.normalize_command(
++            source, destination, measured=measured, target=settings.target,
++            overwrite=not args.no_overwrite,
++        )
++    else:
++        label = "BGM を載せる" + ("（ダッキングあり）" if settings.bgm.duck else "")
++        print(f"[{stage_number()}/{total}] {label}")
++        info = probe(source) if not args.dry_run else None
++        duration = info.duration if info else timeline.predicted_duration(script, infos)
++        has_voice = info.has_audio if info else True
++        loudnorm = None
++        if settings.normalize:
++            measured = _measure(
++                audio_module.bgm_measure_command(
++                    source, settings.bgm, duration=duration, has_voice=has_voice,
++                    target=settings.target,
++                ),
++                dry_run=args.dry_run,
++                verbose=args.verbose,
++            )
++            loudnorm = audio_module.loudnorm_filter(measured, target=settings.target)
++        command = audio_module.bgm_command(
++            source, destination, settings.bgm, duration=duration, has_voice=has_voice,
++            loudnorm=loudnorm, overwrite=not args.no_overwrite,
++        )
++    _execute(command, dry_run=args.dry_run, verbose=args.verbose)
++
++
+ def _write_text(path: str, body: str, *, dry_run: bool) -> None:
+     """テロップの本文をファイルに書く。ffmpeg には textfile= で渡す。"""
+     if dry_run:
+@@ -284,6 +374,111 @@ def cmd_export(args: argparse.Namespace) -> int:
+     return 0
+ 
+ 
++def _measure(command: list[str], *, dry_run: bool, verbose: bool) -> dict[str, str] | None:
++    """loudnorm の1パス目を回して測定値を取り出す。--dry-run では測らない。"""
++    if dry_run or verbose:
++        print(format_command(command))
++    if dry_run:
++        return None
++    print("  音量を測定中（1パス目）...")
++    return audio_module.parse_measured(run(command).stderr)
++
++
++def cmd_bgm(args: argparse.Namespace) -> int:
++    settings = audio_module.BgmSettings(
++        path=args.bgm,
++        gain=args.gain,
++        duck=args.duck,
++        fade_in=args.fade_in,
++        fade_out=args.fade_out,
++    )
++    info = probe(args.source)
++    common = {"duration": info.duration, "has_voice": info.has_audio}
++
++    loudnorm = None
++    if args.normalize:
++        measured = _measure(
++            audio_module.bgm_measure_command(args.source, settings, target=args.target, **common),
++            dry_run=args.dry_run,
++            verbose=args.verbose,
++        )
++        loudnorm = audio_module.loudnorm_filter(measured, target=args.target)
++
++    command = audio_module.bgm_command(
++        args.source,
++        args.output,
++        settings,
++        loudnorm=loudnorm,
++        overwrite=not args.no_overwrite,
++        **common,
++    )
++    _execute(command, dry_run=args.dry_run, verbose=args.verbose)
++    _report(args.output, dry_run=args.dry_run)
++    return 0
++
++
++def cmd_normalize(args: argparse.Namespace) -> int:
++    measured = _measure(
++        audio_module.normalize_measure_command(args.source, target=args.target),
++        dry_run=args.dry_run,
++        verbose=args.verbose,
++    )
++    command = audio_module.normalize_command(
++        args.source,
++        args.output,
++        measured=measured,
++        target=args.target,
++        overwrite=not args.no_overwrite,
++    )
++    _execute(command, dry_run=args.dry_run, verbose=args.verbose)
++    _report(args.output, dry_run=args.dry_run)
++    return 0
++
++
++def cmd_subtitle(args: argparse.Namespace) -> int:
++    cues = _read_cues(args.subtitle)
++    print(f"字幕 {len(cues)} 個を読みました")
++
++    if args.soft:
++        command = subtitle_module.soft_command(
++            args.source, args.subtitle, args.output, overwrite=not args.no_overwrite
++        )
++        _execute(command, dry_run=args.dry_run, verbose=args.verbose)
++        _report(args.output, dry_run=args.dry_run)
++        return 0
++
++    if not args.dry_run:
++        for note in subtitle_module.check_against(cues, probe(args.source).duration):
++            print(f"注意: {note}")
++
++    command = clip.transcode_command(
++        args.source,
++        args.output,
++        preset=_preset_for(args.preset),
++        filters=[
++            subtitle_module.burn_filter(
++                args.subtitle,
++                font_name=args.font_name,
++                size=args.size,
++                fonts_dir=subtitle_module.fonts_dir_for(args.font),
++            )
++        ],
++        overwrite=not args.no_overwrite,
++    )
++    _execute(command, dry_run=args.dry_run, verbose=args.verbose)
++    _report(args.output, dry_run=args.dry_run)
++    return 0
++
++
++def _read_cues(path: str) -> list[subtitle_module.Cue]:
++    try:
++        with open(path, encoding="utf-8-sig") as handle:
++            raw = handle.read()
++    except OSError as exc:
++        raise VideoEditError(f"字幕ファイルを読めません: {path} ({exc.strerror})") from None
++    return subtitle_module.parse_srt(raw)
++
++
+ def cmd_thumb(args: argparse.Namespace) -> int:
+     output = args.output or f"{os.path.splitext(args.source)[0]}_thumb.jpg"
+     command = thumbnail_command(
+@@ -415,6 +610,52 @@ def build_parser() -> argparse.ArgumentParser:
+     _add_common(build_parser)
+     build_parser.set_defaults(func=cmd_build)
+ 
++    bgm_parser = subparsers.add_parser("bgm", help="BGM を載せる")
++    bgm_parser.add_argument("source")
++    bgm_parser.add_argument("bgm", help="BGM のファイル。動画より短ければ繰り返す")
++    bgm_parser.add_argument("-o", "--output", required=True)
++    bgm_parser.add_argument(
++        "--gain", type=float, default=audio_module.DEFAULT_GAIN_DB, help="BGM の音量(dB)"
++    )
++    bgm_parser.add_argument(
++        "--duck", action="store_true", help="しゃべりが入っている間 BGM を下げる"
++    )
++    bgm_parser.add_argument("--fade-in", type=float, default=audio_module.DEFAULT_FADE_IN)
++    bgm_parser.add_argument("--fade-out", type=float, default=audio_module.DEFAULT_FADE_OUT)
++    bgm_parser.add_argument(
++        "--normalize", action="store_true", help="仕上がりの音量を揃える(loudnorm 2パス)"
++    )
++    bgm_parser.add_argument(
++        "--target", type=float, default=audio_module.TARGET_LUFS, help="目標ラウドネス(LUFS)"
++    )
++    _add_common(bgm_parser)
++    bgm_parser.set_defaults(func=cmd_bgm)
++
++    normalize_parser = subparsers.add_parser("normalize", help="音量を揃える(loudnorm 2パス)")
++    normalize_parser.add_argument("source")
++    normalize_parser.add_argument("-o", "--output", required=True)
++    normalize_parser.add_argument(
++        "--target", type=float, default=audio_module.TARGET_LUFS, help="目標ラウドネス(LUFS)"
++    )
++    _add_common(normalize_parser)
++    normalize_parser.set_defaults(func=cmd_normalize)
++
++    subtitle_parser = subparsers.add_parser("subtitle", help="字幕(SRT)を入れる")
++    subtitle_parser.add_argument("source")
++    subtitle_parser.add_argument("subtitle", help="SRT ファイル")
++    subtitle_parser.add_argument("-o", "--output", required=True)
++    subtitle_parser.add_argument(
++        "--soft",
++        action="store_true",
++        help="映像に描き込まず字幕トラックとして入れる（再生側で切り替えられる）",
++    )
++    subtitle_parser.add_argument("--font-name", help="書体名。パスではない（例: Meiryo）")
++    subtitle_parser.add_argument("--font", help="フォントファイル。置き場を libass に教える")
++    subtitle_parser.add_argument("--size", type=int, help="字幕の文字サイズ")
++    subtitle_parser.add_argument("--preset", default="source", choices=presets.available())
++    _add_common(subtitle_parser)
++    subtitle_parser.set_defaults(func=cmd_subtitle)
++
+     thumb_parser = subparsers.add_parser("thumb", help="サムネイル用に1フレーム切り出す")
+     thumb_parser.add_argument("source")
+     thumb_parser.add_argument("-o", "--output", help="既定は <素材名>_thumb.jpg")
+diff --git a/src/videoedit/clip.py b/src/videoedit/clip.py
+index 64454f2..dc7914f 100644
+--- a/src/videoedit/clip.py
++++ b/src/videoedit/clip.py
+@@ -102,14 +102,22 @@ def cut_command(
+ 
+ 
+ def transcode_command(
+-    source: str, output: str, *, preset: Preset, overwrite: bool = True
++    source: str,
++    output: str,
++    *,
++    preset: Preset,
++    filters: Sequence[str] = (),
++    overwrite: bool = True,
+ ) -> list[str]:
+     """1本の素材をプリセットの設定で書き出し直すコマンドを組み立てる。"""
+     args = [*_head(overwrite), "-i", source]
+-    if not preset.is_copy:
+-        video_filter = preset.video_filter()
+-        if video_filter:
+-            args += ["-vf", video_filter]
++    if preset.is_copy:
++        if filters:
++            raise VideoEditError("copy プリセットではフィルタを使えません")
++    else:
++        chain = [step for step in (preset.video_filter(), *filters) if step]
++        if chain:
++            args += ["-vf", ",".join(chain)]
+     args += preset.output_args()
+     args.append(output)
+     return args
+@@ -180,6 +188,7 @@ def concat_filter(
+     transition: str | None = None,
+     transition_duration: float = DEFAULT_TRANSITION_DURATION,
+     joins: Sequence[Join] | None = None,
++    filters: Sequence[str] = (),
+ ) -> str:
+     """連結の filter_complex を組み立てる。出力は ``[outv]`` と ``[outa]``。
+ 
+@@ -213,9 +222,10 @@ def concat_filter(
+         # 効果を挟まないなら、まとめて1回の concat で済ませる
+         inputs = "".join(f"[v{i}][a{i}]" for i in range(len(clips)))
+         steps.append(f"{inputs}concat=n={len(clips)}:v=1:a=1[outv][outa]")
+-        return ";".join(steps)
+-
+-    steps.extend(_join_steps(clips, joins))
++    else:
++        steps.extend(_join_steps(clips, joins))
++    if filters:
++        steps.append("[outv]" + ",".join(filters) + "[outvf]")
+     return ";".join(steps)
+ 
+ 
+@@ -274,9 +284,14 @@ def concat_command(
+     transition: str | None = None,
+     transition_duration: float = DEFAULT_TRANSITION_DURATION,
+     joins: Sequence[Join] | None = None,
++    filters: Sequence[str] = (),
+     overwrite: bool = True,
+ ) -> list[str]:
+-    """素材を連結するコマンドを組み立てる（再エンコードあり）。"""
++    """素材を連結するコマンドを組み立てる（再エンコードあり）。
++
++    ``filters`` は繋いだ映像に続けてかけるもの（字幕の焼き込みなど）。
++    別の段にすると映像をもう一度エンコードすることになるので、ここに混ぜる。
++    """
+     if preset.is_copy:
+         raise VideoEditError(
+             "copy プリセットではフィルタを使えません。"
+@@ -293,8 +308,9 @@ def concat_command(
+             transition=transition,
+             transition_duration=transition_duration,
+             joins=joins,
++            filters=filters,
+         ),
+-        "-map", "[outv]",
++        "-map", "[outv]" if not filters else "[outvf]",
+         "-map", "[outa]",
+     ]
+     args += preset.output_args()
+diff --git a/src/videoedit/subtitle.py b/src/videoedit/subtitle.py
+new file mode 100644
+index 0000000..f1b607c
+--- /dev/null
++++ b/src/videoedit/subtitle.py
+@@ -0,0 +1,155 @@
++r"""字幕（SRT）の焼き込みとソフトサブ。
++
++焼き込みは libass の ``subtitles`` フィルタを使う。テロップ(drawtext)と違って
++**フォントはパスではなく書体名（FontName）で指定する**。libass が字幕の中身から
++必要な字形を探すので、パスを渡す仕組みになっていないため。フォントファイルの
++場所は ``fontsdir`` で教える。
++
++- 焼き込み … 映像に描き込む。どの再生環境でも必ず見える。映像の再エンコードが要る。
++- ソフトサブ … 字幕トラックとして入れる。切り替えられるが、対応した再生環境が要る。
++"""
++
++from __future__ import annotations
++
++import os
++import re
++from dataclasses import dataclass
++
++from .core import VideoEditError
++from .overlay import quote
++
++# mp4 に入れられる字幕形式。mkv なら srt のまま入るが、既定は mp4 なので mov_text。
++SOFT_CODEC = "mov_text"
++
++TIMECODE = re.compile(
++    r"(?P<h>\d+):(?P<m>\d{2}):(?P<s>\d{2})[,.](?P<ms>\d{1,3})"
++)
++ARROW = "-->"
++
++
++@dataclass(frozen=True)
++class Cue:
++    """字幕1つ。"""
++
++    index: int
++    start: float
++    end: float
++    text: str
++
++
++def parse_srt(raw: str) -> list[Cue]:
++    """SRT を読む。壊れている箇所は、何行目かを添えて指摘する。
++
++    焼き込みは ffmpeg 任せでも動くが、字幕が1つも出ない・時刻がずれている
++    といった失敗は書き出してからでは気づきにくい。先に読んで確かめる。
++    """
++    text = raw.lstrip("﻿").replace("\r\n", "\n").replace("\r", "\n")
++    cues: list[Cue] = []
++    blocks = [block for block in re.split(r"\n{2,}", text) if block.strip()]
++    for position, block in enumerate(blocks, start=1):
++        lines = [line for line in block.split("\n") if line.strip()]
++        if lines and ARROW not in lines[0]:
++            lines = lines[1:]  # 先頭は通し番号。無くても読める。
++        if not lines:
++            raise VideoEditError(f"字幕の {position} 個目が空です")
++        if ARROW not in lines[0]:
++            raise VideoEditError(
++                f"字幕の {position} 個目に時刻の行がありません: {lines[0][:40]!r}"
++            )
++        start, end = _parse_timecodes(lines[0], position)
++        body = "\n".join(lines[1:]).strip()
++        if not body:
++            raise VideoEditError(f"字幕の {position} 個目に本文がありません")
++        cues.append(Cue(index=position, start=start, end=end, text=body))
++
++    if not cues:
++        raise VideoEditError("字幕が1つもありません")
++    return cues
++
++
++def _parse_timecodes(line: str, position: int) -> tuple[float, float]:
++    found = TIMECODE.findall(line)
++    if len(found) != 2:
++        raise VideoEditError(f"字幕の {position} 個目の時刻を読めません: {line.strip()!r}")
++    start, end = (_to_seconds(match) for match in found)
++    if end <= start:
++        raise VideoEditError(
++            f"字幕の {position} 個目の終わり {end:g}s が始まり {start:g}s より後になっていません"
++        )
++    return start, end
++
++
++def _to_seconds(match: tuple[str, str, str, str]) -> float:
++    hours, minutes, seconds, milliseconds = match
++    return (
++        int(hours) * 3600
++        + int(minutes) * 60
++        + int(seconds)
++        + int(milliseconds.ljust(3, "0")) / 1000
++    )
++
++
++def check_against(cues: list[Cue], duration: float) -> list[str]:
++    """動画の尺と突き合わせて、気になる点を文章で返す（止めはしない）。"""
++    notes: list[str] = []
++    overrun = [cue for cue in cues if cue.start >= duration]
++    if overrun:
++        notes.append(
++            f"{len(overrun)} 個の字幕が動画の尺 {duration:.2f}s より後から始まります"
++            f"（{overrun[0].index} 個目以降）。表示されません"
++        )
++    elif cues[-1].end > duration + 0.5:
++        notes.append(
++            f"最後の字幕の終わり {cues[-1].end:.2f}s が動画の尺 {duration:.2f}s を"
++            "超えています。途中で切れます"
++        )
++    return notes
++
++
++def force_style(font_name: str | None = None, size: int | None = None) -> str | None:
++    """libass に渡す見た目の指定。``FontName`` は**書体名**で、パスではない。"""
++    parts = []
++    if font_name:
++        parts.append(f"FontName={font_name}")
++    if size is not None:
++        if size <= 0:
++            raise VideoEditError(f"字幕の文字サイズが 0 以下です: {size}")
++        parts.append(f"FontSize={size}")
++    return ",".join(parts) if parts else None
++
++
++def burn_filter(
++    path: str, *, font_name: str | None = None, size: int | None = None, fonts_dir: str | None = None
++) -> str:
++    """字幕を映像に描き込むフィルタ。"""
++    parts = [f"subtitles={quote(path)}"]
++    if fonts_dir:
++        parts.append(f"fontsdir={quote(fonts_dir)}")
++    style = force_style(font_name, size)
++    if style:
++        parts.append(f"force_style={quote(style)}")
++    return ":".join(parts)
++
++
++def fonts_dir_for(font_path: str | None) -> str | None:
++    """フォントファイルを渡されたら、その置き場を libass に教える。"""
++    if not font_path:
++        return None
++    return os.path.dirname(os.path.abspath(font_path)) or None
++
++
++def soft_command(
++    source: str, subtitle_path: str, output: str, *, language: str = "jpn", overwrite: bool = True
++) -> list[str]:
++    """字幕トラックとして入れるコマンド。映像も音声もコピーする。"""
++    return [
++        "ffmpeg", "-hide_banner", "-y" if overwrite else "-n",
++        "-i", source,
++        "-i", subtitle_path,
++        "-map", "0",
++        "-map", "1",
++        "-c", "copy",
++        "-c:s", SOFT_CODEC,
++        "-metadata:s:s:0", f"language={language}",
++        output,
++    ]
+diff --git a/src/videoedit/timeline.py b/src/videoedit/timeline.py
+index 0dfa167..dcea9b8 100644
+--- a/src/videoedit/timeline.py
++++ b/src/videoedit/timeline.py
+@@ -19,23 +19,26 @@ from collections.abc import Sequence
+ from dataclasses import dataclass, field
+ 
+ from . import clip, presets
++from .audio import DEFAULT_FADE_IN, DEFAULT_FADE_OUT, DEFAULT_GAIN_DB, TARGET_LUFS, BgmSettings
+ from .core import VideoEditError, parse_time
+ from .overlay import Overlay, drawtext_filter, text_filename
+ from .presets import Preset
+ from .probe import MediaInfo
++from .subtitle import burn_filter, fonts_dir_for
+ 
+-SCRIPT_KEYS = {"output", "preset", "font", "scenes"}
++SCRIPT_KEYS = {"output", "preset", "font", "audio", "subtitle", "scenes"}
+ SCENE_KEYS = {"source", "trim", "text", "transition"}
+ TEXT_KEYS = {"value", "at", "for", "until", "pos", "size", "color", "box"}
+ TRANSITION_KEYS = {"type", "duration"}
+-
+-# Phase 3 以降で扱う予定のキー。黙って無視すると「BGM が乗らない」ことに
+-# 気づけないので、はっきり断る。
+-NOT_YET = {
+-    "audio": "BGM とダッキングは未対応です",
+-    "bgm": "BGM とダッキングは未対応です",
+-    "subtitle": "字幕の焼き込みは未対応です",
+-    "narration": "ナレーションの差し込みは未対応です",
++AUDIO_KEYS = {"bgm", "gain", "duck", "fade_in", "fade_out", "normalize", "target"}
++SUBTITLE_KEYS = {"file", "burn", "font_name", "size"}
++
++# 書き間違いや、まだ無い機能を黙って無視しない。「bgm: と書いたのに BGM が
++# 乗らない」という失敗の仕方が一番たちが悪いので、その場で言う。
++HINTS = {
++    "bgm": "BGM は台本の一番外側に audio: { bgm: ... } と書きます",
++    "narration": "ナレーションの差し込みは未対応です（Phase 4 以降）",
++    "duck": "ダッキングは台本の一番外側に audio: { duck: true } と書きます",
+ }
+ 
+ 
+@@ -50,6 +53,29 @@ class Scene:
+     join: clip.Join | None = None  # 直前のシーンとの継ぎ目
+ 
+ 
++@dataclass(frozen=True)
++class AudioSettings:
++    """台本の ``audio:``。BGM と音量の揃え方。"""
++
++    bgm: BgmSettings | None = None
++    normalize: bool = False
++    target: float = TARGET_LUFS
++
++    def __post_init__(self) -> None:
++        if self.bgm is None and not self.normalize:
++            raise VideoEditError("audio: には bgm か normalize のどちらかが要ります")
++
++
++@dataclass(frozen=True)
++class SubtitleSettings:
++    """台本の ``subtitle:``。"""
++
++    path: str
++    burn: bool = True
++    font_name: str | None = None
++    size: int | None = None
++
++
+ @dataclass(frozen=True)
+ class Script:
+     """台本ぜんぶ。"""
+@@ -58,6 +84,8 @@ class Script:
+     preset: Preset
+     scenes: tuple[Scene, ...]
+     font: str | None = None
++    audio: AudioSettings | None = None
++    subtitle: SubtitleSettings | None = None
+ 
+ 
+ @dataclass(frozen=True)
+@@ -138,6 +166,49 @@ def parse_script(data: object, *, base_dir: str = "") -> Script:
+         preset=preset,
+         scenes=scenes,
+         font=str(data["font"]) if data.get("font") else None,
++        audio=_parse_audio(data["audio"], base_dir) if data.get("audio") else None,
++        subtitle=_parse_subtitle(data["subtitle"], base_dir) if data.get("subtitle") else None,
++    )
++
++
++def _parse_audio(data: object, base_dir: str) -> AudioSettings:
++    if not isinstance(data, dict):
++        raise VideoEditError("audio は辞書にしてください")
++    _reject_unknown(data, AUDIO_KEYS, "audio")
++
++    bgm = None
++    if data.get("bgm"):
++        bgm = BgmSettings(
++            path=_resolve(str(data["bgm"]), base_dir),
++            gain=float(data.get("gain", DEFAULT_GAIN_DB)),
++            duck=bool(data.get("duck", False)),
++            fade_in=float(data.get("fade_in", DEFAULT_FADE_IN)),
++            fade_out=float(data.get("fade_out", DEFAULT_FADE_OUT)),
++        )
++    elif "duck" in data or "gain" in data:
++        raise VideoEditError("audio に bgm が無いのに duck / gain が指定されています")
++
++    return AudioSettings(
++        bgm=bgm,
++        normalize=bool(data.get("normalize", False)),
++        target=float(data.get("target", TARGET_LUFS)),
++    )
++
++
++def _parse_subtitle(data: object, base_dir: str) -> SubtitleSettings:
++    if isinstance(data, str):  # `subtitle: subs.srt` の略記
++        return SubtitleSettings(path=_resolve(data, base_dir))
++    if not isinstance(data, dict):
++        raise VideoEditError("subtitle は文字列か辞書にしてください")
++    _reject_unknown(data, SUBTITLE_KEYS, "subtitle")
++    path = data.get("file")
++    if not path:
++        raise VideoEditError("subtitle に file（SRT のパス）がありません")
++    return SubtitleSettings(
++        path=_resolve(str(path), base_dir),
++        burn=bool(data.get("burn", True)),
++        font_name=str(data["font_name"]) if data.get("font_name") else None,
++        size=int(data["size"]) if data.get("size") is not None else None,
+     )
+ 
+ 
+@@ -255,9 +326,12 @@ def _reject_unknown(data: dict, allowed: set[str], where: str) -> None:
+     for key in data:
+         if key in allowed:
+             continue
+-        if key in NOT_YET:
+-            raise VideoEditError(f"{where} の {key}: {NOT_YET[key]}（Phase 3 以降で対応予定）")
+-        raise VideoEditError(f"{where} に知らないキーがあります: {key}（使えるのは {', '.join(sorted(allowed))}）")
++        if key in HINTS:
++            raise VideoEditError(f"{where} の {key}: {HINTS[key]}")
++        raise VideoEditError(
++            f"{where} に知らないキーがあります: {key}"
++            f"（使えるのは {', '.join(sorted(allowed))}）"
++        )
+ 
+ 
+ def _resolve(path: str, base_dir: str) -> str:
+@@ -289,6 +363,8 @@ def scene_steps(
+     _check_lengths(script, infos)
+     height = _output_height(script.preset, infos)
+     single = len(script.scenes) == 1
++    # シーンが1つなら、そのまま映像の段の成果物にする（連結を挟まない）
++    final = stage_paths(script, work_dir)[0]
+     steps: list[Step] = []
+     text_index = 0
+ 
+@@ -304,7 +380,9 @@ def scene_steps(
+                 drawtext_filter(overlay, text_path=path, font_path=font, height=height)
+             )
+ 
+-        destination = script.output if single else scene_path(work_dir, index)
++        if single:
++            destination = final
++            filters.extend(_burn_filters(script))
+         steps.append(
+             Step(
+                 description=(
+@@ -313,7 +391,7 @@ def scene_steps(
+                 ),
+                 command=clip.cut_command(
+                     scene.source,
+-                    destination,
++                    destination if single else scene_path(work_dir, index),
+                     start=scene.start,
+                     end=scene.end,
+                     preset=script.preset,
+@@ -350,17 +428,62 @@ def predicted_scene_infos(
+     ]
+ 
+ 
+-def concat_step(script: Script, rendered: Sequence[MediaInfo]) -> Step:
+-    """中間ファイルを1本に繋ぐ手順（純粋関数）。"""
++def concat_step(script: Script, rendered: Sequence[MediaInfo], work_dir: str = "") -> Step:
++    """中間ファイルを1本に繋ぐ手順（純粋関数）。
++
++    字幕の焼き込みはここに混ぜる。別の段にすると映像をもう一度エンコードする
++    ことになり、長い動画では書き出し時間が倍になるため。
++    """
+     joins = [scene.join or clip.Join() for scene in script.scenes[1:]]
++    destination = stage_paths(script, work_dir)[0]
+     return Step(
+-        description=f"連結: {len(script.scenes)} シーン -> {os.path.basename(script.output)}",
++        description=f"連結: {len(script.scenes)} シーン -> {os.path.basename(destination)}",
+         command=clip.concat_command(
+-            rendered, script.output, preset=script.preset, joins=joins
++            rendered,
++            destination,
++            preset=script.preset,
++            joins=joins,
++            filters=_burn_filters(script),
+         ),
+     )
+ 
+ 
++def _burn_filters(script: Script) -> list[str]:
++    """映像の段に混ぜる字幕フィルタ。焼き込まないなら空。"""
++    settings = script.subtitle
++    if settings is None or not settings.burn:
++        return []
++    return [
++        burn_filter(
++            settings.path,
++            font_name=settings.font_name,
++            size=settings.size,
++            fonts_dir=fonts_dir_for(script.font),
++        )
++    ]
++
++
++def stages(script: Script) -> list[str]:
++    """映像 -> 音声 -> 字幕トラック、のうち実際に通る段。
++
++    字幕の焼き込みは映像の段に混ぜるので、ここには出てこない。
++    """
++    names = ["video"]
++    if script.audio:
++        names.append("audio")
++    if script.subtitle and not script.subtitle.burn:
++        names.append("subtitle")
++    return names
++
++
++def stage_paths(script: Script, work_dir: str = "") -> list[str]:
++    """各段の書き出し先。最後の段だけが台本の output に書く。"""
++    names = stages(script)
++    return [
++        os.path.join(work_dir, f"{name}.mp4") for name in names[:-1]
++    ] + [script.output]
++
++
+ def _check_lengths(script: Script, infos: Sequence[MediaInfo]) -> None:
+     if len(infos) != len(script.scenes):
+         raise VideoEditError(
+@@ -368,6 +491,25 @@ def _check_lengths(script: Script, infos: Sequence[MediaInfo]) -> None:
+         )
+ 
+ 
++def predicted_duration(script: Script, infos: Sequence[MediaInfo]) -> float:
++    """出来上がりの尺の見込み。``--dry-run`` で BGM の尺を決めるのに使う。
++
++    実行するときは、書き出した映像を ffprobe した実測値を使うこと。
++    """
++    _check_lengths(script, infos)
++    total = sum(
++        _scene_duration(scene, info)
++        for scene, info in zip(script.scenes, infos, strict=True)
++    )
++    # 効果を挟んだ継ぎ目のぶんだけ縮む
++    total -= sum(
++        scene.join.duration
++        for scene in script.scenes[1:]
++        if scene.join and scene.join.transition
++    )
++    return max(0.0, total)
++
++
+ def _output_height(preset: Preset, infos: Sequence[MediaInfo]) -> int | None:
+     """テロップの文字サイズを決めるための、出来上がりの高さ。"""
+     if preset.height:
+diff --git a/tests/videoedit/test_audio.py b/tests/videoedit/test_audio.py
+new file mode 100644
+index 0000000..c56d44a
+--- /dev/null
++++ b/tests/videoedit/test_audio.py
+@@ -0,0 +1,138 @@
++"""BGM・ダッキング・音量正規化のテスト。ffmpeg は起動しない。"""
++
++from __future__ import annotations
++
++import pytest
++
++from videoedit import audio
++from videoedit.core import VideoEditError
++
++SETTINGS = audio.BgmSettings(path="bgm.wav")
++
++
++def value_after(command, flag):
++    return command[command.index(flag) + 1]
++
++
++# --- BGM ---------------------------------------------------------------
++
++
++def test_bgm_is_cut_to_the_length_of_the_video():
++    # -stream_loop で繰り返させたうえで、ここで尺を確定させる
++    assert "atrim=duration=90.000000" in audio.bgm_chain(SETTINGS, duration=90)
++
++
++def test_bgm_fades_out_so_it_ends_with_the_video():
++    chain = audio.bgm_chain(audio.BgmSettings(path="b.wav", fade_out=2), duration=90)
++    assert "afade=t=out:st=88.000000:d=2" in chain
++
++
++def test_a_fade_longer_than_the_video_starts_at_the_beginning():
++    chain = audio.bgm_chain(audio.BgmSettings(path="b.wav", fade_out=200), duration=90)
++    assert "afade=t=out:st=0.000000:d=200" in chain
++
++
++def test_fades_can_be_turned_off():
++    chain = audio.bgm_chain(audio.BgmSettings(path="b.wav", fade_in=0, fade_out=0), duration=90)
++    assert "afade" not in chain
++
++
++def test_a_negative_fade_is_rejected():
++    with pytest.raises(VideoEditError, match="fade_in が負"):
++        audio.BgmSettings(path="b.wav", fade_in=-1)
++
++
++def test_mixing_does_not_halve_the_volume():
++    # amix は既定で入力数で割る。混ぜただけで音量が下がるのは意図しない。
++    assert "normalize=0" in audio.mix_filter(SETTINGS, duration=10, has_voice=True)
++
++
++def test_without_voice_the_bgm_becomes_the_whole_track():
++    graph = audio.mix_filter(SETTINGS, duration=10, has_voice=False)
++    assert "amix" not in graph
++    assert graph.endswith("[bgm]anull[aout]")
++
++
++def test_ducking_splits_the_voice_to_drive_the_compressor():
++    graph = audio.mix_filter(
++        audio.BgmSettings(path="b.wav", duck=True), duration=10, has_voice=True
++    )
++    # 元の音声は、混ぜる用と引き金用の2つに分ける
++    assert "[0:a]asplit=2[voice][key]" in graph
++    assert "[bgm][key]sidechaincompress=" in graph
++
++
++def test_ducking_without_voice_is_refused():
++    settings = audio.BgmSettings(path="b.wav", duck=True)
++    with pytest.raises(VideoEditError, match="下げる相手がいません"):
++        audio.mix_filter(settings, duration=10, has_voice=False)
++
++
++def test_bgm_command_copies_the_video():
++    command = audio.bgm_command("in.mp4", "o.mp4", SETTINGS, duration=10, has_voice=True)
++    # 映像は触らないので、BGM を差し替えるたびに再エンコードしない
++    assert "-c:v" in command and value_after(command, "-c:v") == "copy"
++    assert value_after(command, "-stream_loop") == "-1"
++
++
++# --- loudnorm ----------------------------------------------------------
++
++
++def test_loudnorm_uses_an_equals_for_the_first_separator():
++    # loudnorm:I=... と書くと ffmpeg がフィルタ名を解釈できない
++    assert audio.loudnorm_filter().startswith("loudnorm=I=")
++
++
++def test_the_second_pass_carries_the_measured_values():
++    measured = {
++        "input_i": "-21.9",
++        "input_tp": "-3.0",
++        "input_lra": "5.0",
++        "input_thresh": "-32.0",
++        "target_offset": "0.5",
++    }
++    result = audio.loudnorm_filter(measured)
++    assert "measured_I=-21.9" in result
++    assert "offset=0.5" in result
++    assert "linear=true" in result
++
++
++def test_incomplete_measurements_are_refused():
++    with pytest.raises(VideoEditError, match="測定値が足りません"):
++        audio.loudnorm_filter({"input_i": "-21.9"})
++
++
++def test_the_measuring_pass_writes_nothing_and_skips_the_video():
++    command = audio.normalize_measure_command("in.mp4")
++    assert command[-3:] == ["-f", "null", "-"]
++    # 映像を復号しないので、実尺よりずっと速く終わる
++    assert "-vn" in command
++    assert "print_format=json" in " ".join(command)
++
++
++def test_measurements_are_read_from_the_json_in_the_log():
++    stderr = (
++        "some ffmpeg log line\n"
++        "[Parsed_loudnorm_0 @ 0x1] \n"
++        '{\n"input_i" : "-21.89",\n"input_tp" : "-3.01",\n"input_lra" : "5.20",\n'
++        '"input_thresh" : "-32.02",\n"output_i" : "-14.0",\n"target_offset" : "0.13"\n}\n'
++    )
++    measured = audio.parse_measured(stderr)
++    assert measured["input_i"] == "-21.89"
++    assert measured["target_offset"] == "0.13"
++
++
++def test_a_log_without_json_says_so():
++    with pytest.raises(VideoEditError, match="測定値を読み取れません"):
++        audio.parse_measured("ffmpeg ran but printed nothing useful")
++
++
++def test_json_missing_a_field_is_refused():
++    with pytest.raises(VideoEditError, match="足りない項目"):
++        audio.parse_measured('{"input_i" : "-21.89"}')
++
++
++def test_normalize_command_copies_the_video():
++    command = audio.normalize_command("in.mp4", "o.mp4")
++    assert value_after(command, "-c:v") == "copy"
++    assert "loudnorm=I=-14" in value_after(command, "-af")
+diff --git a/tests/videoedit/test_cli.py b/tests/videoedit/test_cli.py
+index f6faec6..ffbc37d 100644
+--- a/tests/videoedit/test_cli.py
++++ b/tests/videoedit/test_cli.py
+@@ -181,3 +181,125 @@ def test_build_reports_a_broken_script(capsys, fake_probe, font, tmp_path):
+     script.write_text(json.dumps({"scenes": [{"source": "a.mp4"}]}), encoding="utf-8")
+     assert cli.main(["build", str(script), "--dry-run"]) == 1
+     assert "output" in capsys.readouterr().err
++
++
++# --- BGM・音量・字幕 ----------------------------------------------------
++
++
++def test_bgm_dry_run_shows_the_mix(capsys, fake_probe):
++    argv = ["bgm", "in.mp4", "bgm.wav", "-o", "o.mp4", "--gain", "-12", "--dry-run"]
++    assert cli.main(argv) == 0
++    out = capsys.readouterr().out
++    assert "volume=-12dB" in out
++    assert "-c:v copy" in out
++
++
++def test_bgm_with_duck_adds_the_sidechain(capsys, fake_probe):
++    argv = ["bgm", "in.mp4", "bgm.wav", "-o", "o.mp4", "--duck", "--dry-run"]
++    assert cli.main(argv) == 0
++    assert "sidechaincompress" in capsys.readouterr().out
++
++
++def test_bgm_dry_run_shows_both_loudnorm_passes(capsys, fake_probe):
++    argv = ["bgm", "in.mp4", "bgm.wav", "-o", "o.mp4", "--normalize", "--dry-run"]
++    assert cli.main(argv) == 0
++    out = capsys.readouterr().out
++    assert "print_format=json" in out  # 1パス目
++    assert out.count("loudnorm=") == 2  # 測る側と当てる側
++
++
++def test_normalize_dry_run(capsys, fake_probe):
++    assert cli.main(["normalize", "in.mp4", "-o", "o.mp4", "--dry-run"]) == 0
++    assert "-f null -" in capsys.readouterr().out
++
++
++def test_subtitle_burn_reads_the_cues_first(capsys, fake_probe, tmp_path):
++    srt = tmp_path / "s.srt"
++    srt.write_text("1\n00:00:01,000 --> 00:00:02,000\nほんぶん\n", encoding="utf-8")
++    argv = ["subtitle", "in.mp4", str(srt), "-o", "o.mp4", "--dry-run"]
++    assert cli.main(argv) == 0
++    out = capsys.readouterr().out
++    assert "字幕 1 個を読みました" in out
++    assert "subtitles=" in out
++
++
++def test_subtitle_soft_copies_the_streams(capsys, fake_probe, tmp_path):
++    srt = tmp_path / "s.srt"
++    srt.write_text("1\n00:00:01,000 --> 00:00:02,000\nほんぶん\n", encoding="utf-8")
++    argv = ["subtitle", "in.mp4", str(srt), "-o", "o.mp4", "--soft", "--dry-run"]
++    assert cli.main(argv) == 0
++    assert "mov_text" in capsys.readouterr().out
++
++
++def test_a_broken_srt_is_reported_before_anything_runs(capsys, fake_probe, tmp_path):
++    srt = tmp_path / "s.srt"
++    srt.write_text("1\nこわれている\n", encoding="utf-8")
++    argv = ["subtitle", "in.mp4", str(srt), "-o", "o.mp4", "--dry-run"]
++    assert cli.main(argv) == 1
++    assert "時刻の行がありません" in capsys.readouterr().err
++
++
++def test_a_missing_srt_says_so(capsys, fake_probe):
++    argv = ["subtitle", "in.mp4", "/nope/none.srt", "-o", "o.mp4", "--dry-run"]
++    assert cli.main(argv) == 1
++    assert "字幕ファイルを読めません" in capsys.readouterr().err
++
++
++def test_build_runs_the_audio_stage_after_the_video(capsys, fake_probe, font, tmp_path):
++    script = tmp_path / "s.json"
++    script.write_text(
++        json.dumps(
++            {
++                "output": str(tmp_path / "out.mp4"),
++                "audio": {"bgm": "bgm.wav", "duck": True, "normalize": True},
++                "scenes": [{"source": "a.mp4"}, {"source": "b.mp4"}],
++            }
++        ),
++        encoding="utf-8",
++    )
++    assert cli.main(["build", str(script), "--dry-run"]) == 0
++    out = capsys.readouterr().out
++    assert "[3/4] 連結" in out
++    assert "[4/4] BGM を載せる（ダッキングあり）" in out
++    # 映像は作り直さない
++    assert "-c:v copy" in out
++
++
++def test_build_burns_subtitles_inside_the_video_stage(capsys, fake_probe, font, tmp_path):
++    srt = tmp_path / "s.srt"
++    srt.write_text("1\n00:00:01,000 --> 00:00:02,000\nほんぶん\n", encoding="utf-8")
++    script = tmp_path / "s.json"
++    script.write_text(
++        json.dumps(
++            {
++                "output": str(tmp_path / "out.mp4"),
++                "subtitle": {"file": str(srt)},
++                "scenes": [{"source": "a.mp4"}, {"source": "b.mp4"}],
++            }
++        ),
++        encoding="utf-8",
++    )
++    assert cli.main(["build", str(script), "--dry-run"]) == 0
++    out = capsys.readouterr().out
++    # 焼き込みは連結の段に混ぜる。別の段にすると映像をもう一度エンコードすることになる。
++    assert "[3/3] 連結" in out
++    assert "subtitles=" in out
++
++
++def test_build_adds_a_stage_for_a_soft_subtitle_track(capsys, fake_probe, font, tmp_path):
++    srt = tmp_path / "s.srt"
++    srt.write_text("1\n00:00:01,000 --> 00:00:02,000\nほんぶん\n", encoding="utf-8")
++    script = tmp_path / "s.json"
++    script.write_text(
++        json.dumps(
++            {
++                "output": str(tmp_path / "out.mp4"),
++                "subtitle": {"file": str(srt), "burn": False},
++                "scenes": [{"source": "a.mp4"}, {"source": "b.mp4"}],
++            }
++        ),
++        encoding="utf-8",
++    )
++    assert cli.main(["build", str(script), "--dry-run"]) == 0
++    out = capsys.readouterr().out
++    assert "[4/4] 字幕トラックを入れる" in out
+diff --git a/tests/videoedit/test_integration.py b/tests/videoedit/test_integration.py
+index 38e7dff..32f1bc5 100644
+--- a/tests/videoedit/test_integration.py
++++ b/tests/videoedit/test_integration.py
+@@ -239,3 +239,137 @@ def test_a_path_with_a_colon_still_finds_the_font(tmp_path, clips, font):
+     argv = ["text", clips["a"], "-o", str(out), "--value", "あ", "--font", str(copied)]
+     assert cli.main(argv) == 0
+     assert probe(str(out)).duration > 0
++
++
++# --- BGM・音量・字幕（実際に書き出して確かめる） -------------------------
++
++
++def measure_loudness(path):
++    """書き出したものを測り直す。狙った音量になっているかは実測でしか分からない。"""
++    from videoedit import audio
++
++    result = core.run(audio.normalize_measure_command(path))
++    return float(audio.parse_measured(result.stderr)["input_i"])
++
++
++@pytest.fixture
++def bgm(tmp_path):
++    """動画より短い BGM。繰り返して尺を埋められるかを見るため短くしてある。"""
++    path = tmp_path / "bgm.wav"
++    core.run([
++        "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
++        "-f", "lavfi", "-i", "sine=frequency=880:duration=2",
++        "-c:a", "pcm_s16le", str(path),
++    ])
++    return str(path)
++
++
++@pytest.fixture
++def srt(tmp_path):
++    path = tmp_path / "subs.srt"
++    path.write_text(
++        "1\n00:00:00,500 --> 00:00:02,000\n最初の字幕です\n\n"
++        "2\n00:00:02,500 --> 00:00:03,500\n2行に\nまたがる字幕\n",
++        encoding="utf-8",
++    )
++    return str(path)
++
++
++def test_bgm_shorter_than_the_video_is_repeated_to_fill_it(tmp_path, clips, bgm):
++    out = tmp_path / "withbgm.mp4"
++    assert cli.main(["bgm", clips["a"], bgm, "-o", str(out)]) == 0
++    # 2秒の BGM でも、4秒の動画の尺のまま出る
++    assert probe(str(out)).duration == pytest.approx(4.0, abs=0.2)
++
++
++def test_bgm_can_be_added_to_a_clip_without_audio(tmp_path, clips, bgm):
++    out = tmp_path / "silentbgm.mp4"
++    assert cli.main(["bgm", clips["b"], bgm, "-o", str(out)]) == 0
++    assert probe(str(out)).has_audio
++
++
++def test_ducking_pushes_the_bgm_down_under_the_voice(tmp_path, clips, bgm):
++    plain, ducked = tmp_path / "plain.mp4", tmp_path / "ducked.mp4"
++    common = [clips["a"], bgm, "--gain", "0", "--fade-in", "0", "--fade-out", "0"]
++    assert cli.main(["bgm", *common, "-o", str(plain)]) == 0
++    assert cli.main(["bgm", *common, "-o", str(ducked), "--duck"]) == 0
++    # 素材は最初から最後までしゃべっているので、ダッキングは効きっぱなしになる
++    assert measure_loudness(str(ducked)) < measure_loudness(str(plain)) - 0.5
++
++
++def test_normalize_hits_the_target_loudness(tmp_path, clips):
++    out = tmp_path / "norm.mp4"
++    assert cli.main(["normalize", clips["a"], "-o", str(out)]) == 0
++    # 2パスなので、狙った値にほぼぴったり乗る
++    assert measure_loudness(str(out)) == pytest.approx(-14.0, abs=0.5)
++
++
++def test_normalize_can_aim_somewhere_else(tmp_path, clips):
++    out = tmp_path / "norm23.mp4"
++    assert cli.main(["normalize", clips["a"], "-o", str(out), "--target", "-23"]) == 0
++    assert measure_loudness(str(out)) == pytest.approx(-23.0, abs=0.5)
++
++
++def test_ducking_without_audio_is_refused(tmp_path, clips, bgm, capsys):
++    out = tmp_path / "x.mp4"
++    assert cli.main(["bgm", clips["b"], bgm, "-o", str(out), "--duck"]) == 1
++    assert "下げる相手がいません" in capsys.readouterr().err
++
++
++def test_subtitles_are_burned_into_the_picture(tmp_path, clips, srt):
++    import hashlib
++
++    out = tmp_path / "burned.mp4"
++    assert cli.main(["subtitle", clips["a"], srt, "-o", str(out)]) == 0
++
++    def frame_at(source, at):
++        image = tmp_path / f"s{at}_{os.path.basename(source)}.png"
++        core.run([
++            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
++            "-ss", str(at), "-i", source, "-frames:v", "1", str(image),
++        ])
++        return hashlib.md5(image.read_bytes()).hexdigest()
++
++    # 字幕が出ている 1s では絵が変わる
++    assert frame_at(str(out), 1.0) != frame_at(clips["a"], 1.0)
++
++
++def test_soft_subtitles_become_a_track(tmp_path, clips, srt):
++    out = tmp_path / "soft.mp4"
++    assert cli.main(["subtitle", clips["a"], srt, "-o", str(out), "--soft"]) == 0
++    payload = core.run_json([
++        "ffprobe", "-v", "error", "-print_format", "json",
++        "-show_streams", "-select_streams", "s", str(out),
++    ])
++    assert [stream["codec_name"] for stream in payload["streams"]] == ["mov_text"]
++
++
++def test_build_runs_the_whole_pipeline(tmp_path, clips, font, bgm, srt):
++    """シーン -> 連結 -> 字幕の焼き込み -> BGM とダッキングと音量揃え。"""
++    script = tmp_path / "script.json"
++    output = tmp_path / "ep.mp4"
++    script.write_text(
++        json.dumps(
++            {
++                "output": str(output),
++                "preset": "youtube-720p",
++                "audio": {"bgm": bgm, "gain": -16, "duck": True, "normalize": True},
++                "subtitle": {"file": srt},
++                "scenes": [
++                    {
++                        "source": clips["a"],
++                        "trim": [0, 3],
++                        "text": [{"value": "オープニング", "at": 0.5, "for": 2, "pos": "top"}],
++                    },
++                    {"source": clips["b"], "transition": "crossfade"},
++                ],
++            }
++        ),
++        encoding="utf-8",
++    )
++    assert cli.main(["build", str(script), "--font", font]) == 0
++    info = probe(str(output))
++    # 3 + 3 から、重なり 0.5s ぶん縮む
++    assert info.duration == pytest.approx(5.5, abs=0.25)
++    assert info.size == (1280, 720)
++    assert measure_loudness(str(output)) == pytest.approx(-14.0, abs=1.0)
+diff --git a/tests/videoedit/test_subtitle.py b/tests/videoedit/test_subtitle.py
+new file mode 100644
+index 0000000..fec60f0
+--- /dev/null
++++ b/tests/videoedit/test_subtitle.py
+@@ -0,0 +1,116 @@
++"""字幕のテスト。ffmpeg は起動しない。"""
++
++from __future__ import annotations
++
++import pytest
++
++from videoedit import subtitle
++from videoedit.core import VideoEditError
++
++SAMPLE = """1
++00:00:00,500 --> 00:00:02,500
++最初の字幕です
++
++2
++00:00:03,000 --> 00:00:05,000
++2行に
++またがる字幕
++"""
++
++
++def test_parse_reads_every_cue():
++    cues = subtitle.parse_srt(SAMPLE)
++    assert len(cues) == 2
++    assert cues[0].start == pytest.approx(0.5)
++    assert cues[0].end == pytest.approx(2.5)
++    assert cues[1].text == "2行に\nまたがる字幕"
++
++
++def test_parse_accepts_crlf_and_a_byte_order_mark():
++    raw = "﻿" + SAMPLE.replace("\n", "\r\n")
++    assert len(subtitle.parse_srt(raw)) == 2
++
++
++def test_parse_accepts_a_dot_before_the_milliseconds():
++    raw = "1\n00:00:01.000 --> 00:00:02.000\nほんぶん\n"
++    assert subtitle.parse_srt(raw)[0].end == pytest.approx(2.0)
++
++
++def test_parse_accepts_cues_without_a_number():
++    raw = "00:00:01,000 --> 00:00:02,000\nほんぶん\n"
++    assert len(subtitle.parse_srt(raw)) == 1
++
++
++def test_an_empty_file_is_refused():
++    with pytest.raises(VideoEditError, match="1つもありません"):
++        subtitle.parse_srt("   \n\n  ")
++
++
++def test_a_cue_without_a_timecode_names_its_position():
++    raw = "1\n00:00:01,000 --> 00:00:02,000\nよい\n\n2\nこわれている\n"
++    with pytest.raises(VideoEditError, match="2 個目"):
++        subtitle.parse_srt(raw)
++
++
++def test_a_cue_without_a_body_is_refused():
++    raw = "1\n00:00:01,000 --> 00:00:02,000\n"
++    with pytest.raises(VideoEditError, match="本文がありません"):
++        subtitle.parse_srt(raw)
++
++
++def test_an_end_before_the_start_is_refused():
++    raw = "1\n00:00:05,000 --> 00:00:02,000\nほんぶん\n"
++    with pytest.raises(VideoEditError, match="より後になっていません"):
++        subtitle.parse_srt(raw)
++
++
++def test_cues_past_the_end_of_the_video_are_reported():
++    cues = subtitle.parse_srt(SAMPLE)
++    notes = subtitle.check_against(cues, duration=1.0)
++    assert notes and "表示されません" in notes[0]
++
++
++def test_a_cue_running_past_the_end_is_reported():
++    cues = subtitle.parse_srt(SAMPLE)
++    notes = subtitle.check_against(cues, duration=4.0)
++    assert notes and "途中で切れます" in notes[0]
++
++
++def test_nothing_to_report_when_the_cues_fit():
++    assert subtitle.check_against(subtitle.parse_srt(SAMPLE), duration=10.0) == []
++
++
++# --- フィルタとコマンド -------------------------------------------------
++
++
++def test_burn_filter_escapes_the_path():
++    assert subtitle.burn_filter("/tmp/a:b/s.srt").startswith(r"subtitles='/tmp/a\:b/s.srt'")
++
++
++def test_burn_filter_takes_a_font_family_name_not_a_path():
++    result = subtitle.burn_filter("s.srt", font_name="Meiryo", size=28)
++    # libass は書体名で探す。パスは fontsdir で別に教える。
++    assert "FontName=Meiryo" in result
++    assert "FontSize=28" in result
++
++
++def test_a_font_file_becomes_a_fonts_directory():
++    assert subtitle.fonts_dir_for("/a/b/meiryo.ttc").endswith("/a/b")
++    assert subtitle.fonts_dir_for(None) is None
++
++
++def test_a_zero_subtitle_size_is_refused():
++    with pytest.raises(VideoEditError, match="0 以下"):
++        subtitle.force_style(size=0)
++
++
++def test_no_style_is_no_force_style():
++    assert subtitle.force_style() is None
++    assert "force_style" not in subtitle.burn_filter("s.srt")
++
++
++def test_soft_command_copies_everything_and_tags_the_language():
++    command = subtitle.soft_command("in.mp4", "s.srt", "o.mp4")
++    assert command[command.index("-c") + 1] == "copy"
++    assert command[command.index("-c:s") + 1] == subtitle.SOFT_CODEC
++    assert "language=jpn" in command
+diff --git a/tests/videoedit/test_timeline.py b/tests/videoedit/test_timeline.py
+index df4e1d3..b0846c6 100644
+--- a/tests/videoedit/test_timeline.py
++++ b/tests/videoedit/test_timeline.py
+@@ -3,6 +3,7 @@
+ from __future__ import annotations
+ 
+ import json
++import re
+ 
+ import pytest
+ 
+@@ -129,11 +130,26 @@ def test_an_unknown_key_names_the_offending_scene():
+         timeline.parse_script(data)
+ 
+ 
+-@pytest.mark.parametrize("key", ["audio", "bgm", "subtitle", "narration"])
+-def test_features_that_do_not_exist_yet_are_refused_not_ignored(key):
++@pytest.mark.parametrize(
++    ("key", "expected"),
++    [
++        # 場所を間違えたときは、正しい書き方を教える
++        ("bgm", "audio: { bgm"),
++        ("duck", "audio: { duck"),
++        # まだ無い機能は、無いと言う
++        ("narration", "未対応"),
++    ],
++)
++def test_a_misplaced_or_missing_feature_is_explained(key, expected):
+     """黙って無視すると「BGM が乗らない」ことに気づけない。"""
+     data = script_data(scenes=[{"source": "a.mp4", key: "x"}, {"source": "b.mp4"}])
+-    with pytest.raises(VideoEditError, match="未対応"):
++    with pytest.raises(VideoEditError, match=re.escape(expected)):
++        timeline.parse_script(data)
++
++
++def test_audio_and_subtitle_belong_to_the_script_not_a_scene():
++    data = script_data(scenes=[{"source": "a.mp4", "audio": {}}, {"source": "b.mp4"}])
++    with pytest.raises(VideoEditError, match="知らないキー"):
+         timeline.parse_script(data)
+ 
+ 
+-- 
+2.43.0
+
